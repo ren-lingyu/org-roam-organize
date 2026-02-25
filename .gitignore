@@ -1,0 +1,15 @@
+*
+*/
+
+!.gitignore
+!LICENSE
+!README.org
+
+!.github
+!.github/
+
+!*.el
+
+*~
+*#*
+**/tmp/
