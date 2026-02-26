@@ -277,33 +277,27 @@
 			((eq var_expected_type 'boolean)
 			 (format "  %s? %s (should be t)\n" var_expected_type
 				 (funcall 'booleanp var_value)))
-			(t (format "  the type of variable is not acceptable\n"))
-			))))))
+			(t (format "  the type of variable is not acceptable\n"))))))))
 	(dolist (pair alist)
           (let* ((var_name (car pair))
 		 (var_value (when (boundp var_name) (symbol-value var_name)))
 		 (var_expected_type (cdr pair))
-		 (add_to_result_message_short_ 
-		  (lambda () 
-                    (funcall 
-                     add_to_result_message_ 
-                     var_name 
-                     var_value 
-                     var_expected_type))))
+		 (add_to_result_message_short_
+		  (lambda () funcall 'add_to_result_message_ var_name var_value var_expected_type)))
             (cond
 	     ((eq var_value nil)
-	      (add_to_result_message_short_)
+	      (funcall 'add_to_result_message_short_)
 	      (setq result_bool nil))
              ((eq var_expected_type 'list)
-              (add_to_result_message_short_)
+              (funcall 'add_to_result_message_short_)
               (unless (and (listp var_value))
 		(setq result_bool nil)))
              ((eq var_expected_type 'string)
-              (add_to_result_message_short_)
+	      (funcall 'add_to_result_message_short_)
               (unless (and (stringp var_value))
 		(setq result_bool nil)))
              ((eq var_expected_type 'directory)
-              (add_to_result_message_short_)
+	      (funcall 'add_to_result_message_short_)
               (unless (and 
                        (stringp var_value)
                        (file-directory-p var_value)
@@ -312,19 +306,19 @@
 			(expand-file-name root_dir)))
 		(setq result_bool nil)))
              ((eq var_expected_type 'file)
-              (add_to_result_message_short_)
+	      (funcall 'add_to_result_message_short_)
               (unless (and 
                        (stringp var_value) 
                        (file-exists-p var_value))
 		(setq result_bool nil)))
              ((eq var_expected_type 'boolean)
-              (add_to_result_message_short_)
+	      (funcall 'add_to_result_message_short_)
               (unless
                   (and (booleanp var_value))
 		(setq result_bool nil)))
              (t
 	      (message "[WARNING] Unknown type: %s" var_expected_type)
-	      (add_to_result_message_short_)
+	      (funcall 'add_to_result_message_short_)
 	      (setq result_bool nil)))))
 	(cons result_bool result_message))
     (message "[WARNING] Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")))
