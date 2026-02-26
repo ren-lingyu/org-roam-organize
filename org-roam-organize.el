@@ -708,7 +708,7 @@
 	      (cond
                ((not (car check_result))
 		(setq org-roam-organize-mode nil)
-		(message (concat
+		(message "%s" (concat
 			  "[WARNING] There be variablies not defined properly. "
 			  "Org Roam Organize Mode setup failed.\n"
 			  (cdr check_result))))
@@ -718,7 +718,7 @@
 		       (expand-file-name default-directory)
 		       (expand-file-name root_dir))))
 		(setq org-roam-organize-mode nil)
-		(message (concat (format 
+		(message "%s" (concat (format 
 				  "[WARNING] Not startup Emacs under %s. " 
 				  root_dir)
 				 "Org Roam Organize Mode setup failed. ")))
