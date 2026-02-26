@@ -240,50 +240,71 @@
       (let* ((result_bool t)
 	     (result_message (concat "All org-roam-organize/* variables are as follow.\n" ))
 	     (add_to_result_message_
-              (lambda (var_name var_value var_expected_type type_p_)
+              (lambda (var_name var_value var_expected_type)
 		(setq result_message
 		      (concat
                        result_message
-                       (format 
-			"- %s? %s \n" 
-			var_name 
-			var_value)
-                       (format 
-			"  %s? %s (should be t)\n"
-			var_expected_type 
-			(funcall type_p_ var_value))
-                       (when (eq var_expected_type 'directory)
-			 (when (file-directory-p var_value)
-			   (format
-			    "  in org-roam-organize root directory? %s (should be t)\n"
-			    (file-in-directory-p
-			     (expand-file-name var_value)
-			     (expand-file-name root_dir) )))))))))
+                       (format "- %s? %s \n" var_name var_value)
+		       (cond
+			((eq var_value nil)
+			 (format "  %s? %s (should be t)\n" var_expected_type nil))
+			((eq var_expected_type 'directory)
+			 (concat
+			 (format "  %s? %s (should be t)\n"
+				 var_expected_type
+				 (and (stringp var_value)
+				      (when (stringp var_value)
+					(funcall 'file-directory-p var_value))))
+			 (when (stringp var_value)
+			   (when (file-directory-p var_value)
+			     (format
+			      "  in org-roam-organize root directory? %s (should be t)\n"
+			      (file-in-directory-p
+			       (expand-file-name var_value)
+			       (expand-file-name root_dir)))))))
+			((eq var_expected_type 'file)
+			  (format "  %s? %s (should be t)\n"
+				  var_expected_type
+				  (and (stringp var_value)
+				       (when (stringp var_value)
+					 (funcall 'file-exists-p var_value)))))
+			((eq var_expected_type 'string)
+			 (format "  %s? %s (should be t)\n" var_expected_type
+				 (funcall 'stringp var_value)))
+			((eq var_expected_type 'list)
+			 (format "  %s? %s (should be t)\n" var_expected_type
+				 (funcall 'listp var_value)))
+			((eq var_expected_type 'boolean)
+			 (format "  %s? %s (should be t)\n" var_expected_type
+				 (funcall 'booleanp var_value)))
+			(t (format "  the type of variable is not acceptable\n"))
+			))))))
 	(dolist (pair alist)
           (let* ((var_name (car pair))
-		 (var_value (symbol-value var_name))
+		 (var_value (when (boundp var_name) (symbol-value var_name)))
 		 (var_expected_type (cdr pair))
 		 (add_to_result_message_short_ 
-		  (lambda (type_p_) 
+		  (lambda () 
                     (funcall 
                      add_to_result_message_ 
                      var_name 
                      var_value 
-                     var_expected_type 
-                     type_p_))))
+                     var_expected_type))))
             (cond
+	     ((eq var_value nil)
+	      (add_to_result_message_short_)
+	      (setq result_bool nil))
              ((eq var_expected_type 'list)
-              (funcall add_to_result_message_short_ 'listp)
-              (unless (and (boundp var_name) (listp var_value))
+              (add_to_result_message_short_)
+              (unless (and (listp var_value))
 		(setq result_bool nil)))
              ((eq var_expected_type 'string)
-              (funcall add_to_result_message_short_ 'stringp)
-              (unless (and (boundp var_name) (stringp var_value))
+              (add_to_result_message_short_)
+              (unless (and (stringp var_value))
 		(setq result_bool nil)))
              ((eq var_expected_type 'directory)
-              (funcall add_to_result_message_short_ 'file-directory-p)
+              (add_to_result_message_short_)
               (unless (and 
-                       (boundp var_name) 
                        (stringp var_value)
                        (file-directory-p var_value)
                        (file-in-directory-p
@@ -291,20 +312,22 @@
 			(expand-file-name root_dir)))
 		(setq result_bool nil)))
              ((eq var_expected_type 'file)
-              (funcall add_to_result_message_short_ 'file-exists-p)
+              (add_to_result_message_short_)
               (unless (and 
-                       (boundp var_name) 
                        (stringp var_value) 
                        (file-exists-p var_value))
 		(setq result_bool nil)))
              ((eq var_expected_type 'boolean)
-              (funcall add_to_result_message_short_ 'booleanp)
+              (add_to_result_message_short_)
               (unless
-                  (and (boundp var_name) (booleanp var_value))
+                  (and (booleanp var_value))
 		(setq result_bool nil)))
-             (t (error "Unknown type: %s" var_expected_type)))))
+             (t
+	      (message "[WARNING] Unknown type: %s" var_expected_type)
+	      (add_to_result_message_short_)
+	      (setq result_bool nil)))))
 	(cons result_bool result_message))
-    (error "Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")))
+    (message "[WARNING] Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")))
 
 ;; hash表转换为alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
@@ -472,11 +495,11 @@
   (interactive)
   (let ((dir_list (list org-roam-organize/directory 
                         org-roam-organize/moc-directory
-		                    org-roam-organize/fleeting-directory
+		        org-roam-organize/fleeting-directory
                         org-roam-organize/permanent-directory)))
-       (dolist (dir dir_list)
-              (unless (file-exists-p dir)
-                      (make-directory dir t)))))
+    (dolist (dir dir_list)
+      (unless (file-exists-p dir)
+        (make-directory dir t)))))
 
 ;; ==============================
 ;; 可调用功能函数
@@ -486,7 +509,7 @@
 (defun org-roam-organize-goto-map-of-maps ()
   "Open the top-level Map of Contents file using its file path."
   (interactive)
-  (if org-roam-organize-mode
+  (if org-roam-organize-mode ; org-roam-organize/top-moc-file
       (let ((file_path org-roam-organize/top-moc-file))
         (cond
          ((not file_path)
@@ -693,11 +716,11 @@
 			  "[WARNING] There be variablies not defined properly. "
 			  "Org Roam Organize Mode setup failed.\n"
 			  (cdr check_result))))
-              ((not (or
-        org-roam-organize/directory-p
-        (file-in-directory-p
-          (expand-file-name default-directory)
-          (expand-file-name root_dir))))
+               ((not (or
+		      org-roam-organize/directory-p
+		      (file-in-directory-p
+		       (expand-file-name default-directory)
+		       (expand-file-name root_dir))))
 		(setq org-roam-organize-mode nil)
 		(message (concat (format 
 				  "[WARNING] Not startup Emacs under %s. " 
@@ -708,8 +731,8 @@
 		(unless (featurep 'org-element) (require 'org-element))
 		(unless (featurep 'org-roam) (require 'org-roam))
 		(unless (featurep 'cl-lib) (require 'cl-lib))
-    (dolist (tmpl org-roam-organize/capture-templates)
-            (unless (assoc (car tmpl) org-roam-capture-templates) ; 仅当快捷键不存在时添加
+		(dolist (tmpl org-roam-organize/capture-templates)
+		  (unless (assoc (car tmpl) org-roam-capture-templates) ; 仅当快捷键不存在时添加
                     (setq org-roam-capture-templates
                           (append org-roam-capture-templates (list tmpl))))))))))
 
