@@ -283,7 +283,7 @@
 		 (var_value (when (boundp var_name) (symbol-value var_name)))
 		 (var_expected_type (cdr pair))
 		 (add_to_result_message_short_
-		  (lambda () funcall 'add_to_result_message_ var_name var_value var_expected_type)))
+		  (lambda () (funcall 'add_to_result_message_ var_name var_value var_expected_type))))
             (cond
 	     ((eq var_value nil)
 	      (funcall 'add_to_result_message_short_)
