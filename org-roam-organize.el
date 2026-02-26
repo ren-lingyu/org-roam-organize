@@ -321,7 +321,8 @@
 	      (funcall add_to_result_message_short_)
 	      (setq result_bool nil)))))
 	(cons result_bool result_message))
-    (message "[WARNING] Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")))
+  (message "[WARNING] Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")
+  (cons nil "Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")))
 
 ;; hash表转换为alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
@@ -482,7 +483,10 @@
 ;; 变量检查
 (defun org-roam-organize-check-variables ()
   (interactive)
-  (message "%s" (org-roam-organize--check-variables org-roam-organize/directory org-roam-organize//variable-type-alist)))
+  (let ((check_result (org-roam-organize--check-variables org-roam-organize/directory org-roam-organize//variable-type-alist)))
+    (message "%s" (if (consp check_result)
+		      (cdr check_result)
+		    check_result))))
 
 ;; 创建目录
 (defun org-roam-organize-create-directory ()
