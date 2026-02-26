@@ -50,7 +50,7 @@
 ;; - `org-roam-organize/fleeting-directory': Directory for temporary nodes
 ;; - `org-roam-organize/permanent-directory': Directory for permanent nodes
 ;; - `org-roam-organize/moc-directory': Directory for MOC (Map of Contents) files
-;; - `org-roam-organize/id-of-top-moc': ID of the top-level MOC node
+;; - `org-roam-organize/top-moc-file': Path to the top-level MOC file
 ;; - `org-roam-organize/tag-id-alist': Association list mapping tags to node IDs
 ;; - `org-roam-organize/move-target-directory': Target directory for node movement
 ;; - `org-roam-organize/move-target-moc-file': Target MOC file for headline movement
@@ -162,6 +162,12 @@
   :type 'directory
   :group 'org-roam-organize)
 
+(defcustom org-roam-organize/top-moc-file
+  nil
+  "顶层 MOC 的 绝对路径"
+  :type 'file
+  :group 'org-roam-organize)
+
 (defcustom org-roam-organize/move-target-moc-file
   nil
   "整理节点移动headline时的目标 MOC 文件"
@@ -192,12 +198,6 @@
   :type 'boolean
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/id-of-top-moc
-  nil
-  "顶层 MOC 的 ID"
-  :type 'string
-  :group 'org-roam-organize)
-
 (defcustom org-roam-organize/tag-id-alist
   '((nil . nil))
   "MOC 对应标签与 MOC ID 的映射表"
@@ -221,7 +221,7 @@
     (org-roam-organize/permanent-directory . directory)
     (org-roam-organize/directory-p . boolean)
     (org-roam-organize/tag-id-alist . list)
-    (org-roam-organize/id-of-top-moc . string)
+    (org-roam-organize/top-moc-file . file)
     (org-roam-organize/move-target-directory . directory)
     (org-roam-organize/move-target-moc-file . file)
     (org-roam-organize/move-source-tag . string)
@@ -484,21 +484,24 @@
 
 ;; 打开顶层moc
 (defun org-roam-organize-goto-map-of-maps ()
+  "Open the top-level Map of Contents file using its file path."
   (interactive)
   (if org-roam-organize-mode
-      (let* ((id org-roam-organize/id-of-top-moc))
-	(if (not id)
-            (message "The id is not be defined, please check the config. ")      
-          (let ((location (org-id-find id 'marker)))
-            (if location
-		(progn
-		  (org-id-goto id)
-		  ;; (display-line-numbers-mode 1)
-		  ;; (font-lock-mode 1)
-		  ;; (font-lock-fontify-buffer)
-		  )
-              (message "ID: %s is not valid. " id)))))
-    (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
+      (let ((file_path org-roam-organize/top-moc-file))
+        (cond
+         ((not file_path)
+          (message "Top MOC file path is not defined. Please check your configuration."))
+         ((not (file-exists-p file_path))
+          (message "Top MOC file not found at path: %s" file_path))
+         (t
+          (find-file file_path)
+          ;; Optional enhancements (kept commented as in original)
+          ;; (display-line-numbers-mode 1)
+          ;; (font-lock-mode 1)
+          ;; (font-lock-fontify-buffer)
+          (message "Opened Top MOC: %s" (file-name-nondirectory file_path)))))
+    (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" 
+             org-roam-organize-mode)))
 
 ;; 更改moc中形如[[id][title]]的headline及其对应node文件的位置
 (defun org-roam-organize-headline-move (source_pos)
