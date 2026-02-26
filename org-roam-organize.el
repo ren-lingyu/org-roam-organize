@@ -317,12 +317,10 @@
                   (and (booleanp var_value))
 		(setq result_bool nil)))
              (t
-	      (message "[WARNING] Unknown type: %s" var_expected_type)
 	      (funcall add_to_result_message_short_)
 	      (setq result_bool nil)))))
 	(cons result_bool result_message))
-  (message "[WARNING] Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")
-  (cons nil "Inner Variable org-roam-organize//variable-type-alist is NOT defined properly. ")))
+  (cons nil "Inner Constant org-roam-organize//variable-type-alist is NOT defined properly. ")))
 
 ;; hash表转换为alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
