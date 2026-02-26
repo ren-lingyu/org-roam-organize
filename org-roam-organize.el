@@ -246,7 +246,8 @@
                        result_message
                        (format "- %s? %s \n" var_name var_value)
 		       (cond
-			((eq var_value nil)
+			((or (and (eq var_value nil) (eq var_expected_type 'directory))
+           (and (eq var_value nil) (eq var_expected_type 'file)))
 			 (format "  %s? %s (should be t)\n" var_expected_type nil))
 			((eq var_expected_type 'directory)
 			 (concat
@@ -285,7 +286,7 @@
 		 (add_to_result_message_short_
 		  (lambda () (funcall add_to_result_message_ var_name var_value var_expected_type))))
             (cond
-	     ((eq var_value nil)
+	     ((and (eq var_value nil) (not (eq var_expected_type 'boolean)))
 	      (funcall add_to_result_message_short_)
 	      (setq result_bool nil))
              ((eq var_expected_type 'list)
@@ -711,7 +712,8 @@
 		(message "%s" (concat
 			  "[WARNING] There be variablies not defined properly. "
 			  "Org Roam Organize Mode setup failed.\n"
-			  (cdr check_result))))
+			  (format "%s\n" (car check_result))
+        (cdr check_result))))
                ((not (or
 		      org-roam-organize/directory-p
 		      (file-in-directory-p
