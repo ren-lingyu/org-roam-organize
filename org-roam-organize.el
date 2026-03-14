@@ -642,7 +642,7 @@
                     (progn
                       (with-current-buffer (marker-buffer marker)
 			(goto-char marker)
-			(let ((field (format "NUM_OF_%s_NODES" (upcase tag))))
+			(let ((field (format "num_of_%s_nodes" (downcase tag))))
                           (org-entry-put (point) field (number-to-string count))
                           (save-buffer))))
                   (progn
