@@ -60,7 +60,6 @@
 ;; - `org-roam-organize/moc-managed-node-count-property': Property to store node count
 ;; - `org-roam-organize/top-moc-file': Path to the top-level MOC file
 ;; - `org-roam-organize/tag-title-alist': Association list mapping tags to MOC TITLEs
-;; - `org-roam-organize/tag-id-alist': Association list mapping tags to MOC IDs
 ;; - `org-roam-organize/move-target-directory': Target directory for node movement
 ;; - `org-roam-organize/move-source-tag': Source tag for automatic replacement
 ;; - `org-roam-organize/move-target-tag': Target tag for automatic replacement
@@ -226,12 +225,6 @@
   nil
   "Bool型变量, 默认值为nil. 整理节点移动文件时的是否将移动后的文件名称设置为id."
   :type 'boolean
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize/tag-id-alist
-  '((nil . nil))
-  "MOC 对应标签与 MOC ID 的映射表"
-  :type 'alist
   :group 'org-roam-organize)
 
 (defcustom org-roam-organize/capture-template
