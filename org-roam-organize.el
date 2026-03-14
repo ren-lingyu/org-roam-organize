@@ -53,7 +53,6 @@
 ;; - `org-roam-organize/top-moc-file': Path to the top-level MOC file
 ;; - `org-roam-organize/tag-title-alist': Association list mapping tags to MOC TITLEs
 ;; - `org-roam-organize/move-target-directory': Target directory for node movement
-;; - `org-roam-organize/move-target-moc-file': Target MOC file for headline movement
 ;; - `org-roam-organize/move-source-tag': Source tag for automatic replacement
 ;; - `org-roam-organize/move-target-tag': Target tag for automatic replacement
 ;; - `org-roam-organize/move-target-directory-id-or-not': Whether to create ID-based directories
@@ -199,13 +198,6 @@
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/move-target-moc-file
-  (expand-file-name "./moc/permanent.org" org-roam-directory)
-  "整理节点移动headline时的目标 MOC 文件
-计划在未来版本中删除, 改为基于 `org-roam-organize/move-target-tag' 进行数据库查询获得对应文件路径."
-  :type 'file
-  :group 'org-roam-organize)
-
 (defcustom org-roam-organize/tag-title-alist
   '(("map" . "Maps")
     ("zettel" . "Permanent")
@@ -258,7 +250,6 @@
     (org-roam-organize/top-moc-file . file)
     (org-roam-organize/moc-tag . string)
     (org-roam-organize/move-target-directory . directory)
-    (org-roam-organize/move-target-moc-file . file)
     (org-roam-organize/move-source-tag . string)
     (org-roam-organize/move-target-tag . string)
     (org-roam-organize/move-target-directory-id-or-not . boolean)
@@ -606,9 +597,14 @@
              (id   (plist-get info :id))
              (node (plist-get info :node))
              (old_file (org-roam-node-file node))
-             (tags     (org-roam-node-tags node)) 
-             (source_tag org-roam-organize/move-source-tag)
+             (tags     (org-roam-node-tags node))
+	     (moc_filetag org-roam-organize/moc-tag)
+	     (moc_prop org-roam-organize/moc-managed-tag-property)
+	     (moc_count_prop org-roam-organize/moc-managed-node-count-property)
+	     (source_tag org-roam-organize/move-source-tag)
              (target_tag org-roam-organize/move-target-tag)
+	     (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
+	     (target_moc_file (car (cdr (assoc target_tag tag_id))))
              (new-tags 
               (mapcar 
                (lambda (tag) (if (string= tag source_tag) target_tag tag))
@@ -623,7 +619,7 @@
               (if filename_bool_id_or_not
 		  (expand-file-name (concat id ".org") dir)
 		(expand-file-name (file-name-nondirectory old_file) dir)))
-             (target_buf (find-file-noselect org-roam-organize/move-target-moc-file))
+             (target_buf (find-file-noselect target_moc_file))
              ;; (permanent-target (with-current-buffer target_buf (point-max-marker)))
 	     )
 	(unless (file-exists-p dir)
@@ -640,7 +636,7 @@
             (org-back-to-heading t)) ; 确保在 headline 开头
           (let ((subtree-str (org-copy-subtree t)))
             (org-cut-subtree)
-            (with-current-buffer (find-file-noselect org-roam-organize/move-target-moc-file)
+            (with-current-buffer (find-file-noselect target_moc_file)
               (goto-char (point-max))
               (insert subtree-str))))
 	(save-buffer) 
