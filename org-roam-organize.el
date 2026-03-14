@@ -247,28 +247,28 @@
                        (format "- %s? %s \n" var_name var_value)
 		       (cond
 			((or (and (eq var_value nil) (eq var_expected_type 'directory))
-           (and (eq var_value nil) (eq var_expected_type 'file)))
+			     (and (eq var_value nil) (eq var_expected_type 'file)))
 			 (format "  %s? %s (should be t)\n" var_expected_type nil))
 			((eq var_expected_type 'directory)
 			 (concat
-			 (format "  %s? %s (should be t)\n"
-				 var_expected_type
-				 (and (stringp var_value)
-				      (when (stringp var_value)
-					(funcall 'file-directory-p var_value))))
-			 (when (stringp var_value)
-			   (when (file-directory-p var_value)
-			     (format
-			      "  in org-roam-organize root directory? %s (should be t)\n"
-			      (file-in-directory-p
-			       (expand-file-name var_value)
-			       (expand-file-name root_dir)))))))
-			((eq var_expected_type 'file)
 			  (format "  %s? %s (should be t)\n"
 				  var_expected_type
 				  (and (stringp var_value)
 				       (when (stringp var_value)
-					 (funcall 'file-exists-p var_value)))))
+					 (funcall 'file-directory-p var_value))))
+			  (when (stringp var_value)
+			    (when (file-directory-p var_value)
+			      (format
+			       "  in org-roam-organize root directory? %s (should be t)\n"
+			       (file-in-directory-p
+				(expand-file-name var_value)
+				(expand-file-name root_dir)))))))
+			((eq var_expected_type 'file)
+			 (format "  %s? %s (should be t)\n"
+				 var_expected_type
+				 (and (stringp var_value)
+				      (when (stringp var_value)
+					(funcall 'file-exists-p var_value)))))
 			((eq var_expected_type 'string)
 			 (format "  %s? %s (should be t)\n" var_expected_type
 				 (funcall 'stringp var_value)))
@@ -321,7 +321,7 @@
 	      (funcall add_to_result_message_short_)
 	      (setq result_bool nil)))))
 	(cons result_bool result_message))
-  (cons nil "Inner Constant org-roam-organize//variable-type-alist is NOT defined properly. ")))
+    (cons nil "Inner Constant org-roam-organize//variable-type-alist is NOT defined properly. ")))
 
 ;; hash表转换为alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
@@ -561,8 +561,7 @@
 	(unless (string= 
 		 (expand-file-name old_file)
 		 (expand-file-name new_file))
-          (rename-file old_file new_file t)
-	  )
+          (rename-file old_file new_file t))
 	(save-excursion
           (goto-char source_pos)
           (unless (org-at-heading-p)
@@ -710,10 +709,10 @@
                ((not (car check_result))
 		(setq org-roam-organize-mode nil)
 		(message "%s" (concat
-			  "[WARNING] There be variablies not defined properly. "
-			  "Org Roam Organize Mode setup failed.\n"
-			  (format "%s\n" (car check_result))
-        (cdr check_result))))
+			       "[WARNING] There be variablies not defined properly. "
+			       "Org Roam Organize Mode setup failed.\n"
+			       (format "%s\n" (car check_result))
+			       (cdr check_result))))
                ((not (or
 		      org-roam-organize/directory-p
 		      (file-in-directory-p
@@ -721,9 +720,9 @@
 		       (expand-file-name root_dir))))
 		(setq org-roam-organize-mode nil)
 		(message "%s" (concat (format 
-				  "[WARNING] Not startup Emacs under %s. " 
-				  root_dir)
-				 "Org Roam Organize Mode setup failed. ")))
+				       "[WARNING] Not startup Emacs under %s. " 
+				       root_dir)
+				      "Org Roam Organize Mode setup failed. ")))
                (t
 		(unless (featurep 'org) (require 'org))
 		(unless (featurep 'org-element) (require 'org-element))
