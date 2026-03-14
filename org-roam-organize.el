@@ -157,7 +157,7 @@
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/moc-managed-tag-property
+(defcustom org-roam-organize/moc-managed-node-count-property
   "MOC_MANAGED_NODE_COUNT"
   "标记 MOC 所管理的 nodes 总数的属性名"
   :type 'string
@@ -250,6 +250,7 @@
   '((org-roam-organize/directory . directory)
     (org-roam-organize/moc-directory . directory)
     (org-roam-organize/moc-managed-tag-property . string)
+    (org-roam-organize/moc-managed-node-count-property . string)
     (org-roam-organize/fleeting-directory . directory)
     (org-roam-organize/permanent-directory . directory)
     (org-roam-organize/directory-p . boolean)
@@ -687,6 +688,7 @@
   (if org-roam-organize-mode
       (let* ((moc_filetag org-roam-organize/moc-tag)
 	     (moc_prop org-roam-organize/moc-managed-tag-property)
+	     (moc_count_prop org-roam-organize/moc-managed-node-count-property)
 	     (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
              (sth_unexpected nil))
 	;; 开始提示
@@ -712,7 +714,7 @@
                     (progn
                       (with-current-buffer (marker-buffer marker)
 			(goto-char marker)
-			(let ((field (format "NUM_OF_%s_NODES" (upcase tag))))
+			(let ((field (format "%s" (upcase moc_count_prop))))
                           (org-entry-put (point) field (number-to-string count))
                           (save-buffer))))
                   (progn
