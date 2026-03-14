@@ -37,7 +37,11 @@
 ;;    - Update node statistics in MOC files
 ;;    - Maintain dynamic counters in properties
 ;;
-;; 5. File Organization:
+;; 5. MOC Management:
+;;    - Create MOC nodes based on templates
+;;    - Dynamic MOC discovery via tags and properties
+;;
+;; 6. File Organization:
 ;;    - Move node files to structured directory layouts
 ;;    - Maintain directory organization based on node types
 ;;    - ID-based directory creation and management
@@ -47,11 +51,16 @@
 ;; Before using this package, you need to configure the following variables:
 ;;
 ;; - `org-roam-organize/directory': Root directory for org-roam-organize
+;; - `org-roam-organize/directory-p': Allow running outside root directory
 ;; - `org-roam-organize/fleeting-directory': Directory for temporary nodes
 ;; - `org-roam-organize/permanent-directory': Directory for permanent nodes
 ;; - `org-roam-organize/moc-directory': Directory for MOC (Map of Contents) files
+;; - `org-roam-organize/moc-tag': Tag used to identify MOC files
+;; - `org-roam-organize/moc-managed-tag-property': Property to store managed tag
+;; - `org-roam-organize/moc-managed-node-count-property': Property to store node count
 ;; - `org-roam-organize/top-moc-file': Path to the top-level MOC file
 ;; - `org-roam-organize/tag-title-alist': Association list mapping tags to MOC TITLEs
+;; - `org-roam-organize/tag-id-alist': Association list mapping tags to MOC IDs
 ;; - `org-roam-organize/move-target-directory': Target directory for node movement
 ;; - `org-roam-organize/move-source-tag': Source tag for automatic replacement
 ;; - `org-roam-organize/move-target-tag': Target tag for automatic replacement
@@ -69,7 +78,7 @@
 ;; - `C-c o m u': Update all MOC node statistics
 ;; - `C-c o r c': Complete missing backlinks for literature nodes
 ;;
-;; Additional global keybindings:
+;; Suggested global keybindings:
 ;;
 ;; - `C-c o o': Toggle `org-roam-organize-mode'
 ;; - `C-c o c': Check configuration variables
