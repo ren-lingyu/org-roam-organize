@@ -570,7 +570,7 @@
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 创建 MOC 对应的 org-roam node
-(defun org-roam-organize/create-mocs ()
+(defun org-roam-organize-create-mocs ()
   (interactive)
   (if org-roam-organize-mode ; org-roam-organize/top-moc-file
       (let* ((debug-on-error t)
