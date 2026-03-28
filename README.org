@@ -2,7 +2,7 @@
 #+AUTHOR: aRenCoco
 
 * Overview
-Org-roam-organize is a Emacs package for managing and organizing Org-roam nodes and their references. It provides a minor mode with powerful tools for structuring knowledge bases, including node management, tag handling, backlink completion, and content organization.
+Org-roam-organize is an Emacs package for managing and organizing Org-roam nodes and their references. It provides a minor mode with powerful tools for structuring knowledge bases, including node management, tag handling, backlink completion, and content organization.
 
 * Repository Structure
 #+BEGIN_SRC
