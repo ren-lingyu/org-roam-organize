@@ -1,2 +1,142 @@
 #+TITLE: Org Roam Organize
-#+AUTHOR: Lingyu Ren
+#+AUTHOR: aRenCoco
+
+* Overview
+Org-roam-organize is a Emacs package for managing and organizing Org-roam nodes and their references. It provides a minor mode with powerful tools for structuring knowledge bases, including node management, tag handling, backlink completion, and content organization.
+
+* Repository Structure
+#+BEGIN_SRC
+org-roam-organize/
+├── org-roam-organize.el      Main Elisp implementation
+├── LICENSE                   GNU General Public License v3.0
+├── README.org                Project documentation
+└── .gitignore                Git ignore configuration
+#+END_SRC
+
+* Features
+The package includes the following main features:
+
+** 1. Node Management
+   - Move headlines and their corresponding node files between directories
+   - Delete headlines and their associated files completely
+   - Update node tags automatically during operations
+     
+** 2. Tag Processing
+   - Automatic tag replacement (eg., =:idea:= to =:note:=)
+   - Tag-based node counting and statistics
+   - File tag updates across the knowledge base
+
+** 3. Backlink Management
+   - Automatic insertion of missing backlinks for literature nodes
+   - Citation-based reference completion
+   - Link consistency maintenance
+
+** 4. Statistical Functions
+   - Count nodes with specific tags
+   - Update node statistics in MOC files
+   - Maintain dynamic counters in properties
+
+** 5. MOC Management
+   - Create MOC nodes based on templates
+   - Dynamic MOC discovery via tags and properties
+
+** 6. File Organization
+   - Move node files to structured directory layouts
+   - Maintain directory organization based on node types
+   - ID-based directory creation and management
+
+* Configuration
+Before using this package, you need to configure the following variables:
+
+- =org-roam-organize/directory=: Root directory for org-roam-organize
+- =org-roam-organize/directory-p=: Allow running outside root directory
+- =org-roam-organize/fleeting-directory=: Directory for temporary nodes
+- =org-roam-organize/permanent-directory=: Directory for permanent nodes
+- =org-roam-organize/moc-directory=: Directory for MOC (Map of Contents) files
+- =org-roam-organize/moc-tag=: Tag used to identify MOC files
+- =org-roam-organize/moc-managed-tag-property=: Property to store managed tag
+- =org-roam-organize/moc-managed-node-count-property=: Property to store node count
+- =org-roam-organize/top-moc-file=: Path to the top-level MOC file
+- =org-roam-organize/tag-title-alist=: Association list mapping tags to MOC TITLEs
+- =org-roam-organize/move-target-directory=: Target directory for node movement
+- =org-roam-organize/move-source-tag=: Source tag for automatic replacement
+- =org-roam-organize/move-target-tag=: Target tag for automatic replacement
+- =org-roam-organize/move-target-directory-id-or-not=: Whether to create ID-based directories
+- =org-roam-organize/move-target-filename-id-or-not=: Whether to use ID as filename
+- =org-roam-organize/capture-template=: Org roam capture template for capture MOCs
+
+* Keybindings
+The package provides the following keybindings when `org-roam-organize-mode` is active:
+
+- =C-c o h c=: Move current headline and its corresponding node file
+- =C-c o h d=: Delete current headline and its corresponding node file
+- =C-c o m m=: Jump to the top-level MOC
+- =C-c o m u=: Update all MOC node statistics
+- =C-c o r c=: Complete missing backlinks for literature nodes
+
+** Suggested Global Keybindings
+- =C-c o o=: Toggle =org-roam-organize-mode=
+- =C-c o c=: Check configuration variables
+
+* Usage
+1. Configure the required variables in your Emacs configuration
+2. Enable =org-roam-organize-mode= with =M-x org-roam-organize-mode= or =C-c o o=
+3. Use the keybindings to organize your Org-roam knowledge base
+4. Run =org-roam-organize-check-variables= to verify your configuration
+
+An example of configuration is shown here.
+#+BEGIN_SRC emacs-lisp
+(use-package org-roam-organize
+  :straight (:host github :repo "ren-lingyu/org-roam-organize")
+  :after org-roam
+  :custom
+  (org-roam-organize/directory org-roam-directory)
+  (org-roam-organize/moc-directory (expand-file-name "./moc/" org-roam-directory))
+  (org-roam-organize/moc-tag "map")
+  (org-roam-organize/top-moc-file (expand-file-name "./moc/maps.org" org-roam-directory))
+  (org-roam-organize/move-source-tag "idea")
+  (org-roam-organize/move-target-tag "zettel")
+  (org-roam-organize/fleeting-directory (expand-file-name "./fleeting/" org-roam-directory))
+  (org-roam-organize/permanent-directory (expand-file-name "./permanent/" org-roam-directory))
+  (org-roam-organize/move-target-directory (expand-file-name "./permanent/" org-roam-directory))
+  (org-roam-organize/directory-p t)
+  (org-roam-organize/tag-title-alist '(("map" . "Maps")
+				       ("zettel" . "Permanent")
+				       ("ref" . "Literature")
+				       ("idea" . "Fleeting")
+				       ("note" . "Note")
+				       ("blog" . "Blog")))
+  (org-roam-organize/moc-managed-tag-property "MOC_MANAGED_TAG")
+  (org-roam-organize/moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
+  (org-roam-organize/capture-template `("m" "map of contents" plain "%?"
+                                          :if-new (file+head
+						   "moc/${slug}.org"
+						   ,(concat
+						     ":PROPERTIES:\n"
+						     ":MOC_MANAGED_TAG: ${moc_managed_tag}\n"
+						     ":MOC_MANAGED_NODE_COUNT:\n"
+						     ":END:\n"
+						     "#+TITLE: ${title}\n"
+						     "#+AUTHOR: aRenCoco\n"
+						     "#+DATE: " (format-time-string "<%Y-%m-%d %A %H:%M:%S %z>") "\n"
+						     "#+FILETAGS: :map:\n"
+						     "#+DESCRIPTION:\n"))
+                                          :unnarrowed t))
+  (org-roam-organize/move-target-directory-id-or-not t)
+  (org-roam-organize/move-target-filename-id-or-not nil)
+  :config
+  (org-roam-organize-create-directory)
+  :bind 
+  (("C-c o o" . org-roam-organize-mode)
+   ("C-c o c" . org-roam-organize-check-variables))
+  :hook (after-init-hook . org-roam-organize-mode))
+
+#+END_SRC
+
+* Implementation Details
+The package uses Org-roam's database queries to efficiently manage node relationships and maintain consistency across the knowledge base. It includes robust error handling and validation to ensure operations are performed safely and consistently.
+
+The mode includes a startup hook that validates configuration variables and ensures the Emacs session is started in the appropriate directory.
+
+* License
+This project is licensed under the GNU General Public License v3.0. See the [[file:LICENSE][LICENSE]] file for details.
