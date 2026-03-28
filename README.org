@@ -139,4 +139,4 @@ The package uses Org-roam's database queries to efficiently manage node relation
 The mode includes a startup hook that validates configuration variables and ensures the Emacs session is started in the appropriate directory.
 
 * License
-This project is licensed under the GNU General Public License v3.0. See the [[file:LICENSE][LICENSE]] file for details.
+This project is licensed under the GNU General Public License v3.0. See [[file:LICENSE][LICENSE]] for details.
