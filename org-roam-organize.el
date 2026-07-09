@@ -56,79 +56,79 @@
   "org-roam-organize variables"
   :group 'org-roam)
 
-(defcustom org-roam-organize/directory
+(defcustom org-roam-organize-directory
   org-roam-directory
   "org-roam-organize 根目录"
   :type 'directory
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/directory-p
+(defcustom org-roam-organize-directory-p
   nil
   "Bool 型变量, 是否允许在非 org-roam-organize 根目录下启动 org-roam-organize, 默认值为nil"
   :type 'boolean
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/moc-directory
+(defcustom org-roam-organize-moc-directory
   (expand-file-name "./moc/" org-roam-directory)
   "MOC 节点所在目录"
   :type 'directory
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/moc-tag
+(defcustom org-roam-organize-moc-tag
   "map"
   "MOC FILETAG"
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/moc-managed-tag-property
+(defcustom org-roam-organize-moc-managed-tag-property
   "MOC_MANAGED_TAG"
   "标记 MOC 所管理 FILETAG 的属性名"
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/moc-managed-node-count-property
+(defcustom org-roam-organize-moc-managed-node-count-property
   "MOC_MANAGED_NODE_COUNT"
   "标记 MOC 所管理的 nodes 总数的属性名"
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/top-moc-file
+(defcustom org-roam-organize-top-moc-file
   (expand-file-name "./moc/maps.org" org-roam-directory)
   "顶层 MOC 的绝对路径"
   :type 'file
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/fleeting-directory
+(defcustom org-roam-organize-fleeting-directory
   (expand-file-name "./fleeting/" org-roam-directory)
   "Fleeting 节点所在目录"
   :type 'directory
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/permanent-directory
+(defcustom org-roam-organize-permanent-directory
   (expand-file-name "./permanent/" org-roam-directory)
   "Permanent 节点所在目录"
   :type 'directory
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/move-target-directory
-  org-roam-organize/permanent-directory
+(defcustom org-roam-organize-move-target-directory
+  org-roam-organize-permanent-directory
   "整理节点移动文件时的目标目录"
   :type 'directory
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/move-source-tag
+(defcustom org-roam-organize-move-source-tag
   "idea"
   "整理节点移动headline时的源标签"
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/move-target-tag
+(defcustom org-roam-organize-move-target-tag
   "zettel"
   "整理节点移动headline时的目标标签"
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/tag-title-alist
+(defcustom org-roam-organize-tag-title-alist
   '(("map" . "Maps")
     ("zettel" . "Permanent")
     ("ref" . "Literature")
@@ -137,19 +137,19 @@
   :type 'alist
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/move-target-directory-id-or-not
+(defcustom org-roam-organize-move-target-directory-id-or-not
   t
   "Bool型变量, 默认值为t. 整理节点移动文件时的是否根据ID创建目标目录."
   :type 'boolean
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/move-target-filename-id-or-not
+(defcustom org-roam-organize-move-target-filename-id-or-not
   nil
   "Bool型变量, 默认值为nil. 整理节点移动文件时的是否将移动后的文件名称设置为id."
   :type 'boolean
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize/capture-template
+(defcustom org-roam-organize-capture-template
   '("m" "map of contents" plain "%?"
     :if-new (file+head
              "moc/${slug}.org"
@@ -162,23 +162,23 @@
 ;; 常量定义
 ;; ==============================
 
-(defconst org-roam-organize//variable-type-alist
-  '((org-roam-organize/directory . directory)
-    (org-roam-organize/moc-directory . directory)
-    (org-roam-organize/moc-managed-tag-property . string)
-    (org-roam-organize/moc-managed-node-count-property . string)
-    (org-roam-organize/fleeting-directory . directory)
-    (org-roam-organize/permanent-directory . directory)
-    (org-roam-organize/directory-p . boolean)
-    (org-roam-organize/tag-title-alist . list)
-    (org-roam-organize/top-moc-file . file)
-    (org-roam-organize/moc-tag . string)
-    (org-roam-organize/move-target-directory . directory)
-    (org-roam-organize/move-source-tag . string)
-    (org-roam-organize/move-target-tag . string)
-    (org-roam-organize/move-target-directory-id-or-not . boolean)
-    (org-roam-organize/move-target-filename-id-or-not . boolean)
-    (org-roam-organize/capture-template . list)))
+(defconst org-roam-organize--variable-type-alist
+  '((org-roam-organize-directory . directory)
+    (org-roam-organize-moc-directory . directory)
+    (org-roam-organize-moc-managed-tag-property . string)
+    (org-roam-organize-moc-managed-node-count-property . string)
+    (org-roam-organize-fleeting-directory . directory)
+    (org-roam-organize-permanent-directory . directory)
+    (org-roam-organize-directory-p . boolean)
+    (org-roam-organize-tag-title-alist . list)
+    (org-roam-organize-top-moc-file . file)
+    (org-roam-organize-moc-tag . string)
+    (org-roam-organize-move-target-directory . directory)
+    (org-roam-organize-move-source-tag . string)
+    (org-roam-organize-move-target-tag . string)
+    (org-roam-organize-move-target-directory-id-or-not . boolean)
+    (org-roam-organize-move-target-filename-id-or-not . boolean)
+    (org-roam-organize-capture-template . list)))
 
 ;; ==============================
 ;; 内部函数
@@ -188,7 +188,7 @@
 (defun org-roam-organize--check-variables (root_dir alist)
   (if (listp alist)
       (let* ((result_bool t)
-             (result_message (concat "All org-roam-organize/* variables are as follow.\n" ))
+             (result_message (concat "All org-roam-organize-* variables are as follow.\n" ))
              (add_to_result_message_
               (lambda (var_name var_value var_expected_type)
                 (setq result_message
@@ -271,7 +271,7 @@
               (funcall add_to_result_message_short_)
               (setq result_bool nil)))))
         (cons result_bool result_message))
-    (cons nil "Inner Constant org-roam-organize//variable-type-alist is NOT defined properly. ")))
+    (cons nil "Inner Constant org-roam-organize--variable-type-alist is NOT defined properly. ")))
 
 ;; 根据给定 moc filetag 和给定属性名查询 org-roam 数据库获得 moc_managed_tag 和 moc id 的对应关系
 (defun org-roam-organize--get-tag-id-alist (moc_filetag moc_prop)
@@ -451,7 +451,7 @@
 ;; 变量检查
 (defun org-roam-organize-check-variables ()
   (interactive)
-  (let ((check_result (org-roam-organize--check-variables org-roam-organize/directory org-roam-organize//variable-type-alist)))
+  (let ((check_result (org-roam-organize--check-variables org-roam-organize-directory org-roam-organize--variable-type-alist)))
     (message "%s" (if (consp check_result)
                       (cdr check_result)
                     check_result))))
@@ -459,10 +459,10 @@
 ;; 创建目录
 (defun org-roam-organize-create-directory ()
   (interactive)
-  (let ((dir_list (list org-roam-organize/directory 
-                        org-roam-organize/moc-directory
-                        org-roam-organize/fleeting-directory
-                        org-roam-organize/permanent-directory)))
+  (let ((dir_list (list org-roam-organize-directory
+                        org-roam-organize-moc-directory
+                        org-roam-organize-fleeting-directory
+                        org-roam-organize-permanent-directory)))
     (dolist (dir dir_list)
       (unless (file-exists-p dir)
         (make-directory dir t)))))
@@ -475,8 +475,8 @@
 (defun org-roam-organize-goto-map-of-maps ()
   "Open the top-level Map of Contents file using its file path."
   (interactive)
-  (if org-roam-organize-mode ; org-roam-organize/top-moc-file
-      (let ((file_path org-roam-organize/top-moc-file))
+  (if org-roam-organize-mode ; org-roam-organize-top-moc-file
+      (let ((file_path org-roam-organize-top-moc-file))
         (cond
          ((not file_path)
           (message "Top MOC file path is not defined. Please check your configuration."))
@@ -494,10 +494,10 @@
 ;; 创建 MOC 对应的 org-roam node
 (defun org-roam-organize-create-mocs ()
   (interactive)
-  (if org-roam-organize-mode ; org-roam-organize/top-moc-file
+  (if org-roam-organize-mode ; org-roam-organize-top-moc-file
       (let* ((debug-on-error t)
-             (tag_title_alist org-roam-organize/tag-title-alist)
-             (template org-roam-organize/capture-template)
+             (tag_title_alist org-roam-organize-tag-title-alist)
+             (template org-roam-organize-capture-template)
              (key (car template)))
         (dolist (entry tag_title_alist)
           (let* ((tag (car entry))
@@ -512,7 +512,7 @@
 
 ;; 更改moc中形如[[id][title]]的headline及其对应node文件的位置
 (defun org-roam-organize-headline-move (source_pos)
-  "Move headline at source_pos to `org-roam-organize/move-target-moc-file`. Update roam-node tags (:idea: -> :note:), move its file to `org-roam-organize/move-target-directory/${id}/`, and save involved files."
+  "Move headline at source_pos to `org-roam-organize-move-target-moc-file`. Update roam-node tags (:idea: -> :note:), move its file to `org-roam-organize-move-target-directory/${id}/`, and save involved files."
   (interactive (list (point)))
   (if (and
        org-roam-organize-mode)
@@ -522,23 +522,23 @@
              (node (plist-get info :node))
              (old_file (org-roam-node-file node))
              (tags     (org-roam-node-tags node))
-             (moc_filetag org-roam-organize/moc-tag)
-             (moc_prop org-roam-organize/moc-managed-tag-property)
-             (moc_count_prop org-roam-organize/moc-managed-node-count-property)
-             (source_tag org-roam-organize/move-source-tag)
-             (target_tag org-roam-organize/move-target-tag)
+             (moc_filetag org-roam-organize-moc-tag)
+             (moc_prop org-roam-organize-moc-managed-tag-property)
+             (moc_count_prop org-roam-organize-moc-managed-node-count-property)
+             (source_tag org-roam-organize-move-source-tag)
+             (target_tag org-roam-organize-move-target-tag)
              (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
              (target_moc_file (car (cdr (assoc target_tag tag_id))))
              (new-tags 
               (mapcar 
                (lambda (tag) (if (string= tag source_tag) target_tag tag))
                tags))
-             (target_dir_bool_id_or_not org-roam-organize/move-target-directory-id-or-not)
+             (target_dir_bool_id_or_not org-roam-organize-move-target-directory-id-or-not)
              (dir 
               (if target_dir_bool_id_or_not
-                  (expand-file-name id org-roam-organize/move-target-directory)
-                (expand-file-name org-roam-organize/move-target-directory)))
-             (filename_bool_id_or_not org-roam-organize/move-target-filename-id-or-not)
+                  (expand-file-name id org-roam-organize-move-target-directory)
+                (expand-file-name org-roam-organize-move-target-directory)))
+             (filename_bool_id_or_not org-roam-organize-move-target-filename-id-or-not)
              (new_file 
               (if filename_bool_id_or_not
                   (expand-file-name (concat id ".org") dir)
@@ -583,10 +583,10 @@
              (id (plist-get info :id))
              (node (plist-get info :node))
              (tags (org-roam-node-tags node))
-             (dir (expand-file-name id org-roam-organize/move-target-directory))
+             (dir (expand-file-name id org-roam-organize-move-target-directory))
              (file (org-roam-node-file node))
-             (target_tag org-roam-organize/move-target-tag)
-             (target_dir_bool_id_or_not org-roam-organize/move-target-directory-id-or-not))
+             (target_tag org-roam-organize-move-target-tag)
+             (target_dir_bool_id_or_not org-roam-organize-move-target-directory-id-or-not))
         (delete-file file)
         (when 
             (and
@@ -606,9 +606,9 @@
   "Update Org-roam nodes with tag count information. For each tag in `tag-id-alist`, count how many nodes have that tag, and write the count into the corresponding node's property field."
   (interactive)
   (if org-roam-organize-mode
-      (let* ((moc_filetag org-roam-organize/moc-tag)
-             (moc_prop org-roam-organize/moc-managed-tag-property)
-             (moc_count_prop org-roam-organize/moc-managed-node-count-property)
+      (let* ((moc_filetag org-roam-organize-moc-tag)
+             (moc_prop org-roam-organize-moc-managed-tag-property)
+             (moc_count_prop org-roam-organize-moc-managed-node-count-property)
              (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
              (sth_unexpected nil))
         ;; 开始提示
@@ -693,11 +693,11 @@
 (add-hook 'org-roam-organize-mode-hook
           (lambda () 
             (let* ((root_dir 
-                    (when (boundp 'org-roam-organize/directory) 
-                      org-roam-organize/directory))
+                    (when (boundp 'org-roam-organize-directory)
+                      org-roam-organize-directory))
                    (check_result
-                    (when (boundp 'org-roam-organize//variable-type-alist)
-                      (org-roam-organize--check-variables root_dir org-roam-organize//variable-type-alist))))
+                    (when (boundp 'org-roam-organize--variable-type-alist)
+                      (org-roam-organize--check-variables root_dir org-roam-organize--variable-type-alist))))
               (cond
                ((not (car check_result))
                 (setq org-roam-organize-mode nil)
@@ -707,7 +707,7 @@
                                (format "%s\n" (car check_result))
                                (cdr check_result))))
                ((not (or
-                      org-roam-organize/directory-p
+                      org-roam-organize-directory-p
                       (file-in-directory-p
                        (expand-file-name default-directory)
                        (expand-file-name root_dir))))
@@ -721,7 +721,7 @@
                 (unless (featurep 'org-element) (require 'org-element))
                 (unless (featurep 'org-roam) (require 'org-roam))
                 (unless (featurep 'cl-lib) (require 'cl-lib))
-                (let ((tmpl org-roam-organize/capture-template))
+                (let ((tmpl org-roam-organize-capture-template))
                   (unless (assoc (car tmpl) org-roam-capture-templates) ; 仅当快捷键不存在时添加
                     (setq org-roam-capture-templates
                           (append org-roam-capture-templates (list tmpl))))))))))
