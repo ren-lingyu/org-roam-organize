@@ -4,7 +4,7 @@
 
 ;; Author: aRenCoco
 ;; Maintainer: aRenCoco
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "26.1"))
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/ren-lingyu/org-roam-organize
@@ -157,6 +157,86 @@
   "创建 MOC 文件所用捕获模板, 自行定义的模板必须包含默认值中添加的两个属性."
   :type 'list
   :group 'org-roam-organize)
+
+(define-obsolete-variable-alias
+  'org-roam-organize/directory
+  'org-roam-organize-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/directory-p
+  'org-roam-organize-directory-p
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-directory
+  'org-roam-organize-moc-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-tag
+  'org-roam-organize-moc-tag
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-managed-tag-property
+  'org-roam-organize-moc-managed-tag-property
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-managed-node-count-property
+  'org-roam-organize-moc-managed-node-count-property
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/top-moc-file
+  'org-roam-organize-top-moc-file
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/fleeting-directory
+  'org-roam-organize-fleeting-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/permanent-directory
+  'org-roam-organize-permanent-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-directory
+  'org-roam-organize-move-target-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-source-tag
+  'org-roam-organize-move-source-tag
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-tag
+  'org-roam-organize-move-target-tag
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/tag-title-alist
+  'org-roam-organize-tag-title-alist
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-directory-id-or-not
+  'org-roam-organize-move-target-directory-id-or-not
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-filename-id-or-not
+  'org-roam-organize-move-target-filename-id-or-not
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/capture-template
+  'org-roam-organize-capture-template
+  "0.2.0")
 
 ;; ==============================
 ;; 常量定义
