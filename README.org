@@ -50,7 +50,7 @@ This package depends on the following:
 
 - Emacs 26.1 or later
 - Org-mode
-- Org-roam v2
+- Org-roam 2.0.0 or later
 
 * Configuration
 Before using this package, you need to configure the following variables:
@@ -73,21 +73,35 @@ Before using this package, you need to configure the following variables:
 - =org-roam-organize-capture-template=: Org roam capture template for capture MOCs
 
 * Keybindings
-The package provides the following keybindings when `org-roam-organize-mode` is active:
+This package does not install default keybindings. The commands are intended to be bound in user configuration.
 
+** Suggested Global Keybindings
+The following =C-c o= keybindings are optional user configuration examples:
+
+- =C-c o o=: Toggle =org-roam-organize-mode=
+- =C-c o c=: Check configuration variables
 - =C-c o h c=: Move current headline and its corresponding node file
 - =C-c o h d=: Delete current headline and its corresponding node file
 - =C-c o m m=: Jump to the top-level MOC
 - =C-c o m u=: Update all MOC node statistics
 - =C-c o r c=: Complete missing backlinks for literature nodes
 
-** Suggested Global Keybindings
-- =C-c o o=: Toggle =org-roam-organize-mode=
-- =C-c o c=: Check configuration variables
+** Suggested Command Aliases
+The following aliases are optional user configuration examples:
+
+#+BEGIN_SRC emacs-lisp
+  (defalias 'oro-check #'org-roam-organize-check-variables)
+  (defalias 'oro-mkdirs #'org-roam-organize-create-directory)
+  (defalias 'oro-map #'org-roam-organize-goto-map-of-maps)
+  (defalias 'oro-move #'org-roam-organize-headline-move)
+  (defalias 'oro-delete #'org-roam-organize-headline-delete)
+  (defalias 'oro-update #'org-roam-organize-update-mocs)
+  (defalias 'oro-backlinks #'org-roam-organize-ref-backlink-complete)
+#+END_SRC
 
 * Usage
 1. Configure the required variables in your Emacs configuration
-2. Enable =org-roam-organize-mode= with =M-x org-roam-organize-mode= or =C-c o o=
+2. Enable =org-roam-organize-mode= with =M-x org-roam-organize-mode= or your configured toggle key
 3. Use the keybindings to organize your Org-roam knowledge base
 4. Run =org-roam-organize-check-variables= to verify your configuration
 
@@ -135,7 +149,12 @@ An example of configuration is shown here.
     (org-roam-organize-create-directory)
     :bind 
     (("C-c o o" . org-roam-organize-mode)
-     ("C-c o c" . org-roam-organize-check-variables))
+     ("C-c o c" . org-roam-organize-check-variables)
+     ("C-c o h c" . org-roam-organize-headline-move)
+     ("C-c o h d" . org-roam-organize-headline-delete)
+     ("C-c o m m" . org-roam-organize-goto-map-of-maps)
+     ("C-c o m u" . org-roam-organize-update-mocs)
+     ("C-c o r c" . org-roam-organize-ref-backlink-complete))
     :hook (after-init-hook . org-roam-organize-mode))
 
 #+END_SRC
