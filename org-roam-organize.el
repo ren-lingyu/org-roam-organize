@@ -152,8 +152,8 @@
 (defcustom org-roam-organize/capture-template
   '("m" "map of contents" plain "%?"
     :if-new (file+head
-	     "moc/${slug}.org"
-	     ":PROPERTIES:\n:MOC_MANAGED_TAG: ${moc_managed_tag}\n:MOC_MANAGED_NODE_COUNT:\n:END:\n#+TITLE: ${title}\n#+FILETAGS: :map:\n"))
+             "moc/${slug}.org"
+             ":PROPERTIES:\n:MOC_MANAGED_TAG: ${moc_managed_tag}\n:MOC_MANAGED_NODE_COUNT:\n:END:\n#+TITLE: ${title}\n#+FILETAGS: :map:\n"))
   "创建 MOC 文件所用捕获模板, 自行定义的模板必须包含默认值中添加的两个属性."
   :type 'list
   :group 'org-roam-organize)
@@ -188,107 +188,107 @@
 (defun org-roam-organize--check-variables (root_dir alist)
   (if (listp alist)
       (let* ((result_bool t)
-	     (result_message (concat "All org-roam-organize/* variables are as follow.\n" ))
-	     (add_to_result_message_
+             (result_message (concat "All org-roam-organize/* variables are as follow.\n" ))
+             (add_to_result_message_
               (lambda (var_name var_value var_expected_type)
-		(setq result_message
-		      (concat
+                (setq result_message
+                      (concat
                        result_message
                        (format "- %s? %s \n" var_name var_value)
-		       (cond
-			((or (and (eq var_value nil) (eq var_expected_type 'directory))
-			     (and (eq var_value nil) (eq var_expected_type 'file)))
-			 (format "  %s? %s (should be t)\n" var_expected_type nil))
-			((eq var_expected_type 'directory)
-			 (concat
-			  (format "  %s? %s (should be t)\n"
-				  var_expected_type
-				  (and (stringp var_value)
-				       (when (stringp var_value)
-					 (funcall 'file-directory-p var_value))))
-			  (when (stringp var_value)
-			    (when (file-directory-p var_value)
-			      (format
-			       "  in org-roam-organize root directory? %s (should be t)\n"
-			       (file-in-directory-p
-				(expand-file-name var_value)
-				(expand-file-name root_dir)))))))
-			((eq var_expected_type 'file)
-			 (format "  %s? %s (should be t)\n"
-				 var_expected_type
-				 (and (stringp var_value)
-				      (when (stringp var_value)
-					(funcall 'file-exists-p var_value)))))
-			((eq var_expected_type 'string)
-			 (format "  %s? %s (should be t)\n" var_expected_type
-				 (funcall 'stringp var_value)))
-			((eq var_expected_type 'list)
-			 (format "  %s? %s (should be t)\n" var_expected_type
-				 (funcall 'listp var_value)))
-			((eq var_expected_type 'boolean)
-			 (format "  %s? %s (should be t)\n" var_expected_type
-				 (funcall 'booleanp var_value)))
-			(t (format "  the type of variable is not acceptable\n"))))))))
-	(dolist (pair alist)
+                       (cond
+                        ((or (and (eq var_value nil) (eq var_expected_type 'directory))
+                             (and (eq var_value nil) (eq var_expected_type 'file)))
+                         (format "  %s? %s (should be t)\n" var_expected_type nil))
+                        ((eq var_expected_type 'directory)
+                         (concat
+                          (format "  %s? %s (should be t)\n"
+                                  var_expected_type
+                                  (and (stringp var_value)
+                                       (when (stringp var_value)
+                                         (funcall 'file-directory-p var_value))))
+                          (when (stringp var_value)
+                            (when (file-directory-p var_value)
+                              (format
+                               "  in org-roam-organize root directory? %s (should be t)\n"
+                               (file-in-directory-p
+                                (expand-file-name var_value)
+                                (expand-file-name root_dir)))))))
+                        ((eq var_expected_type 'file)
+                         (format "  %s? %s (should be t)\n"
+                                 var_expected_type
+                                 (and (stringp var_value)
+                                      (when (stringp var_value)
+                                        (funcall 'file-exists-p var_value)))))
+                        ((eq var_expected_type 'string)
+                         (format "  %s? %s (should be t)\n" var_expected_type
+                                 (funcall 'stringp var_value)))
+                        ((eq var_expected_type 'list)
+                         (format "  %s? %s (should be t)\n" var_expected_type
+                                 (funcall 'listp var_value)))
+                        ((eq var_expected_type 'boolean)
+                         (format "  %s? %s (should be t)\n" var_expected_type
+                                 (funcall 'booleanp var_value)))
+                        (t (format "  the type of variable is not acceptable\n"))))))))
+        (dolist (pair alist)
           (let* ((var_name (car pair))
-		 (var_value (when (boundp var_name) (symbol-value var_name)))
-		 (var_expected_type (cdr pair))
-		 (add_to_result_message_short_
-		  (lambda () (funcall add_to_result_message_ var_name var_value var_expected_type))))
+                 (var_value (when (boundp var_name) (symbol-value var_name)))
+                 (var_expected_type (cdr pair))
+                 (add_to_result_message_short_
+                  (lambda () (funcall add_to_result_message_ var_name var_value var_expected_type))))
             (cond
-	     ((and (eq var_value nil) (not (eq var_expected_type 'boolean)))
-	      (funcall add_to_result_message_short_)
-	      (setq result_bool nil))
+             ((and (eq var_value nil) (not (eq var_expected_type 'boolean)))
+              (funcall add_to_result_message_short_)
+              (setq result_bool nil))
              ((eq var_expected_type 'list)
               (funcall add_to_result_message_short_)
               (unless (and (listp var_value))
-		(setq result_bool nil)))
+                (setq result_bool nil)))
              ((eq var_expected_type 'string)
-	      (funcall add_to_result_message_short_)
+              (funcall add_to_result_message_short_)
               (unless (and (stringp var_value))
-		(setq result_bool nil)))
+                (setq result_bool nil)))
              ((eq var_expected_type 'directory)
-	      (funcall add_to_result_message_short_)
+              (funcall add_to_result_message_short_)
               (unless (and 
                        (stringp var_value)
                        (file-directory-p var_value)
                        (file-in-directory-p
-			(expand-file-name var_value)
-			(expand-file-name root_dir)))
-		(setq result_bool nil)))
+                        (expand-file-name var_value)
+                        (expand-file-name root_dir)))
+                (setq result_bool nil)))
              ((eq var_expected_type 'file)
-	      (funcall add_to_result_message_short_)
+              (funcall add_to_result_message_short_)
               (unless (and 
                        (stringp var_value) 
                        (file-exists-p var_value))
-		(setq result_bool nil)))
+                (setq result_bool nil)))
              ((eq var_expected_type 'boolean)
-	      (funcall add_to_result_message_short_)
+              (funcall add_to_result_message_short_)
               (unless
                   (and (booleanp var_value))
-		(setq result_bool nil)))
+                (setq result_bool nil)))
              (t
-	      (funcall add_to_result_message_short_)
-	      (setq result_bool nil)))))
-	(cons result_bool result_message))
+              (funcall add_to_result_message_short_)
+              (setq result_bool nil)))))
+        (cons result_bool result_message))
     (cons nil "Inner Constant org-roam-organize//variable-type-alist is NOT defined properly. ")))
 
 ;; 根据给定 moc filetag 和给定属性名查询 org-roam 数据库获得 moc_managed_tag 和 moc id 的对应关系
 (defun org-roam-organize--get-tag-id-alist (moc_filetag moc_prop)
   (let* ((query_vector (vector :select (vector (intern "n:id") (intern "n:properties"))
-			       :from '(as nodes n)
-			       :join '(as tags t)
-			       :on '(= n:id t:node_id)
-			       :where (list 'and
-					    '(= n:level 0)
- 					    (list 'in (intern "t:tag") (vconcat (list moc_filetag))))))
-	 (id_props (org-roam-db-query query_vector))
-	 (output nil))
+                               :from '(as nodes n)
+                               :join '(as tags t)
+                               :on '(= n:id t:node_id)
+                               :where (list 'and
+                                            '(= n:level 0)
+                                            (list 'in (intern "t:tag") (vconcat (list moc_filetag))))))
+         (id_props (org-roam-db-query query_vector))
+         (output nil))
     (dolist (entry id_props)
       (let* ((id (car entry))
              (props (cadr entry))
              (tag (cdr (assoc moc_prop props))))
-	(when tag
+        (when tag
           (push (cons tag id) output))))
     output))
 
@@ -322,8 +322,8 @@
       (goto-char (point-min))
       (if (re-search-forward "^#\\+FILETAGS:[ \t]*\\(.*\\)$" nil t)
           (let* ((old (match-string 1))
-		 ;; 保留所有原有 tag，只替换 source_tag
-		 (new (replace-regexp-in-string (concat ":" source_tag ":") (concat ":" target_tag ":") old)))
+                 ;; 保留所有原有 tag，只替换 source_tag
+                 (new (replace-regexp-in-string (concat ":" source_tag ":") (concat ":" target_tag ":") old)))
             (unless (string= old new)
               ;; 用 new 覆盖 old
               (replace-match new nil nil nil 1)
@@ -344,7 +344,7 @@
       ;; 提取 id
       (setq id 
             (if (string-match "\\[\\[id:\\([^]]+\\)\\]\\[" title)
-		(match-string 1 title)
+                (match-string 1 title)
               (user-error "No [[id:...]] link found in this headline")))
       ;; 获取 org-roam node
       (setq node 
@@ -362,11 +362,11 @@
            (result
             (org-roam-db-query
              [:select [t:tag (funcall count t:tag)]
-		      :from (as tags t)
-		      :join (as nodes n)
-		      :on (and (= n:level 0) (= n:id t:node_id))
-		      :where (in t:tag $v1)
-		      :group-by t:tag]
+                      :from (as tags t)
+                      :join (as nodes n)
+                      :on (and (= n:level 0) (= n:id t:node_id))
+                      :where (in t:tag $v1)
+                      :group-by t:tag]
              (vconcat tag_list))))
       (dolist (tag tag_list)
         (puthash tag 0 tag_count))
@@ -394,16 +394,16 @@
                :select (vector (intern (concat "t:" col)) (intern "t:node_id"))
                :from (list 'as (intern (concat table)) 't)
                :join '(as nodes n) :on '(and (= n:level 0) (= n:id t:node_id))
-	       :where (list 'in (intern (concat "t:" col)) '$v1))
+               :where (list 'in (intern (concat "t:" col)) '$v1))
               (vconcat tag_list))))
            (result_id_linked_id
             (mapcar 
              (lambda (x) (cons (nth 0 x) (nth 1 x)))
              (org-roam-db-query
               [:select [l:source l:dest]
-		       :from (as links l)
-		       :join (as nodes n) :on (and (= n:level 0) (= n:id l:dest))
-		       :where (and (= l:type "id") (in l:source $v1))]
+                       :from (as links l)
+                       :join (as nodes n) :on (and (= n:level 0) (= n:id l:dest))
+                       :where (and (= l:type "id") (in l:source $v1))]
               (vconcat id_list))))
            (tag_to_nodes (org-roam-organize--alist-to-hash-table result_tag_all_id))
            (source_to_linked (org-roam-organize--alist-to-hash-table result_id_linked_id)))
@@ -432,12 +432,12 @@
       (when dest_ids
         (dolist (id dest_ids)
           (let* ((node (org-roam-node-from-id id))
-		 (source-node (org-roam-node-from-id source_id)))
+                 (source-node (org-roam-node-from-id source_id)))
             (when (and node source-node)
               (let* ((content 
                       (format "** [[id:%s][%s]]\n"
-			      (org-roam-node-id node)
-			      (org-roam-node-title node))))
+                              (org-roam-node-id node)
+                              (org-roam-node-title node))))
                 (with-current-buffer (find-file-noselect (org-roam-node-file source-node))
                   (goto-char (point-max))
                   (insert content)
@@ -453,15 +453,15 @@
   (interactive)
   (let ((check_result (org-roam-organize--check-variables org-roam-organize/directory org-roam-organize//variable-type-alist)))
     (message "%s" (if (consp check_result)
-		      (cdr check_result)
-		    check_result))))
+                      (cdr check_result)
+                    check_result))))
 
 ;; 创建目录
 (defun org-roam-organize-create-directory ()
   (interactive)
   (let ((dir_list (list org-roam-organize/directory 
                         org-roam-organize/moc-directory
-		        org-roam-organize/fleeting-directory
+                        org-roam-organize/fleeting-directory
                         org-roam-organize/permanent-directory)))
     (dolist (dir dir_list)
       (unless (file-exists-p dir)
@@ -496,18 +496,18 @@
   (interactive)
   (if org-roam-organize-mode ; org-roam-organize/top-moc-file
       (let* ((debug-on-error t)
-	     (tag_title_alist org-roam-organize/tag-title-alist)
-	     (template org-roam-organize/capture-template)
-	     (key (car template)))
-      (dolist (entry tag_title_alist)
-	(let* ((tag (car entry))
-	       (title (cdr entry)))
-	  (org-roam-capture- :node (org-roam-node-create :title title)
-			     :keys key
-			     :info `(:moc_managed_tag ,tag)
-			     :props '(:immediate-finish t)
-			     :templates (list template))))
-      (message "[INFO] Create MOCs"))
+             (tag_title_alist org-roam-organize/tag-title-alist)
+             (template org-roam-organize/capture-template)
+             (key (car template)))
+        (dolist (entry tag_title_alist)
+          (let* ((tag (car entry))
+                 (title (cdr entry)))
+            (org-roam-capture- :node (org-roam-node-create :title title)
+                               :keys key
+                               :info `(:moc_managed_tag ,tag)
+                               :props '(:immediate-finish t)
+                               :templates (list template))))
+        (message "[INFO] Create MOCs"))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 更改moc中形如[[id][title]]的headline及其对应node文件的位置
@@ -522,13 +522,13 @@
              (node (plist-get info :node))
              (old_file (org-roam-node-file node))
              (tags     (org-roam-node-tags node))
-	     (moc_filetag org-roam-organize/moc-tag)
-	     (moc_prop org-roam-organize/moc-managed-tag-property)
-	     (moc_count_prop org-roam-organize/moc-managed-node-count-property)
-	     (source_tag org-roam-organize/move-source-tag)
+             (moc_filetag org-roam-organize/moc-tag)
+             (moc_prop org-roam-organize/moc-managed-tag-property)
+             (moc_count_prop org-roam-organize/moc-managed-node-count-property)
+             (source_tag org-roam-organize/move-source-tag)
              (target_tag org-roam-organize/move-target-tag)
-	     (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
-	     (target_moc_file (car (cdr (assoc target_tag tag_id))))
+             (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
+             (target_moc_file (car (cdr (assoc target_tag tag_id))))
              (new-tags 
               (mapcar 
                (lambda (tag) (if (string= tag source_tag) target_tag tag))
@@ -536,25 +536,25 @@
              (target_dir_bool_id_or_not org-roam-organize/move-target-directory-id-or-not)
              (dir 
               (if target_dir_bool_id_or_not
-		  (expand-file-name id org-roam-organize/move-target-directory)
-		(expand-file-name org-roam-organize/move-target-directory)))
+                  (expand-file-name id org-roam-organize/move-target-directory)
+                (expand-file-name org-roam-organize/move-target-directory)))
              (filename_bool_id_or_not org-roam-organize/move-target-filename-id-or-not)
              (new_file 
               (if filename_bool_id_or_not
-		  (expand-file-name (concat id ".org") dir)
-		(expand-file-name (file-name-nondirectory old_file) dir)))
+                  (expand-file-name (concat id ".org") dir)
+                (expand-file-name (file-name-nondirectory old_file) dir)))
              (target_buf (find-file-noselect target_moc_file))
              ;; (permanent-target (with-current-buffer target_buf (point-max-marker)))
-	     )
-	(unless (file-exists-p dir)
+             )
+        (unless (file-exists-p dir)
           (make-directory dir t))
-	(org-roam-organize--update-filetag old_file source_tag target_tag)
-	;; 移动文件
-	(unless (string= 
-		 (expand-file-name old_file)
-		 (expand-file-name new_file))
+        (org-roam-organize--update-filetag old_file source_tag target_tag)
+        ;; 移动文件
+        (unless (string= 
+                 (expand-file-name old_file)
+                 (expand-file-name new_file))
           (rename-file old_file new_file t))
-	(save-excursion
+        (save-excursion
           (goto-char source_pos)
           (unless (org-at-heading-p)
             (org-back-to-heading t)) ; 确保在 headline 开头
@@ -563,16 +563,16 @@
             (with-current-buffer (find-file-noselect target_moc_file)
               (goto-char (point-max))
               (insert subtree-str))))
-	(save-buffer) 
-	(with-current-buffer source_buf 
+        (save-buffer) 
+        (with-current-buffer source_buf 
           (save-buffer))
-	(with-current-buffer target_buf 
+        (with-current-buffer target_buf 
           (save-buffer))
-	(with-current-buffer (find-file-noselect new_file) 
+        (with-current-buffer (find-file-noselect new_file) 
           (save-buffer))
-	(message "Moved node with id:%s, updated moc headline and files tag, moved file, and saved files." id)
-	;; (run-with-idle-timer 0.5 nil #'org-roam-db-sync)
-	)
+        (message "Moved node with id:%s, updated moc headline and files tag, moved file, and saved files." id)
+        ;; (run-with-idle-timer 0.5 nil #'org-roam-db-sync)
+        )
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 删除moc中含[id]headline及对应的node
@@ -587,18 +587,18 @@
              (file (org-roam-node-file node))
              (target_tag org-roam-organize/move-target-tag)
              (target_dir_bool_id_or_not org-roam-organize/move-target-directory-id-or-not))
-	(delete-file file)
-	(when 
+        (delete-file file)
+        (when 
             (and
              (member target_tag tags)
              target_dir_bool_id_or_not
              (file-directory-p dir))
           (delete-directory dir t))
-	(save-excursion
+        (save-excursion
           (org-back-to-heading t)
           (org-cut-subtree))
-	(message "Deleted node with id:%s" id)
-	(save-buffer))
+        (message "Deleted node with id:%s" id)
+        (save-buffer))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 更新moc
@@ -607,34 +607,34 @@
   (interactive)
   (if org-roam-organize-mode
       (let* ((moc_filetag org-roam-organize/moc-tag)
-	     (moc_prop org-roam-organize/moc-managed-tag-property)
-	     (moc_count_prop org-roam-organize/moc-managed-node-count-property)
-	     (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
+             (moc_prop org-roam-organize/moc-managed-tag-property)
+             (moc_count_prop org-roam-organize/moc-managed-node-count-property)
+             (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
              (sth_unexpected nil))
-	;; 开始提示
-	(message "[INFO] Begin Check and Update. ")
-	(org-roam-db)
-	(cond
+        ;; 开始提示
+        (message "[INFO] Begin Check and Update. ")
+        (org-roam-db)
+        (cond
          ((not tag_id)
           (progn
             (setq sth_unexpected t)
             (message "[WARNING] No tag-id map found. ")))
          (t
           (let* ((inhibit-message t)
-		 (tag_list (mapcar (lambda (e) (format "%s" (car e))) tag_id))
-		 (tag_count_hash (org-roam-organize--count-nodes-with-given-tag-list tag_list))
-		 (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline tag_id "tags" "tag")))
+                 (tag_list (mapcar (lambda (e) (format "%s" (car e))) tag_id))
+                 (tag_count_hash (org-roam-organize--count-nodes-with-given-tag-list tag_list))
+                 (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline tag_id "tags" "tag")))
             (dolist (entry tag_id)
               (let* ((tag (car entry))
                      (id (cdr entry))
                      (count (gethash tag tag_count_hash))
                      (marker (org-id-find id 'marker)))
                 (if (and marker
-			 count)
+                         count)
                     (progn
                       (with-current-buffer (marker-buffer marker)
-			(goto-char marker)
-			(let ((field (format "%s" (upcase moc_count_prop))))
+                        (goto-char marker)
+                        (let ((field (format "%s" (upcase moc_count_prop))))
                           (org-entry-put (point) field (number-to-string count))
                           (save-buffer))))
                   (progn
@@ -642,7 +642,7 @@
                     (message "[WARNING] SQL query failed or ID input is invalid. ")))))
             (dolist (pair source_dest_alist)
               (org-roam-organize--insert-id-type-link-headline pair)))))
-	(if sth_unexpected
+        (if sth_unexpected
             (message "[WARNING] End, but something UNEXPECTED happened, please check *Message*. ")
           (message "[INFO] Update Successful. ")))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
@@ -652,15 +652,15 @@
   (interactive)
   (if org-roam-organize-mode
       (progn
-	(message "[INFO] Begin Check and Insert. ")
-	(org-roam-db)
-	(let* ((ref_id (mapcar
-			(lambda (x) (cons (nth 0 x) (nth 1 x)))
-			(org-roam-db-query
-			 [:select [r:ref r:node_id]
-				  :from (as refs r)
-				  :join (as nodes n) :on (and (= level 0) (= n:id r:node_id))
-				  :where (= r:type "cite")])))
+        (message "[INFO] Begin Check and Insert. ")
+        (org-roam-db)
+        (let* ((ref_id (mapcar
+                        (lambda (x) (cons (nth 0 x) (nth 1 x)))
+                        (org-roam-db-query
+                         [:select [r:ref r:node_id]
+                                  :from (as refs r)
+                                  :join (as nodes n) :on (and (= level 0) (= n:id r:node_id))
+                                  :where (= r:type "cite")])))
                (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline ref_id "citations" "cite_key")))
           (message "[INFO] Check Complete. Insert backlinks Start up. ")
           (dolist 
@@ -691,38 +691,38 @@
 
 ;; hook
 (add-hook 'org-roam-organize-mode-hook
-	  (lambda () 
-	    (let* ((root_dir 
-		    (when (boundp 'org-roam-organize/directory) 
-		      org-roam-organize/directory))
-		   (check_result
-		    (when (boundp 'org-roam-organize//variable-type-alist)
-		      (org-roam-organize--check-variables root_dir org-roam-organize//variable-type-alist))))
-	      (cond
+          (lambda () 
+            (let* ((root_dir 
+                    (when (boundp 'org-roam-organize/directory) 
+                      org-roam-organize/directory))
+                   (check_result
+                    (when (boundp 'org-roam-organize//variable-type-alist)
+                      (org-roam-organize--check-variables root_dir org-roam-organize//variable-type-alist))))
+              (cond
                ((not (car check_result))
-		(setq org-roam-organize-mode nil)
-		(message "%s" (concat
-			       "[WARNING] There be variablies not defined properly. "
-			       "Org Roam Organize Mode setup failed.\n"
-			       (format "%s\n" (car check_result))
-			       (cdr check_result))))
+                (setq org-roam-organize-mode nil)
+                (message "%s" (concat
+                               "[WARNING] There be variablies not defined properly. "
+                               "Org Roam Organize Mode setup failed.\n"
+                               (format "%s\n" (car check_result))
+                               (cdr check_result))))
                ((not (or
-		      org-roam-organize/directory-p
-		      (file-in-directory-p
-		       (expand-file-name default-directory)
-		       (expand-file-name root_dir))))
-		(setq org-roam-organize-mode nil)
-		(message "%s" (concat (format 
-				       "[WARNING] Not startup Emacs under %s. " 
-				       root_dir)
-				      "Org Roam Organize Mode setup failed. ")))
+                      org-roam-organize/directory-p
+                      (file-in-directory-p
+                       (expand-file-name default-directory)
+                       (expand-file-name root_dir))))
+                (setq org-roam-organize-mode nil)
+                (message "%s" (concat (format 
+                                       "[WARNING] Not startup Emacs under %s. " 
+                                       root_dir)
+                                      "Org Roam Organize Mode setup failed. ")))
                (t
-		(unless (featurep 'org) (require 'org))
-		(unless (featurep 'org-element) (require 'org-element))
-		(unless (featurep 'org-roam) (require 'org-roam))
-		(unless (featurep 'cl-lib) (require 'cl-lib))
-		(let ((tmpl org-roam-organize/capture-template))
-		  (unless (assoc (car tmpl) org-roam-capture-templates) ; 仅当快捷键不存在时添加
+                (unless (featurep 'org) (require 'org))
+                (unless (featurep 'org-element) (require 'org-element))
+                (unless (featurep 'org-roam) (require 'org-roam))
+                (unless (featurep 'cl-lib) (require 'cl-lib))
+                (let ((tmpl org-roam-organize/capture-template))
+                  (unless (assoc (car tmpl) org-roam-capture-templates) ; 仅当快捷键不存在时添加
                     (setq org-roam-capture-templates
                           (append org-roam-capture-templates (list tmpl))))))))))
 
