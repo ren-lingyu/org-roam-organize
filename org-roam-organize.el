@@ -1,119 +1,41 @@
-;;; org-roam-organize.el --- Organize roam-node references -*- lexical-binding: t; coding: utf-8 -*-
+;;; org-roam-organize.el --- Organize Org-roam node references -*- lexical-binding: t; -*-
 
-;;; commentary:
+;; Copyright (C) 2026 aRenCoco
 
-;; This package provides a comprehensive solution for organizing and managing
-;; Org-roam nodes and their references. It implements a minor mode that offers
-;; powerful tools for organizing your knowledge base with features for node
-;; management, tag handling, backlink completion, and content organization.
-;;
-;; == OVERVIEW ==
-;;
-;; Org-roam-organize is designed to help users structure their Org-roam
-;; knowledge base by providing tools to move, delete, update, and organize
-;; nodes and their references. It's particularly useful for users who want to
-;; maintain a hierarchical organization of their notes with Map of Contents (MOC)
-;; files.
-;;
-;; == MAIN FEATURES ==
-;;
-;; 1. Node Management:
-;;    - Move headlines and their corresponding node files between directories
-;;    - Delete headlines and their associated files completely
-;;    - Update node tags automatically during operations
-;;
-;; 2. Tag Processing:
-;;    - Automatic tag replacement (e.g., :idea: to :note:)
-;;    - Tag-based node counting and statistics
-;;    - File tag updates across the knowledge base
-;;
-;; 3. Backlink Management:
-;;    - Automatic insertion of missing backlinks for literature nodes
-;;    - Citation-based reference completion
-;;    - Link consistency maintenance
-;;
-;; 4. Statistical Functions:
-;;    - Count nodes with specific tags
-;;    - Update node statistics in MOC files
-;;    - Maintain dynamic counters in properties
-;;
-;; 5. MOC Management:
-;;    - Create MOC nodes based on templates
-;;    - Dynamic MOC discovery via tags and properties
-;;
-;; 6. File Organization:
-;;    - Move node files to structured directory layouts
-;;    - Maintain directory organization based on node types
-;;    - ID-based directory creation and management
-;;
-;; == CONFIGURATION VARIABLES ==
-;;
-;; Before using this package, you need to configure the following variables:
-;;
-;; - `org-roam-organize/directory': Root directory for org-roam-organize
-;; - `org-roam-organize/directory-p': Allow running outside root directory
-;; - `org-roam-organize/fleeting-directory': Directory for temporary nodes
-;; - `org-roam-organize/permanent-directory': Directory for permanent nodes
-;; - `org-roam-organize/moc-directory': Directory for MOC (Map of Contents) files
-;; - `org-roam-organize/moc-tag': Tag used to identify MOC files
-;; - `org-roam-organize/moc-managed-tag-property': Property to store managed tag
-;; - `org-roam-organize/moc-managed-node-count-property': Property to store node count
-;; - `org-roam-organize/top-moc-file': Path to the top-level MOC file
-;; - `org-roam-organize/tag-title-alist': Association list mapping tags to MOC TITLEs
-;; - `org-roam-organize/move-target-directory': Target directory for node movement
-;; - `org-roam-organize/move-source-tag': Source tag for automatic replacement
-;; - `org-roam-organize/move-target-tag': Target tag for automatic replacement
-;; - `org-roam-organize/move-target-directory-id-or-not': Whether to create ID-based directories
-;; - `org-roam-organize/move-target-filename-id-or-not': Whether to use ID as filename
-;; - `org-roam-organize/capture-template': Org roam capture template for capture MOCs
-;;
-;; == KEYBINDINGS ==
-;;
-;; The package provides the following keybindings when `org-roam-organize-mode' is active:
-;;
-;; - `C-c o h c': Move current headline and its corresponding node file
-;; - `C-c o h d': Delete current headline and its corresponding node file
-;; - `C-c o m m': Jump to the top-level MOC
-;; - `C-c o m u': Update all MOC node statistics
-;; - `C-c o r c': Complete missing backlinks for literature nodes
-;;
-;; Suggested global keybindings:
-;;
-;; - `C-c o o': Toggle `org-roam-organize-mode'
-;; - `C-c o c': Check configuration variables
-;;
-;; == USAGE ==
-;;
-;; 1. Configure the required variables in your Emacs configuration
-;; 2. Enable `org-roam-organize-mode' with `M-x org-roam-organize-mode' or `C-c o o'
-;; 3. Use the keybindings to organize your Org-roam knowledge base
-;; 4. Run `org-roam-organize-check-variables' to verify your configuration
-;;
-;; == IMPLEMENTATION DETAILS ==
-;;
-;; The package uses Org-roam's database queries to efficiently manage node
-;; relationships and maintain consistency across the knowledge base. It includes
-;; robust error handling and validation to ensure operations are performed
-;; safely and consistently.
-;;
-;; The mode includes a startup hook that validates configuration variables
-;; and ensures the Emacs session is started in the appropriate directory
-;; before enabling the functionality.
-;;
-;; == REQUIREMENTS ==
-;;
-;; - Org-mode
-;; - Org-roam
-;; - Emacs 26.1 or later
-;;
-;; == NOTES ==
-;;
-;; This package is designed for advanced Org-roam users who need sophisticated
-;; organization tools for their knowledge base. The operations performed by
-;; this package can modify files and directory structures, so it's recommended
-;; to maintain backups of your Org-roam directory.
+;; Author: aRenCoco
+;; Maintainer: aRenCoco
+;; Version: 0.1.0
+;; Package-Requires: ((emacs "26.1"))
+;; Keywords: outlines, hypermedia
+;; URL: https://github.com/ren-lingyu/org-roam-organize
+;; SPDX-License-Identifier: GPL-3.0-or-later
 
-;;; code:
+;; This file is not part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; Org-roam-organize provides tools for organizing Org-roam nodes and their
+;; references.  It includes commands for moving and deleting node headlines,
+;; updating tags, maintaining Map of Contents files, completing backlinks, and
+;; updating node statistics.
+;;
+;; See README.org for configuration, keybindings, usage examples, and notes
+;; about file-moving operations.
+
+;;; Code:
 
 ;; ==============================
 ;; 声明外部依赖
