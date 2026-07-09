@@ -5,7 +5,7 @@
 ;; Author: aRenCoco
 ;; Maintainer: aRenCoco
 ;; Version: 0.2.0
-;; Package-Requires: ((emacs "26.1"))
+;; Package-Requires: ((emacs "26.1") (org "9.4") (org-roam "2.0.0"))
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/ren-lingyu/org-roam-organize
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -41,16 +41,16 @@
 ;; 声明外部依赖
 ;; ==============================
 
-(eval-when-compile
-  (require 'cl-lib)
-  (require 'org)
-  (require 'org-element)
-  (require 'org-roam))
+(require 'cl-lib)
+(require 'org)
+(require 'org-element)
+(require 'org-roam)
 
 ;; ==============================
 ;; 用户变量定义
 ;; ==============================
 
+;;;###autoload
 (defgroup org-roam-organize
   nil
   "org-roam-organize variables"
@@ -529,6 +529,7 @@
 ;; ==============================
 
 ;; 变量检查
+;;;###autoload
 (defun org-roam-organize-check-variables ()
   (interactive)
   (let ((check_result (org-roam-organize--check-variables org-roam-organize-directory org-roam-organize--variable-type-alist)))
@@ -537,6 +538,7 @@
                     check_result))))
 
 ;; 创建目录
+;;;###autoload
 (defun org-roam-organize-create-directory ()
   (interactive)
   (let ((dir_list (list org-roam-organize-directory
@@ -552,6 +554,7 @@
 ;; ==============================
 
 ;; 打开顶层moc
+;;;###autoload
 (defun org-roam-organize-goto-map-of-maps ()
   "Open the top-level Map of Contents file using its file path."
   (interactive)
@@ -572,6 +575,7 @@
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 创建 MOC 对应的 org-roam node
+;;;###autoload
 (defun org-roam-organize-create-mocs ()
   (interactive)
   (if org-roam-organize-mode ; org-roam-organize-top-moc-file
@@ -591,6 +595,7 @@
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 更改moc中形如[[id][title]]的headline及其对应node文件的位置
+;;;###autoload
 (defun org-roam-organize-headline-move (source_pos)
   "Move headline at source_pos to `org-roam-organize-move-target-moc-file`. Update roam-node tags (:idea: -> :note:), move its file to `org-roam-organize-move-target-directory/${id}/`, and save involved files."
   (interactive (list (point)))
@@ -656,6 +661,7 @@
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 删除moc中含[id]headline及对应的node
+;;;###autoload
 (defun org-roam-organize-headline-delete (&optional pos)
   (interactive (list (point)))
   (if org-roam-organize-mode
@@ -682,6 +688,7 @@
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 更新moc
+;;;###autoload
 (defun org-roam-organize-update-mocs ()
   "Update Org-roam nodes with tag count information. For each tag in `tag-id-alist`, count how many nodes have that tag, and write the count into the corresponding node's property field."
   (interactive)
@@ -728,6 +735,7 @@
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 文献节点反链补全
+;;;###autoload
 (defun org-roam-organize-ref-backlink-complete ()
   (interactive)
   (if org-roam-organize-mode
@@ -754,17 +762,10 @@
 ;; ==============================
 
 ;; defination
+;;;###autoload
 (define-minor-mode org-roam-organize-mode
   "org-roam-organize mode"
   :lighter " Organize"
-  :keymap 
-  (let ((oro_keymap (make-sparse-keymap)))
-    (define-key oro_keymap (kbd "C-c o h c") #'org-roam-organize-headline-move)
-    (define-key oro_keymap (kbd "C-c o h d") #'org-roam-organize-headline-delete)
-    (define-key oro_keymap (kbd "C-c o m m") #'org-roam-organize-goto-map-of-maps)
-    (define-key oro_keymap (kbd "C-c o m u") #'org-roam-organize-update-mocs)
-    (define-key oro_keymap (kbd "C-c o r c") #'org-roam-organize-ref-backlink-complete)
-    oro_keymap)
   ;; :group nil
   :global t
   :init-value nil)
