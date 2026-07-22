@@ -72,6 +72,8 @@ The following fixed directory and file-moving variables are deprecated and kept 
 - =org-roam-organize-move-target-directory-id-or-not=: Deprecated option for ID-based directories
 - =org-roam-organize-move-target-filename-id-or-not=: Deprecated option for using ID as filename
 
+The deprecated file-organization commands and variables are retained for compatibility in v0.3.0 and are planned for removal in v0.4.0.
+
 * Keybindings
 This package does not install default keybindings. The commands are intended to be bound in user configuration.
 

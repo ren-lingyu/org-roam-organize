@@ -28,12 +28,12 @@
 ;;; Commentary:
 
 ;; Org-roam-organize provides tools for organizing Org-roam nodes and their
-;; references.  It includes commands for moving and deleting node headlines,
-;; updating tags, maintaining Map of Contents files, completing backlinks, and
-;; updating node statistics.
+;; references.  It includes commands for maintaining Map of Contents files,
+;; completing backlinks, and updating node statistics.  The older commands for
+;; moving and deleting node headlines are deprecated.
 ;;
 ;; See README.org for configuration, keybindings, usage examples, and notes
-;; about file-moving operations.
+;; about deprecated file-organization operations.
 
 ;;; Code:
 
