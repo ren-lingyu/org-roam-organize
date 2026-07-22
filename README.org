@@ -82,7 +82,7 @@ This package does not install default keybindings. The commands are intended to 
 The following =C-c o= keybindings are optional user configuration examples:
 
 - =C-c o o=: Toggle =org-roam-organize-mode=
-- =C-c o c=: Check configuration variables
+- =C-c o c=: Check setup variables and runtime capabilities
 - =C-c o h d=: Delete current headline and its corresponding node file
 - =C-c o m m=: Jump to the top-level MOC
 - =C-c o m u=: Update all MOC node statistics
@@ -96,7 +96,7 @@ Deprecated command:
 The following aliases are optional user configuration examples:
 
 #+BEGIN_SRC emacs-lisp
-  (defalias 'oro-check #'org-roam-organize-check-variables)
+  (defalias 'oro-check #'org-roam-organize-check-setup)
   (defalias 'oro-mkdirs #'org-roam-organize-create-directory)
   (defalias 'oro-map #'org-roam-organize-goto-map-of-maps)
   (defalias 'oro-delete #'org-roam-organize-headline-delete)
@@ -108,7 +108,7 @@ The following aliases are optional user configuration examples:
 1. Configure the required variables in your Emacs configuration
 2. Enable =org-roam-organize-mode= with =M-x org-roam-organize-mode= or your configured toggle key
 3. Use the keybindings to organize your Org-roam knowledge base
-4. Run =org-roam-organize-check-variables= to verify your configuration
+4. Run =org-roam-organize-check-setup= to verify your configuration and runtime capabilities
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -147,7 +147,7 @@ An example of configuration is shown here.
     (org-roam-organize-create-directory)
     :bind
     (("C-c o o" . org-roam-organize-mode)
-     ("C-c o c" . org-roam-organize-check-variables)
+     ("C-c o c" . org-roam-organize-check-setup)
      ("C-c o h d" . org-roam-organize-headline-delete)
      ("C-c o m m" . org-roam-organize-goto-map-of-maps)
      ("C-c o m u" . org-roam-organize-update-mocs)
@@ -157,7 +157,7 @@ An example of configuration is shown here.
 #+END_SRC
 
 * Implementation Details
-The package uses Org-roam's database queries to manage node relationships and maintain consistency across the knowledge base. It includes configuration validation and warning messages for common setup problems.
+The package uses Org-roam's database queries to manage node relationships and maintain consistency across the knowledge base. It includes configuration validation, runtime capability validation, and warning messages for common setup problems.
 
 The mode includes a startup hook that validates configuration variables and ensures the Emacs session is started in the appropriate directory.
 

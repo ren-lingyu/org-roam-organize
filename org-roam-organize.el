@@ -328,15 +328,48 @@
     (org-roam-organize-moc-tag . string)
     (org-roam-organize-capture-template . list)))
 
+(defconst org-roam-organize--capability-alist
+  '((org-roam-directory . variable)
+    (org-roam-capture-templates . variable)
+    (org-roam-db . function)
+    (org-roam-db-query . function)
+    (org-roam-node-create . function)
+    (org-roam-node-from-id . function)
+    (org-roam-node-file . function)
+    (org-roam-node-id . function)
+    (org-roam-node-tags . function)
+    (org-roam-node-title . function)
+    (org-roam-capture- . function)
+    (org-id-find . function)
+    (org-element-at-point . function)
+    (org-element-type . function)
+    (org-element-property . function)
+    (org-at-heading-p . function)
+    (org-back-to-heading . function)
+    (org-copy-subtree . function)
+    (org-cut-subtree . function)
+    (org-entry-put . function)
+    (seq-filter . function))
+  "Runtime capabilities required by Org-roam Organize.
+
+The list maps symbols to capability types checked by
+`org-roam-organize--check-capabilities'.")
+
 ;; ==============================
 ;; 内部函数
 ;; ==============================
 
 ;; 变量检查(不依赖 minor-mode 开启)
 (defun org-roam-organize--check-variables (root_dir alist)
+  "Check Org-roam Organize variables in ALIST under ROOT_DIR.
+
+ALIST should map variable symbols to expected type symbols.  Directory
+variables must be existing directories inside ROOT_DIR.  Return a cons cell
+whose car is the boolean result and whose cdr is a human-readable report."
   (if (listp alist)
       (let* ((result_bool t)
-             (result_message (concat "All org-roam-organize-* variables are as follow.\n" ))
+             (result_message
+              (concat "All org-roam-organize variables are as follow.\n"))
              (add_to_result_message_
               (lambda (var_name var_value var_expected_type)
                 (setq result_message
@@ -368,8 +401,9 @@
                                       (when (stringp var_value)
                                         (funcall 'file-exists-p var_value)))))
                         ((eq var_expected_type 'string)
-                         (format "  %s? %s (should be t)\n" var_expected_type
-                                 (funcall 'stringp var_value)))
+                         (format "  %s? %s (should be t)\n"
+                                 var_expected_type
+                                 (stringp var_value)))
                         ((eq var_expected_type 'list)
                          (format "  %s? %s (should be t)\n" var_expected_type
                                  (funcall 'listp var_value)))
@@ -393,7 +427,7 @@
                 (setq result_bool nil)))
              ((eq var_expected_type 'string)
               (funcall add_to_result_message_short_)
-              (unless (and (stringp var_value))
+              (unless (stringp var_value)
                 (setq result_bool nil)))
              ((eq var_expected_type 'directory)
               (funcall add_to_result_message_short_)
@@ -420,6 +454,64 @@
               (setq result_bool nil)))))
         (cons result_bool result_message))
     (cons nil "Inner Constant org-roam-organize--variable-type-alist is NOT defined properly. ")))
+
+(defun org-roam-organize--check-capabilities (alist)
+  "Check Org-roam Organize runtime capabilities in ALIST.
+
+ALIST should map capability symbols to expected capability type symbols.
+Return a cons cell whose car is the boolean result and whose cdr is a
+human-readable report.  This check is capability-based rather than
+version-based so package startup depends on interfaces actually available in
+the running Emacs."
+  (if (listp alist)
+      (let ((result_bool t)
+            (result_message
+             "All org-roam-organize runtime capabilities are as follow.\n"))
+        (dolist (pair alist)
+          (let* ((capability_name (car pair))
+                 (capability_expected_type (cdr pair))
+                 (capability_exists_p
+                  (cond
+                   ((eq capability_expected_type 'function)
+                    (fboundp capability_name))
+                   ((eq capability_expected_type 'variable)
+                    (boundp capability_name))
+                   (t
+                    nil))))
+            (setq result_message
+                  (concat
+                   result_message
+                   (format "- %s? %s \n" capability_name capability_exists_p)
+                   (format "  %s? %s (should be t)\n"
+                           capability_expected_type
+                           capability_exists_p)))
+            (unless capability_exists_p
+              (setq result_bool nil))))
+        (cons result_bool result_message))
+    (cons nil "Inner Constant org-roam-organize--capability-alist is NOT defined properly. ")))
+
+(defun org-roam-organize--check-setup ()
+  "Check whether Org-roam Organize can be enabled.
+
+Return a cons cell whose car is the boolean result and whose cdr is a
+human-readable report."
+  (let ((variable_check_result
+         (org-roam-organize--check-variables
+          org-roam-organize-directory
+          org-roam-organize--variable-type-alist))
+        (capability_check_result
+         (org-roam-organize--check-capabilities
+          org-roam-organize--capability-alist)))
+    (cons
+     (and (car variable_check_result)
+          (car capability_check_result))
+     (concat
+      (format "Variable validation result: %s\n"
+              (if (car variable_check_result) "passed" "failed"))
+      (cdr variable_check_result)
+      (format "Runtime capability validation result: %s\n"
+              (if (car capability_check_result) "passed" "failed"))
+      (cdr capability_check_result)))))
 
 ;; 根据给定 moc filetag 和给定属性名查询 org-roam 数据库获得 moc_managed_tag 和 moc id 的对应关系
 (defun org-roam-organize--get-tag-id-alist (moc_filetag moc_prop)
@@ -599,11 +691,30 @@
 ;; 变量检查
 ;;;###autoload
 (defun org-roam-organize-check-variables ()
+  "Check Org-roam Organize configuration variables."
   (interactive)
   (let ((check_result (org-roam-organize--check-variables org-roam-organize-directory org-roam-organize--variable-type-alist)))
     (message "%s" (if (consp check_result)
                       (cdr check_result)
                     check_result))))
+
+;;;###autoload
+(defun org-roam-organize-check-setup ()
+  "Check whether Org-roam Organize can be enabled.
+
+This command reports both variable validation and runtime capability
+validation."
+  (interactive)
+  (let ((check_result (org-roam-organize--check-setup)))
+    (message "%s"
+             (if (and (consp check_result)
+                      (car check_result))
+                 (concat
+                  "Org-roam Organize setup checks passed.\n"
+                  (cdr check_result))
+               (if (consp check_result)
+                   (cdr check_result)
+                 check_result)))))
 
 ;; 创建目录
 ;;;###autoload
@@ -851,13 +962,14 @@ Update node file tags from `org-roam-organize-move-source-tag` to
                     (when (boundp 'org-roam-organize-directory)
                       org-roam-organize-directory))
                    (check_result
-                    (when (boundp 'org-roam-organize--variable-type-alist)
-                      (org-roam-organize--check-variables root_dir org-roam-organize--variable-type-alist))))
+                    (when (and (boundp 'org-roam-organize--variable-type-alist)
+                               (boundp 'org-roam-organize--capability-alist))
+                      (org-roam-organize--check-setup))))
               (cond
                ((not (car check_result))
                 (setq org-roam-organize-mode nil)
                 (message "%s" (concat
-                               "[WARNING] There be variablies not defined properly. "
+                               "[WARNING] Org Roam Organize setup checks failed. "
                                "Org Roam Organize Mode setup failed.\n"
                                (format "%s\n" (car check_result))
                                (cdr check_result))))
