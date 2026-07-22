@@ -872,6 +872,11 @@ Update node file tags from `org-roam-organize-move-source-tag` to
         (save-buffer))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
+(make-obsolete
+ 'org-roam-organize-headline-delete
+ nil
+ "0.3.0")
+
 ;; 更新moc
 ;;;###autoload
 (defun org-roam-organize-update-mocs ()

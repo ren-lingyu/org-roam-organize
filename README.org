@@ -18,13 +18,10 @@ The package includes the following main features:
 
 ** 1. Node Management
 - Move headlines and their corresponding node files between directories (deprecated)
-- Delete headlines and their associated files completely
-- Update node tags automatically during operations
+- Delete headlines and their associated files completely (deprecated)
 
 ** 2. Tag Processing
-- Automatic tag replacement (eg., =:idea:= to =:zettel:=)
 - Tag-based node counting and statistics
-- File tag updates across the knowledge base
 
 ** 3. Backlink Management
 - Automatic insertion of missing backlinks for literature nodes
@@ -83,14 +80,14 @@ The following =C-c o= keybindings are optional user configuration examples:
 
 - =C-c o o=: Toggle =org-roam-organize-mode=
 - =C-c o c=: Check setup variables and runtime capabilities
-- =C-c o h d=: Delete current headline and its corresponding node file
 - =C-c o m m=: Jump to the top-level MOC
 - =C-c o m u=: Update all MOC node statistics
 - =C-c o r c=: Complete missing backlinks for literature nodes
 
-Deprecated command:
+Deprecated commands:
 
 - =org-roam-organize-headline-move=: Deprecated command for moving the current headline and its corresponding node file
+- =org-roam-organize-headline-delete=: Deprecated command for deleting the current headline and its corresponding node file
 
 ** Suggested Command Aliases
 The following aliases are optional user configuration examples:
@@ -99,7 +96,6 @@ The following aliases are optional user configuration examples:
   (defalias 'oro-check #'org-roam-organize-check-setup)
   (defalias 'oro-mkdirs #'org-roam-organize-create-directory)
   (defalias 'oro-map #'org-roam-organize-goto-map-of-maps)
-  (defalias 'oro-delete #'org-roam-organize-headline-delete)
   (defalias 'oro-update #'org-roam-organize-update-mocs)
   (defalias 'oro-backlinks #'org-roam-organize-ref-backlink-complete)
 #+END_SRC
@@ -148,7 +144,6 @@ An example of configuration is shown here.
     :bind
     (("C-c o o" . org-roam-organize-mode)
      ("C-c o c" . org-roam-organize-check-setup)
-     ("C-c o h d" . org-roam-organize-headline-delete)
      ("C-c o m m" . org-roam-organize-goto-map-of-maps)
      ("C-c o m u" . org-roam-organize-update-mocs)
      ("C-c o r c" . org-roam-organize-ref-backlink-complete))
