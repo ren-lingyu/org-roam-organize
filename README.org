@@ -147,7 +147,7 @@ An example of configuration is shown here.
     (org-roam-organize-move-target-filename-id-or-not nil)
     :config
     (org-roam-organize-create-directory)
-    :bind 
+    :bind
     (("C-c o o" . org-roam-organize-mode)
      ("C-c o c" . org-roam-organize-check-variables)
      ("C-c o h c" . org-roam-organize-headline-move)

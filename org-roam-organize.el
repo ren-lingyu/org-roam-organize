@@ -329,7 +329,7 @@
                 (setq result_bool nil)))
              ((eq var_expected_type 'directory)
               (funcall add_to_result_message_short_)
-              (unless (and 
+              (unless (and
                        (stringp var_value)
                        (file-directory-p var_value)
                        (file-in-directory-p
@@ -338,8 +338,8 @@
                 (setq result_bool nil)))
              ((eq var_expected_type 'file)
               (funcall add_to_result_message_short_)
-              (unless (and 
-                       (stringp var_value) 
+              (unless (and
+                       (stringp var_value)
                        (file-exists-p var_value))
                 (setq result_bool nil)))
              ((eq var_expected_type 'boolean)
@@ -376,8 +376,8 @@
 (defun org-roam-organize--hash-table-to-alist (hash_table)
   (when org-roam-organize-mode
     (let (result)
-      (maphash 
-       (lambda 
+      (maphash
+       (lambda
          (key value)
          (push (cons key value) result))
        hash_table)
@@ -388,7 +388,7 @@
   (when org-roam-organize-mode
     (let ((ht (make-hash-table :test 'equal)))
       (dolist (row alist)
-        (puthash 
+        (puthash
          (car row)
          (append (gethash (car row) ht) (list (cdr row)))
          ht))
@@ -422,13 +422,13 @@
       (unless (eq (org-element-type el) 'headline)
         (user-error "Not on a headline"))
       ;; 提取 id
-      (setq id 
+      (setq id
             (if (string-match "\\[\\[id:\\([^]]+\\)\\]\\[" title)
                 (match-string 1 title)
               (user-error "No [[id:...]] link found in this headline")))
       ;; 获取 org-roam node
-      (setq node 
-            (or 
+      (setq node
+            (or
              (org-roam-node-from-id id)
              (user-error "No org-roam node with id %s" id)))
       ;; 返回 plist
@@ -467,9 +467,9 @@
            (id_list
             (mapcar (lambda (e) (format "%s" (cdr e))) tag_id))
            (result_tag_all_id
-            (mapcar 
+            (mapcar
              (lambda (x) (cons (nth 0 x) (nth 1 x)))
-             (org-roam-db-query 
+             (org-roam-db-query
               (vector
                :select (vector (intern (concat "t:" col)) (intern "t:node_id"))
                :from (list 'as (intern (concat table)) 't)
@@ -477,7 +477,7 @@
                :where (list 'in (intern (concat "t:" col)) '$v1))
               (vconcat tag_list))))
            (result_id_linked_id
-            (mapcar 
+            (mapcar
              (lambda (x) (cons (nth 0 x) (nth 1 x)))
              (org-roam-db-query
               [:select [l:source l:dest]
@@ -487,19 +487,19 @@
               (vconcat id_list))))
            (tag_to_nodes (org-roam-organize--alist-to-hash-table result_tag_all_id))
            (source_to_linked (org-roam-organize--alist-to-hash-table result_id_linked_id)))
-      (cl-loop 
+      (cl-loop
        for pair in tag_id
        for tag    = (car pair)
        for source = (cdr pair)
        for all_nodes   = (gethash tag tag_to_nodes)
        for linked_nodes = (gethash source source_to_linked)
        collect
-       (cons 
+       (cons
         source
         (let ((linked-ht (make-hash-table :test 'equal)))
-          (dolist (x linked_nodes) 
+          (dolist (x linked_nodes)
             (puthash x t linked-ht))
-          (seq-filter 
+          (seq-filter
            (lambda (x) (not (gethash x linked-ht)))
            all_nodes)))))))
 
@@ -514,7 +514,7 @@
           (let* ((node (org-roam-node-from-id id))
                  (source-node (org-roam-node-from-id source_id)))
             (when (and node source-node)
-              (let* ((content 
+              (let* ((content
                       (format "** [[id:%s][%s]]\n"
                               (org-roam-node-id node)
                               (org-roam-node-title node))))
@@ -614,17 +614,17 @@
              (target_tag org-roam-organize-move-target-tag)
              (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
              (target_moc_file (car (cdr (assoc target_tag tag_id))))
-             (new-tags 
-              (mapcar 
+             (new-tags
+              (mapcar
                (lambda (tag) (if (string= tag source_tag) target_tag tag))
                tags))
              (target_dir_bool_id_or_not org-roam-organize-move-target-directory-id-or-not)
-             (dir 
+             (dir
               (if target_dir_bool_id_or_not
                   (expand-file-name id org-roam-organize-move-target-directory)
                 (expand-file-name org-roam-organize-move-target-directory)))
              (filename_bool_id_or_not org-roam-organize-move-target-filename-id-or-not)
-             (new_file 
+             (new_file
               (if filename_bool_id_or_not
                   (expand-file-name (concat id ".org") dir)
                 (expand-file-name (file-name-nondirectory old_file) dir)))
@@ -635,7 +635,7 @@
           (make-directory dir t))
         (org-roam-organize--update-filetag old_file source_tag target_tag)
         ;; 移动文件
-        (unless (string= 
+        (unless (string=
                  (expand-file-name old_file)
                  (expand-file-name new_file))
           (rename-file old_file new_file t))
@@ -648,12 +648,12 @@
             (with-current-buffer (find-file-noselect target_moc_file)
               (goto-char (point-max))
               (insert subtree-str))))
-        (save-buffer) 
-        (with-current-buffer source_buf 
+        (save-buffer)
+        (with-current-buffer source_buf
           (save-buffer))
-        (with-current-buffer target_buf 
+        (with-current-buffer target_buf
           (save-buffer))
-        (with-current-buffer (find-file-noselect new_file) 
+        (with-current-buffer (find-file-noselect new_file)
           (save-buffer))
         (message "Moved node with id:%s, updated moc headline and files tag, moved file, and saved files." id)
         ;; (run-with-idle-timer 0.5 nil #'org-roam-db-sync)
@@ -674,7 +674,7 @@
              (target_tag org-roam-organize-move-target-tag)
              (target_dir_bool_id_or_not org-roam-organize-move-target-directory-id-or-not))
         (delete-file file)
-        (when 
+        (when
             (and
              (member target_tag tags)
              target_dir_bool_id_or_not
@@ -751,7 +751,7 @@
                                   :where (= r:type "cite")])))
                (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline ref_id "citations" "cite_key")))
           (message "[INFO] Check Complete. Insert backlinks Start up. ")
-          (dolist 
+          (dolist
               (pair source_dest_alist)
             (org-roam-organize--insert-id-type-link-headline pair))
           (message "[INFO] Insert Complete. ")))
@@ -772,8 +772,8 @@
 
 ;; hook
 (add-hook 'org-roam-organize-mode-hook
-          (lambda () 
-            (let* ((root_dir 
+          (lambda ()
+            (let* ((root_dir
                     (when (boundp 'org-roam-organize-directory)
                       org-roam-organize-directory))
                    (check_result
@@ -793,8 +793,8 @@
                        (expand-file-name default-directory)
                        (expand-file-name root_dir))))
                 (setq org-roam-organize-mode nil)
-                (message "%s" (concat (format 
-                                       "[WARNING] Not startup Emacs under %s. " 
+                (message "%s" (concat (format
+                                       "[WARNING] Not startup Emacs under %s. "
                                        root_dir)
                                       "Org Roam Organize Mode setup failed. ")))
                (t
