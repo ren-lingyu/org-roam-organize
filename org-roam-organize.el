@@ -57,6 +57,86 @@
   "org-roam-organize variables"
   :group 'org-roam)
 
+(define-obsolete-variable-alias
+  'org-roam-organize/directory
+  'org-roam-organize-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/directory-p
+  'org-roam-organize-directory-p
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-directory
+  'org-roam-organize-moc-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-tag
+  'org-roam-organize-moc-tag
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-managed-tag-property
+  'org-roam-organize-moc-managed-tag-property
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/moc-managed-node-count-property
+  'org-roam-organize-moc-managed-node-count-property
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/top-moc-file
+  'org-roam-organize-top-moc-file
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/fleeting-directory
+  'org-roam-organize-fleeting-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/permanent-directory
+  'org-roam-organize-permanent-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-directory
+  'org-roam-organize-move-target-directory
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-source-tag
+  'org-roam-organize-move-source-tag
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-tag
+  'org-roam-organize-move-target-tag
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/tag-title-alist
+  'org-roam-organize-tag-title-alist
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-directory-id-or-not
+  'org-roam-organize-move-target-directory-id-or-not
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/move-target-filename-id-or-not
+  'org-roam-organize-move-target-filename-id-or-not
+  "0.2.0")
+
+(define-obsolete-variable-alias
+  'org-roam-organize/capture-template
+  'org-roam-organize-capture-template
+  "0.2.0")
+
 (defcustom org-roam-organize-directory
   org-roam-directory
   "org-roam-organize 根目录"
@@ -158,86 +238,6 @@
   "创建 MOC 文件所用捕获模板, 自行定义的模板必须包含默认值中添加的两个属性."
   :type 'list
   :group 'org-roam-organize)
-
-(define-obsolete-variable-alias
-  'org-roam-organize/directory
-  'org-roam-organize-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/directory-p
-  'org-roam-organize-directory-p
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-directory
-  'org-roam-organize-moc-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-tag
-  'org-roam-organize-moc-tag
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-managed-tag-property
-  'org-roam-organize-moc-managed-tag-property
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-managed-node-count-property
-  'org-roam-organize-moc-managed-node-count-property
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/top-moc-file
-  'org-roam-organize-top-moc-file
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/fleeting-directory
-  'org-roam-organize-fleeting-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/permanent-directory
-  'org-roam-organize-permanent-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/move-target-directory
-  'org-roam-organize-move-target-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/move-source-tag
-  'org-roam-organize-move-source-tag
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/move-target-tag
-  'org-roam-organize-move-target-tag
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/tag-title-alist
-  'org-roam-organize-tag-title-alist
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/move-target-directory-id-or-not
-  'org-roam-organize-move-target-directory-id-or-not
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/move-target-filename-id-or-not
-  'org-roam-organize-move-target-filename-id-or-not
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/capture-template
-  'org-roam-organize-capture-template
-  "0.2.0")
 
 ;; ==============================
 ;; 常量定义
@@ -598,7 +598,10 @@
 ;; 更改moc中形如[[id][title]]的headline及其对应node文件的位置
 ;;;###autoload
 (defun org-roam-organize-headline-move (source_pos)
-  "Move headline at source_pos to `org-roam-organize-move-target-moc-file`. Update roam-node tags (:idea: -> :note:), move its file to `org-roam-organize-move-target-directory/${id}/`, and save involved files."
+  "Move headline at SOURCE_POS to the MOC for `org-roam-organize-move-target-tag`.
+Update node file tags from `org-roam-organize-move-source-tag` to
+`org-roam-organize-move-target-tag`, move its file to
+`org-roam-organize-move-target-directory`, and save involved files."
   (interactive (list (point)))
   (if (and
        org-roam-organize-mode)
