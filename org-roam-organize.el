@@ -4,7 +4,7 @@
 
 ;; Author: aRenCoco
 ;; Maintainer: aRenCoco
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "30.1") (org "9.5") (org-roam "2.2.0"))
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/ren-lingyu/org-roam-organize
@@ -29,11 +29,10 @@
 
 ;; Org-roam-organize provides tools for organizing Org-roam nodes and their
 ;; references.  It includes commands for maintaining Map of Contents files,
-;; completing backlinks, and updating node statistics.  The older commands for
-;; moving and deleting node headlines are deprecated.
+;; completing backlinks, and updating node statistics.
 ;;
 ;; See README.org for configuration, keybindings, usage examples, and notes
-;; about deprecated file-organization operations.
+;; about supported MOC operations.
 
 ;;; Code:
 
@@ -56,120 +55,6 @@
   nil
   "org-roam-organize variables"
   :group 'org-roam)
-
-;; 0.2.0 renamed public variables from slash-separated names to
-;; hyphen-separated names.  Keep the old names as aliases so user
-;; configuration set before loading this package still reaches the new
-;; variables.
-(define-obsolete-variable-alias
-  'org-roam-organize/directory
-  'org-roam-organize-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/directory-p
-  'org-roam-organize-directory-p
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-directory
-  'org-roam-organize-moc-directory
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-tag
-  'org-roam-organize-moc-tag
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-managed-tag-property
-  'org-roam-organize-moc-managed-tag-property
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/moc-managed-node-count-property
-  'org-roam-organize-moc-managed-node-count-property
-  "0.2.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/top-moc-file
-  'org-roam-organize-top-moc-file
-  "0.2.0")
-
-;; 0.3.0 deprecates the fixed fleeting/permanent directory model.
-(defvaralias
-  'org-roam-organize/fleeting-directory
-  'org-roam-organize-fleeting-directory)
-
-(make-obsolete-variable
- 'org-roam-organize/fleeting-directory
- nil
- "0.3.0")
-
-(defvaralias
-  'org-roam-organize/permanent-directory
-  'org-roam-organize-permanent-directory)
-
-(make-obsolete-variable
- 'org-roam-organize/permanent-directory
- nil
- "0.3.0")
-
-;; 0.3.0 deprecates the file-moving workflow and its configuration.
-(defvaralias
-  'org-roam-organize/move-target-directory
-  'org-roam-organize-move-target-directory)
-
-(make-obsolete-variable
- 'org-roam-organize/move-target-directory
- nil
- "0.3.0")
-
-(defvaralias
-  'org-roam-organize/move-source-tag
-  'org-roam-organize-move-source-tag)
-
-(make-obsolete-variable
- 'org-roam-organize/move-source-tag
- nil
- "0.3.0")
-
-(defvaralias
-  'org-roam-organize/move-target-tag
-  'org-roam-organize-move-target-tag)
-
-(make-obsolete-variable
- 'org-roam-organize/move-target-tag
- nil
- "0.3.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/tag-title-alist
-  'org-roam-organize-tag-title-alist
-  "0.2.0")
-
-(defvaralias
-  'org-roam-organize/move-target-directory-id-or-not
-  'org-roam-organize-move-target-directory-id-or-not)
-
-(make-obsolete-variable
- 'org-roam-organize/move-target-directory-id-or-not
- nil
- "0.3.0")
-
-(defvaralias
-  'org-roam-organize/move-target-filename-id-or-not
-  'org-roam-organize-move-target-filename-id-or-not)
-
-(make-obsolete-variable
- 'org-roam-organize/move-target-filename-id-or-not
- nil
- "0.3.0")
-
-(define-obsolete-variable-alias
-  'org-roam-organize/capture-template
-  'org-roam-organize-capture-template
-  "0.2.0")
 
 ;; Core configuration.
 (defcustom org-roam-organize-directory
@@ -224,85 +109,6 @@
   :type 'alist
   :group 'org-roam-organize)
 
-;; Deprecated fixed directory layout.
-(defcustom org-roam-organize-fleeting-directory
-  (expand-file-name "./fleeting/" org-roam-directory)
-  "Fleeting 节点所在目录"
-  :type 'directory
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-permanent-directory
-  (expand-file-name "./permanent/" org-roam-directory)
-  "Permanent 节点所在目录"
-  :type 'directory
-  :group 'org-roam-organize)
-
-(make-obsolete-variable
- 'org-roam-organize-fleeting-directory
- nil
- "0.3.0")
-
-(make-obsolete-variable
- 'org-roam-organize-permanent-directory
- nil
- "0.3.0")
-
-;; Deprecated file-moving workflow configuration.
-(defcustom org-roam-organize-move-target-directory
-  org-roam-organize-permanent-directory
-  "整理节点移动文件时的目标目录"
-  :type 'directory
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-move-source-tag
-  "idea"
-  "整理节点移动headline时的源标签"
-  :type 'string
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-move-target-tag
-  "zettel"
-  "整理节点移动headline时的目标标签"
-  :type 'string
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-move-target-directory-id-or-not
-  t
-  "Bool型变量, 默认值为t. 整理节点移动文件时的是否根据ID创建目标目录."
-  :type 'boolean
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-move-target-filename-id-or-not
-  nil
-  "Bool型变量, 默认值为nil. 整理节点移动文件时的是否将移动后的文件名称设置为id."
-  :type 'boolean
-  :group 'org-roam-organize)
-
-(make-obsolete-variable
- 'org-roam-organize-move-target-directory
- nil
- "0.3.0")
-
-(make-obsolete-variable
- 'org-roam-organize-move-source-tag
- nil
- "0.3.0")
-
-(make-obsolete-variable
- 'org-roam-organize-move-target-tag
- nil
- "0.3.0")
-
-(make-obsolete-variable
- 'org-roam-organize-move-target-directory-id-or-not
- nil
- "0.3.0")
-
-(make-obsolete-variable
- 'org-roam-organize-move-target-filename-id-or-not
- nil
- "0.3.0")
-
 ;; Capture configuration.
 (defcustom org-roam-organize-capture-template
   '("m" "map of contents" plain "%?"
@@ -337,17 +143,13 @@
     (org-roam-node-from-id . function)
     (org-roam-node-file . function)
     (org-roam-node-id . function)
-    (org-roam-node-tags . function)
     (org-roam-node-title . function)
     (org-roam-capture- . function)
     (org-id-find . function)
     (org-element-at-point . function)
     (org-element-type . function)
     (org-element-property . function)
-    (org-at-heading-p . function)
     (org-back-to-heading . function)
-    (org-copy-subtree . function)
-    (org-cut-subtree . function)
     (org-entry-put . function)
     (seq-filter . function))
   "Runtime capabilities required by Org-roam Organize.
@@ -770,112 +572,6 @@ validation."
                                :templates (list template))))
         (message "[INFO] Create MOCs"))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
-
-;; 更改moc中形如[[id][title]]的headline及其对应node文件的位置
-;;;###autoload
-(defun org-roam-organize-headline-move (source_pos)
-  "Move headline at SOURCE_POS to the MOC for `org-roam-organize-move-target-tag`.
-Update node file tags from `org-roam-organize-move-source-tag` to
-`org-roam-organize-move-target-tag`, move its file to
-`org-roam-organize-move-target-directory`, and save involved files."
-  (interactive (list (point)))
-  (if (and
-       org-roam-organize-mode)
-      (let* ((source_buf (current-buffer)) ; 提取id和node信息
-             (info (org-roam-organize--get-node-info-from-cite-in-headline source_pos))
-             (id   (plist-get info :id))
-             (node (plist-get info :node))
-             (old_file (org-roam-node-file node))
-             (tags     (org-roam-node-tags node))
-             (moc_filetag org-roam-organize-moc-tag)
-             (moc_prop org-roam-organize-moc-managed-tag-property)
-             (moc_count_prop org-roam-organize-moc-managed-node-count-property)
-             (source_tag org-roam-organize-move-source-tag)
-             (target_tag org-roam-organize-move-target-tag)
-             (tag_id (org-roam-organize--get-tag-id-alist moc_filetag moc_prop))
-             (target_moc_file (car (cdr (assoc target_tag tag_id))))
-             (new-tags
-              (mapcar
-               (lambda (tag) (if (string= tag source_tag) target_tag tag))
-               tags))
-             (target_dir_bool_id_or_not org-roam-organize-move-target-directory-id-or-not)
-             (dir
-              (if target_dir_bool_id_or_not
-                  (expand-file-name id org-roam-organize-move-target-directory)
-                (expand-file-name org-roam-organize-move-target-directory)))
-             (filename_bool_id_or_not org-roam-organize-move-target-filename-id-or-not)
-             (new_file
-              (if filename_bool_id_or_not
-                  (expand-file-name (concat id ".org") dir)
-                (expand-file-name (file-name-nondirectory old_file) dir)))
-             (target_buf (find-file-noselect target_moc_file))
-             ;; (permanent-target (with-current-buffer target_buf (point-max-marker)))
-             )
-        (unless (file-exists-p dir)
-          (make-directory dir t))
-        (org-roam-organize--update-filetag old_file source_tag target_tag)
-        ;; 移动文件
-        (unless (string=
-                 (expand-file-name old_file)
-                 (expand-file-name new_file))
-          (rename-file old_file new_file t))
-        (save-excursion
-          (goto-char source_pos)
-          (unless (org-at-heading-p)
-            (org-back-to-heading t)) ; 确保在 headline 开头
-          (let ((subtree-str (org-copy-subtree t)))
-            (org-cut-subtree)
-            (with-current-buffer (find-file-noselect target_moc_file)
-              (goto-char (point-max))
-              (insert subtree-str))))
-        (save-buffer)
-        (with-current-buffer source_buf
-          (save-buffer))
-        (with-current-buffer target_buf
-          (save-buffer))
-        (with-current-buffer (find-file-noselect new_file)
-          (save-buffer))
-        (message "Moved node with id:%s, updated moc headline and files tag, moved file, and saved files." id)
-        ;; (run-with-idle-timer 0.5 nil #'org-roam-db-sync)
-        )
-    (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
-
-(make-obsolete
- 'org-roam-organize-headline-move
- nil
- "0.3.0")
-
-;; 删除moc中含[id]headline及对应的node
-;;;###autoload
-(defun org-roam-organize-headline-delete (&optional pos)
-  (interactive (list (point)))
-  (if org-roam-organize-mode
-      (let* ((info (org-roam-organize--get-node-info-from-cite-in-headline pos))
-             (id (plist-get info :id))
-             (node (plist-get info :node))
-             (tags (org-roam-node-tags node))
-             (dir (expand-file-name id org-roam-organize-move-target-directory))
-             (file (org-roam-node-file node))
-             (target_tag org-roam-organize-move-target-tag)
-             (target_dir_bool_id_or_not org-roam-organize-move-target-directory-id-or-not))
-        (delete-file file)
-        (when
-            (and
-             (member target_tag tags)
-             target_dir_bool_id_or_not
-             (file-directory-p dir))
-          (delete-directory dir t))
-        (save-excursion
-          (org-back-to-heading t)
-          (org-cut-subtree))
-        (message "Deleted node with id:%s" id)
-        (save-buffer))
-    (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
-
-(make-obsolete
- 'org-roam-organize-headline-delete
- nil
- "0.3.0")
 
 ;; 更新moc
 ;;;###autoload

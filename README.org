@@ -2,7 +2,7 @@
 #+AUTHOR: aRenCoco
 
 * Overview
-Org-roam-organize is an Emacs package for managing and organizing Org-roam nodes and their references. It provides a minor mode with commands for structuring knowledge bases, including node management, tag handling, backlink completion, and content organization.
+Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for maintaining MOC statistics, completing backlinks, and checking package setup.
 
 * Repository Structure
 #+BEGIN_SRC
@@ -17,8 +17,7 @@ Org-roam-organize is an Emacs package for managing and organizing Org-roam nodes
 The package includes the following main features:
 
 ** 1. Node Management
-- Move headlines and their corresponding node files between directories (deprecated)
-- Delete headlines and their associated files completely (deprecated)
+- Check package configuration and runtime capabilities
 
 ** 2. Tag Processing
 - Tag-based node counting and statistics
@@ -37,11 +36,6 @@ The package includes the following main features:
 - Create MOC nodes based on templates
 - Dynamic MOC discovery via tags and properties
 
-** 6. File Organization
-- Move node files to structured directory layouts (deprecated)
-- Maintain directory organization based on node types (deprecated)
-- ID-based directory creation and management (deprecated)
-
 * Requirements
 This package depends on the following:
 
@@ -59,20 +53,10 @@ Before using this package, you need to configure the following variables:
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
 - =org-roam-organize-top-moc-file=: Path to the top-level MOC file
-- =org-roam-organize-tag-title-alist=: Association list mapping tags to MOC TITLEs
+- =org-roam-organize-tag-title-alist=: Association list mapping tags to MOC titles
 - =org-roam-organize-capture-template=: Org roam capture template for capture MOCs
 
-The following fixed directory and file-moving variables are deprecated and kept for compatibility:
-
-- =org-roam-organize-fleeting-directory=: Deprecated directory for temporary nodes
-- =org-roam-organize-permanent-directory=: Deprecated directory for permanent nodes
-- =org-roam-organize-move-target-directory=: Deprecated target directory for node movement
-- =org-roam-organize-move-source-tag=: Deprecated source tag for automatic replacement
-- =org-roam-organize-move-target-tag=: Deprecated target tag for automatic replacement
-- =org-roam-organize-move-target-directory-id-or-not=: Deprecated option for ID-based directories
-- =org-roam-organize-move-target-filename-id-or-not=: Deprecated option for using ID as filename
-
-The deprecated file-organization commands and variables are retained for compatibility in v0.3.0 and are planned for removal in v0.4.0.
+The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands.
 
 * Keybindings
 This package does not install default keybindings. The commands are intended to be bound in user configuration.
@@ -85,11 +69,6 @@ The following =C-c o= keybindings are optional user configuration examples:
 - =C-c o m m=: Jump to the top-level MOC
 - =C-c o m u=: Update all MOC node statistics
 - =C-c o r c=: Complete missing backlinks for literature nodes
-
-Deprecated commands:
-
-- =org-roam-organize-headline-move=: Deprecated command for moving the current headline and its corresponding node file
-- =org-roam-organize-headline-delete=: Deprecated command for deleting the current headline and its corresponding node file
 
 ** Suggested Command Aliases
 The following aliases are optional user configuration examples:
