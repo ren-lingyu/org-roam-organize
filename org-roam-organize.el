@@ -94,7 +94,7 @@
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize-top-moc-file
+(defcustom org-roam-organize-moc-top-moc-file
   (expand-file-name "./moc/maps.org" org-roam-directory)
   "顶层 MOC 的绝对路径"
   :type 'file
@@ -110,7 +110,7 @@
   :group 'org-roam-organize)
 
 ;; Capture configuration.
-(defcustom org-roam-organize-capture-template
+(defcustom org-roam-organize-moc-capture-template
   '("m" "map of contents" plain "%?"
     :if-new (file+head
              "moc/${slug}.org"
@@ -130,9 +130,9 @@
     (org-roam-organize-moc-managed-node-count-property . string)
     (org-roam-organize-directory-p . boolean)
     (org-roam-organize-tag-title-alist . list)
-    (org-roam-organize-top-moc-file . file)
+    (org-roam-organize-moc-top-moc-file . file)
     (org-roam-organize-moc-tag . string)
-    (org-roam-organize-capture-template . list)))
+    (org-roam-organize-moc-capture-template . list)))
 
 (defconst org-roam-organize--capability-alist
   '((org-roam-directory . variable)
@@ -537,8 +537,8 @@ validation."
 (defun org-roam-organize-goto-map-of-maps ()
   "Open the top-level Map of Contents file using its file path."
   (interactive)
-  (if org-roam-organize-mode ; org-roam-organize-top-moc-file
-      (let ((file_path org-roam-organize-top-moc-file))
+  (if org-roam-organize-mode ; org-roam-organize-moc-top-moc-file
+      (let ((file_path org-roam-organize-moc-top-moc-file))
         (cond
          ((not file_path)
           (message "Top MOC file path is not defined. Please check your configuration."))
@@ -557,10 +557,10 @@ validation."
 ;;;###autoload
 (defun org-roam-organize-create-mocs ()
   (interactive)
-  (if org-roam-organize-mode ; org-roam-organize-top-moc-file
+  (if org-roam-organize-mode ; org-roam-organize-moc-top-moc-file
       (let* ((debug-on-error t)
              (tag_title_alist org-roam-organize-tag-title-alist)
-             (template org-roam-organize-capture-template)
+             (template org-roam-organize-moc-capture-template)
              (key (car template)))
         (dolist (entry tag_title_alist)
           (let* ((tag (car entry))
@@ -689,7 +689,7 @@ validation."
                 (unless (featurep 'org-element) (require 'org-element))
                 (unless (featurep 'org-roam) (require 'org-roam))
                 (unless (featurep 'cl-lib) (require 'cl-lib))
-                (let ((tmpl org-roam-organize-capture-template))
+                (let ((tmpl org-roam-organize-moc-capture-template))
                   (unless (assoc (car tmpl) org-roam-capture-templates) ; 仅当快捷键不存在时添加
                     (setq org-roam-capture-templates
                           (append org-roam-capture-templates (list tmpl))))))))))

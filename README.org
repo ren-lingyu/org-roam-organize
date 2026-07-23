@@ -52,9 +52,9 @@ Before using this package, you need to configure the following variables:
 - =org-roam-organize-moc-tag=: Tag used to identify MOC files
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
-- =org-roam-organize-top-moc-file=: Path to the top-level MOC file
+- =org-roam-organize-moc-top-moc-file=: Path to the top-level MOC file
 - =org-roam-organize-tag-title-alist=: Association list mapping tags to MOC titles
-- =org-roam-organize-capture-template=: Org roam capture template for capture MOCs
+- =org-roam-organize-moc-capture-template=: Org roam capture template for capture MOCs
 
 The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands.
 
@@ -96,7 +96,7 @@ An example of configuration is shown here.
     (org-roam-organize-directory org-roam-directory)
     (org-roam-organize-moc-directory (expand-file-name "./moc/" org-roam-directory))
     (org-roam-organize-moc-tag "map")
-    (org-roam-organize-top-moc-file (expand-file-name "./moc/maps.org" org-roam-directory))
+    (org-roam-organize-moc-top-moc-file (expand-file-name "./moc/maps.org" org-roam-directory))
     (org-roam-organize-directory-p t)
     (org-roam-organize-tag-title-alist '(("map" . "Maps")
                                          ("zettel" . "Permanent")
@@ -106,7 +106,7 @@ An example of configuration is shown here.
                                          ("blog" . "Blog")))
     (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
     (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
-    (org-roam-organize-capture-template `("m" "map of contents" plain "%?"
+    (org-roam-organize-moc-capture-template `("m" "map of contents" plain "%?"
                                           :if-new (file+head
                                                    "moc/${slug}.org"
                                                    ,(concat
