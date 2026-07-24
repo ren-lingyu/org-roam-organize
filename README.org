@@ -48,16 +48,13 @@ This package depends on the following:
 * Configuration
 Before using this package, you need to configure the following variables:
 
-- =org-roam-organize-root-directory=: Root directory for org-roam-organize
-- =org-roam-organize-allow-outside-root=: Allow running outside root directory
+- =org-roam-organize-directory=: Root directory for org-roam-organize
 - =org-roam-organize-registry=: Registry of managed MOC records
 - =org-roam-organize-moc-file-keywords=: Optional Org file keywords written when creating MOC files
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
 
-The root directory must be inside =org-roam-directory=. The variable
-=org-roam-organize-allow-outside-root= only allows enabling the mode while the
-current Emacs directory is outside the org-roam-organize root.
+The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
 The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands.
 
@@ -100,8 +97,7 @@ An example of configuration is shown here.
     :straight (:host github :repo "ren-lingyu/org-roam-organize")
     :after org-roam
     :custom
-    (org-roam-organize-root-directory org-roam-directory)
-    (org-roam-organize-allow-outside-root t)
+    (org-roam-organize-directory org-roam-directory)
     (org-roam-organize-registry
      '((:name "maps"
         :tag "map"
@@ -144,7 +140,7 @@ An example of configuration is shown here.
 * Implementation Details
 The package uses Org-roam's database queries to resolve MOC nodes by file path, count level-0 nodes by tag, and find missing tag or citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems.
 
-The mode includes a startup hook that validates setup and ensures the Emacs session is started in the appropriate directory unless =org-roam-organize-allow-outside-root= is non-nil.
+The mode includes a startup hook that validates setup when the mode is enabled.
 
 * License
 This project is licensed under the GNU General Public License v3.0. See [[file:LICENSE][LICENSE]] for details.

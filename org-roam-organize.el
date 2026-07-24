@@ -58,16 +58,10 @@
   :group 'org-roam)
 
 ;; Core configuration.
-(defcustom org-roam-organize-root-directory
+(defcustom org-roam-organize-directory
   org-roam-directory
   "org-roam-organize 根目录"
   :type 'directory
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-allow-outside-root
-  nil
-  "Bool 型变量, 是否允许在非 org-roam-organize 根目录下启动 org-roam-organize, 默认值为 nil."
-  :type 'boolean
   :group 'org-roam-organize)
 
 (defcustom org-roam-organize-moc-managed-tag-property
@@ -130,10 +124,9 @@ empty value.  String values are formatted according to
 ;; ==============================
 
 (defconst org-roam-organize--variable-type-alist
-  '((org-roam-organize-root-directory . directory)
+  '((org-roam-organize-directory . directory)
     (org-roam-organize-moc-managed-tag-property . string)
     (org-roam-organize-moc-managed-node-count-property . string)
-    (org-roam-organize-allow-outside-root . boolean)
     (org-roam-organize-registry . list)
     (org-roam-organize-moc-file-keywords . list)))
 
@@ -309,7 +302,7 @@ the running Emacs."
 
 (defun org-roam-organize--check-root-directory ()
   "Check whether the Org-roam Organize root is inside `org-roam-directory'."
-  (let* ((root org-roam-organize-root-directory)
+  (let* ((root org-roam-organize-directory)
          (roam-root org-roam-directory)
          (inside-p
           (and (stringp root)
@@ -321,7 +314,7 @@ the running Emacs."
      inside-p
      (concat
       "Org-roam Organize root directory is as follow.\n"
-      (format "- org-roam-organize-root-directory? %s\n" root)
+      (format "- org-roam-organize-directory? %s\n" root)
       (format "- org-roam-directory? %s\n" roam-root)
       (format "  in org-roam-directory? %s (should be t)\n" inside-p)))))
 
@@ -395,14 +388,14 @@ the running Emacs."
   (and (stringp path)
        (not (file-name-absolute-p path))
        (file-in-directory-p
-        (expand-file-name path org-roam-organize-root-directory)
+        (expand-file-name path org-roam-organize-directory)
         (file-name-as-directory
-         (expand-file-name org-roam-organize-root-directory)))))
+         (expand-file-name org-roam-organize-directory)))))
 
 (defun org-roam-organize--absolute-path-in-root (path)
   "Return normalized absolute PATH under root, or nil."
   (when (org-roam-organize--path-inside-root-p path)
-    (expand-file-name path org-roam-organize-root-directory)))
+    (expand-file-name path org-roam-organize-directory)))
 
 (defun org-roam-organize--record-absolute-directory (record)
   "Return RECORD's absolute node directory."
@@ -616,7 +609,7 @@ Return a cons cell whose car is the boolean result and whose cdr is a
 human-readable report."
   (let ((variable_check_result
          (org-roam-organize--check-variables
-          org-roam-organize-root-directory
+          org-roam-organize-directory
           org-roam-organize--variable-type-alist))
         (root_check_result
          (org-roam-organize--check-root-directory))
@@ -851,7 +844,7 @@ PAIR is a cons cell of source node id to destination node id list."
 (defun org-roam-organize-check-variables ()
   "Check Org-roam Organize configuration variables."
   (interactive)
-  (let ((check_result (org-roam-organize--check-variables org-roam-organize-root-directory org-roam-organize--variable-type-alist)))
+  (let ((check_result (org-roam-organize--check-variables org-roam-organize-directory org-roam-organize--variable-type-alist)))
     (message "%s" (if (consp check_result)
                       (cdr check_result)
                     check_result))))
@@ -880,7 +873,7 @@ validation."
   (interactive)
   (let ((dir_list
          (cons
-          org-roam-organize-root-directory
+          org-roam-organize-directory
           (mapcar #'org-roam-organize--record-absolute-directory
                   (org-roam-organize--registry-basic-records)))))
     (dolist (dir dir_list)
@@ -1039,10 +1032,7 @@ validation."
 (add-hook 'org-roam-organize-mode-hook
           (lambda ()
             (when org-roam-organize-mode
-              (let* ((root_dir
-                      (when (boundp 'org-roam-organize-root-directory)
-                        org-roam-organize-root-directory))
-                     (check_result
+              (let* ((check_result
                       (when (and (boundp 'org-roam-organize--variable-type-alist)
                                  (boundp 'org-roam-organize--capability-alist))
                         (org-roam-organize--check-setup))))
@@ -1054,16 +1044,6 @@ validation."
                                  "Org Roam Organize Mode setup failed.\n"
                                  (format "%s\n" (car check_result))
                                  (cdr check_result))))
-                 ((not (or
-                        org-roam-organize-allow-outside-root
-                        (file-in-directory-p
-                         (expand-file-name default-directory)
-                         (expand-file-name root_dir))))
-                  (setq org-roam-organize-mode nil)
-                  (message "%s" (concat (format
-                                         "[WARNING] Not startup Emacs under %s. "
-                                         root_dir)
-                                        "Org Roam Organize Mode setup failed. ")))
                  (t
                   (unless (featurep 'org) (require 'org))
                   (unless (featurep 'org-element) (require 'org-element))
