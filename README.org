@@ -2,7 +2,7 @@
 #+AUTHOR: aRenCoco
 
 * Overview
-Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating missing MOC files, syncing MOC entries from Org-roam node tags, and completing missing backlinks.
+Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating managed nodes, creating missing MOC files, syncing MOC entries from Org-roam node tags, and completing missing backlinks.
 
 * Repository Structure
 #+BEGIN_SRC
@@ -19,6 +19,7 @@ The package includes the following main features:
 ** 1. Node Management
 - Check package configuration and runtime capabilities
 - Create directories declared by basic registry records
+- Create managed nodes from registry-derived capture templates
 
 ** 2. Tag Processing
 - Tag-based node counting and statistics
@@ -45,20 +46,19 @@ This package depends on the following:
 
 - Emacs 30.1 or later
 - Org 9.5 or later
-- Org-roam 2.2.0 or later
+- Org-roam 2.3.1 or later
 
 * Configuration
 Before using this package, you need to configure the following variables:
 
 - =org-roam-organize-directory=: Root directory for org-roam-organize
-- =org-roam-organize-registry=: Registry of managed MOC records and their tags, paths, directories, and inbox headlines
-- =org-roam-organize-moc-file-keywords=: Optional Org file keywords written when creating MOC files
+- =org-roam-organize-registry=: Registry of managed records and their tags, paths, directories, inbox headlines, and file keyword templates
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
 
 The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
-Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t=. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=.
+Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=. The optional =:template= alist configures file keywords written when creating MOC and managed node files; =filetags= values are string lists. When a record declares both =:tag= and =filetags=, =filetags= must include the record tag.
 
 The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands. The old =org-roam-organize-moc-update= command was also replaced by =org-roam-organize-moc-sync=.
 
@@ -71,6 +71,7 @@ The following =C-c o= keybindings are optional user configuration examples:
 #+BEGIN_SRC emacs-lisp
   (global-set-key (kbd "C-c o o") #'org-roam-organize-mode)
   (global-set-key (kbd "C-c o c") #'org-roam-organize-check-setup)
+  (global-set-key (kbd "C-c o n c") #'org-roam-organize-node-create)
   (global-set-key (kbd "C-c o m m") #'org-roam-organize-moc-open-index)
   (global-set-key (kbd "C-c o m c") #'org-roam-organize-moc-create)
   (global-set-key (kbd "C-c o m s") #'org-roam-organize-moc-sync)
@@ -80,6 +81,7 @@ The following =C-c o= keybindings are optional user configuration examples:
 #+BEGIN_SRC emacs-lisp
   (keymap-global-set "C-c o o" #'org-roam-organize-mode)
   (keymap-global-set "C-c o c" #'org-roam-organize-check-setup)
+  (keymap-global-set "C-c o n c" #'org-roam-organize-node-create)
   (keymap-global-set "C-c o m m" #'org-roam-organize-moc-open-index)
   (keymap-global-set "C-c o m c" #'org-roam-organize-moc-create)
   (keymap-global-set "C-c o m s" #'org-roam-organize-moc-sync)
@@ -92,6 +94,7 @@ The following aliases are optional user configuration examples:
 #+BEGIN_SRC emacs-lisp
   (defalias 'oro-check #'org-roam-organize-check-setup)
   (defalias 'oro-mkdirs #'org-roam-organize-create-directories)
+  (defalias 'oro-create-node #'org-roam-organize-node-create)
   (defalias 'oro-map #'org-roam-organize-moc-open-index)
   (defalias 'oro-create-mocs #'org-roam-organize-moc-create)
   (defalias 'oro-sync-mocs #'org-roam-organize-moc-sync)
@@ -103,9 +106,10 @@ The following aliases are optional user configuration examples:
 2. Enable =org-roam-organize-mode= with =M-x org-roam-organize-mode= or your configured toggle key
 3. Run =org-roam-organize-check-setup= to verify your configuration and runtime capabilities
 4. After first-time setup or registry directory changes, run =org-roam-organize-create-directories= to create basic registry directories
-5. After adding new registry records, run =org-roam-organize-moc-create= to create missing MOC files
-6. Use =org-roam-organize-moc-sync= to sync MOC entries and managed information
-7. Use =org-roam-organize-ref-complete-backlinks= to complete missing citation backlinks
+5. Use =org-roam-organize-node-create= to create managed non-MOC nodes from registry records with =:directory=
+6. After adding new registry records, run =org-roam-organize-moc-create= to create missing MOC files
+7. Use =org-roam-organize-moc-sync= to sync MOC entries and managed information
+8. Use =org-roam-organize-ref-complete-backlinks= to complete missing citation backlinks
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -115,41 +119,67 @@ An example of configuration is shown here.
     :custom
     (org-roam-organize-directory org-roam-directory)
     (org-roam-organize-registry
-     '((:name "maps"
+     '((:name "navigation"
         :tag "map"
         :moc t
         :basic t
-        :directory "moc")
+        :directory "navigation"
+        :inbox "Inbox"
+        :template ((author . nil)
+                   (date . nil)
+                   (description . nil)
+                   (filetags . ("map"))))
        (:name "fleeting"
         :tag "idea"
         :basic t
         :directory "fleeting"
-        :inbox "Inbox")
+        :inbox "Inbox"
+        :template ((author . nil)
+                   (date . nil)
+                   (description . nil)
+                   (filetags . ("idea"))))
        (:name "literature"
         :tag "ref"
         :basic t
         :directory "literature"
-        :inbox "Inbox")
+        :inbox "Inbox"
+        :template ((author . nil)
+                   (date . nil)
+                   (description . nil)
+                   (filetags . ("ref"))))
        (:name "permanent"
         :tag "zettel"
         :basic t
         :directory "permanent"
-        :inbox "Inbox")
+        :inbox "Inbox"
+        :template ((author . nil)
+                   (date . nil)
+                   (description . nil)
+                   (filetags . ("zettel"))))
        (:name "note"
         :tag "note"
-        :inbox "Inbox")
+        :basic nil
+        :directory "permanent"
+        :inbox "Inbox"
+        :template ((author . nil)
+                   (date . nil)
+                   (description . nil)
+                   (filetags . ("zettel" "note"))))
        (:name "blog"
         :tag "blog"
-        :inbox "Inbox")))
-    (org-roam-organize-moc-file-keywords
-     '((author . "John Doe")
-       (date . "<%Y-%m-%d %A %H:%M:%S %z>")
-       (description . nil)))
+        :basic nil
+        :directory "permanent"
+        :inbox "Inbox"
+        :template ((author . nil)
+                   (date . nil)
+                   (description . nil)
+                   (filetags . ("zettel" "blog")))))
     (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
     (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
     :bind
     (("C-c o o" . org-roam-organize-mode)
      ("C-c o c" . org-roam-organize-check-setup)
+     ("C-c o n c" . org-roam-organize-node-create)
      ("C-c o m m" . org-roam-organize-moc-open-index)
      ("C-c o m c" . org-roam-organize-moc-create)
      ("C-c o m s" . org-roam-organize-moc-sync)
@@ -157,6 +187,17 @@ An example of configuration is shown here.
     :hook (after-init-hook . org-roam-organize-mode))
 
 #+END_SRC
+
+* Managed Node Creation
+The command =org-roam-organize-node-create= creates ordinary managed Org-roam nodes from non-MOC registry records that declare =:directory=. It prompts for a registry record and node title, then calls =org-roam-capture-= with a registry-derived template.
+
+Managed node files use this target path template under =org-roam-organize-directory=:
+
+#+BEGIN_SRC text
+  <directory>/${id}/${slug}.org
+#+END_SRC
+
+During capture, Org-roam assigns the node ID. Org-roam-organize creates the UUID parent directory in =org-roam-capture-preface-hook= before the target file is opened. If capture fails or is aborted and the directory remains empty, Org-roam-organize removes only that empty directory.
 
 * MOC Entry Format
 Managed MOC node entries are stored as Org keywords:
