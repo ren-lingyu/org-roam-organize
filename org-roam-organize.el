@@ -5,7 +5,7 @@
 ;; Author: aRenCoco
 ;; Maintainer: aRenCoco
 ;; Version: 0.4.0
-;; Package-Requires: ((emacs "30.1") (org "9.5") (org-roam "2.2.0"))
+;; Package-Requires: ((emacs "30.1") (org "9.5") (org-roam "2.3.1"))
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/ren-lingyu/org-roam-organize
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -29,7 +29,7 @@
 
 ;; Org-roam-organize provides tools for organizing Org-roam nodes and their
 ;; references.  It includes commands for maintaining Map of Contents files,
-;; completing backlinks, and updating node statistics.
+;; creating managed nodes, completing backlinks, and updating node statistics.
 ;;
 ;; See README.org for configuration, keybindings, usage examples, and notes
 ;; about supported MOC operations.
@@ -77,53 +77,73 @@
   :group 'org-roam-organize)
 
 (defcustom org-roam-organize-registry
-  '((:name "maps"
-     :tag "map"
-     :moc t
-     :basic t
-     :directory "moc")
-    (:name "fleeting"
-     :tag "idea"
-     :basic t
-     :directory "fleeting"
-     :inbox "Inbox")
-    (:name "literature"
-     :tag "ref"
-     :basic t
-     :directory "literature"
-     :inbox "Inbox")
-    (:name "permanent"
-     :tag "zettel"
-     :basic t
-     :directory "permanent"
-     :inbox "Inbox")
-    (:name "note"
-     :tag "note"
-     :inbox "Inbox")
-    (:name "blog"
-     :tag "blog"
-     :inbox "Inbox"))
+  (list (list :name "navigation"
+              :tag "map"
+              :moc t
+              :basic t
+              :directory "navigation"
+              :inbox "Inbox"
+              :template '((author . nil)
+                          (date . nil)
+                          (description . nil)
+                          (filetags . ("map"))))
+        (list :name "fleeting"
+              :tag "idea"
+              :basic t
+              :directory "fleeting"
+              :inbox "Inbox"
+              :template '((author . nil)
+                          (date . nil)
+                          (description . nil)
+                          (filetags . ("idea"))))
+        (list :name "literature"
+              :tag "ref"
+              :basic t
+              :directory "literature"
+              :inbox "Inbox"
+              :template '((author . nil)
+                          (date . nil)
+                          (description . nil)
+                          (filetags . ("ref"))))
+        (list :name "permanent"
+              :tag "zettel"
+              :basic t
+              :directory "permanent"
+              :inbox "Inbox"
+              :template '((author . nil)
+                          (date . nil)
+                          (description . nil)
+                          (filetags . ("zettel"))))
+        (list :name "note"
+              :tag "note"
+              :basic nil
+              :directory "permanent"
+              :inbox "Inbox"
+              :template '((author . nil)
+                          (date . nil)
+                          (description . nil)
+                          (filetags . ("zettel" "note"))))
+        (list :name "blog"
+              :tag "blog"
+              :basic nil
+              :directory "permanent"
+              :inbox "Inbox"
+              :template '((author . nil)
+                          (date . nil)
+                          (description . nil)
+                          (filetags . ("zettel" "blog")))))
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
-`:moc' and `:basic' are optional booleans.  A basic record must have
-a relative `:directory'.  `:moc-path' and `:moc-title' are optional
-overrides resolved from the record name when absent.  `:inbox' is an
-optional level-1 headline name used for newly added MOC node entries and
-defaults to \"Inbox\"."
-  :type 'sexp
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-moc-file-keywords
-  '((author . nil)
-    (date . nil)
-    (description . nil))
-  "Optional Org file keywords written when creating MOC files.
-
-Missing keys are not written.  Keys whose value is nil are written with an
-empty value.  String values are formatted according to
+`:moc' and `:basic' are optional booleans.  A `:moc t' record must also be
+`:basic t'.  A basic record must have a relative `:directory'; non-basic
+records may also use `:directory' to create managed nodes in an existing
+kind directory.  `:moc-path' and `:moc-title' are optional overrides resolved
+from the record name when absent.  `:inbox' is an optional level-1 headline
+name used for newly added MOC node entries and defaults to \"Inbox\".
+`:template' is an optional alist for file keywords; its keys are formatted by
 `org-roam-organize--moc-file-keyword-formatter-alist'."
-  :type 'alist
+  :type 'sexp
   :group 'org-roam-organize)
 
 ;; ==============================
@@ -134,8 +154,7 @@ empty value.  String values are formatted according to
   '((org-roam-organize-directory . directory)
     (org-roam-organize-moc-managed-tag-property . string)
     (org-roam-organize-moc-managed-node-count-property . string)
-    (org-roam-organize-registry . list)
-    (org-roam-organize-moc-file-keywords . list)))
+    (org-roam-organize-registry . list)))
 
 (defconst org-roam-organize--capability-alist
   '((org-roam-directory . variable)
@@ -147,6 +166,9 @@ empty value.  String values are formatted according to
     (org-roam-node-id . function)
     (org-roam-node-title . function)
     (org-roam-capture- . function)
+    (org-roam-capture-preface-hook . variable)
+    (org-roam-capture--get-target . function)
+    (org-roam-capture--target-truepath . function)
     (org-id-find . function)
     (org-element-parse-buffer . function)
     (org-element-map . function)
@@ -169,6 +191,9 @@ The list maps symbols to capability types checked by
 (defconst org-roam-organize--moc-capture-key "m"
   "Capture key used internally when creating MOC files.")
 
+(defconst org-roam-organize--node-capture-key "n"
+  "Capture key used internally when creating managed node files.")
+
 (defconst org-roam-organize--moc-default-inbox-headline "Inbox"
   "Default headline used for newly added MOC node entries.")
 
@@ -178,8 +203,15 @@ The list maps symbols to capability types checked by
 (defconst org-roam-organize--moc-file-keyword-formatter-alist
   '((author . identity)
     (date . format-time-string)
-    (description . identity))
-  "Allowed optional MOC file keywords and their formatters.")
+    (description . identity)
+    (filetags . org-roam-organize--moc-filetags-format))
+  "Allowed optional MOC file keywords and their formatter functions.
+
+Formatter functions receive the template value and return the string written
+after the Org keyword name.")
+
+(defvar org-roam-organize--capture-created-directory nil
+  "Directory created for the active managed node capture.")
 
 ;; ==============================
 ;; 内部函数
@@ -367,6 +399,16 @@ the running Emacs."
      ((plist-member record :inbox) nil)
      (t org-roam-organize--moc-default-inbox-headline))))
 
+(defun org-roam-organize--record-template (record)
+  "Return RECORD's file keyword template alist."
+  (plist-get record :template))
+
+(defun org-roam-organize--record-template-filetags-entry (record)
+  "Return RECORD's template filetags entry, or nil."
+  (let ((template (org-roam-organize--record-template record)))
+    (when (org-roam-organize--proper-list-p template)
+      (assoc 'filetags template))))
+
 (defun org-roam-organize--registry-moc-record ()
   "Return the registry record that manages MOC nodes."
   (seq-find #'org-roam-organize--record-moc-p
@@ -378,6 +420,30 @@ the running Emacs."
   (seq-filter #'org-roam-organize--record-basic-p
               (seq-filter #'org-roam-organize--plistp
                           org-roam-organize-registry)))
+
+(defun org-roam-organize--registry-node-records ()
+  "Return records that can create managed non-MOC nodes."
+  (seq-filter
+   (lambda (record)
+     (and (not (org-roam-organize--record-moc-p record))
+          (stringp (org-roam-organize--record-directory record))))
+   (seq-filter #'org-roam-organize--plistp
+               org-roam-organize-registry)))
+
+(defun org-roam-organize--read-node-record ()
+  "Read and return a registry record for managed node creation."
+  (let* ((records (org-roam-organize--registry-node-records))
+         (alist
+          (mapcar
+           (lambda (record)
+             (cons (format "%s (%s)"
+                           (org-roam-organize--record-name record)
+                           (org-roam-organize--record-tag record))
+                   record))
+           records)))
+    (when alist
+      (let ((choice (completing-read "Node kind: " alist nil t)))
+        (cdr (assoc choice alist))))))
 
 (defun org-roam-organize--record-moc-title (record)
   "Return RECORD's MOC title."
@@ -431,13 +497,35 @@ the running Emacs."
   (let ((path (org-roam-organize--record-moc-path record)))
     (org-roam-organize--absolute-path-in-root path)))
 
+(defun org-roam-organize--record-node-path-template (record)
+  "Return RECORD's managed node path template.
+
+The standard node layout is <directory>/${id}/${slug}.org under
+`org-roam-organize-directory'.  This function only provides the target path
+template; UUID parent directory creation is left to the Org-roam capture and
+Emacs save workflow."
+  (let ((directory (org-roam-organize--record-directory record)))
+    (when (and (stringp directory)
+               (org-roam-organize--path-inside-root-p directory))
+      (expand-file-name
+       (concat (file-name-as-directory directory) "${id}/${slug}.org")
+       org-roam-organize-directory))))
+
 (defun org-roam-organize--moc-file-keyword-name (key)
   "Return Org file keyword name for KEY."
   (upcase (symbol-name key)))
 
-(defun org-roam-organize--moc-file-keyword-line (key)
-  "Return optional Org file keyword line for KEY, or nil."
-  (let ((entry (assoc key org-roam-organize-moc-file-keywords))
+(defun org-roam-organize--moc-filetags-format (tags)
+  "Return Org FILETAGS value from TAGS.
+
+TAGS must be a list of strings."
+  (when (and (listp tags)
+             (seq-every-p #'stringp tags))
+    (format ":%s:" (mapconcat #'identity tags ":"))))
+
+(defun org-roam-organize--moc-file-keyword-line (template key)
+  "Return optional Org file keyword line for KEY in TEMPLATE, or nil."
+  (let ((entry (assoc key template))
         (formatter
          (cdr (assoc key org-roam-organize--moc-file-keyword-formatter-alist))))
     (when entry
@@ -445,42 +533,105 @@ the running Emacs."
         (cond
          ((null value)
           (format "#+%s:\n" (org-roam-organize--moc-file-keyword-name key)))
-         ((and (stringp value) (functionp formatter))
-          (format "#+%s: %s\n"
-                  (org-roam-organize--moc-file-keyword-name key)
-                  (funcall formatter value)))
+         ((functionp formatter)
+          (let ((formatted (funcall formatter value)))
+            (if (stringp formatted)
+                (format "#+%s: %s\n"
+                        (org-roam-organize--moc-file-keyword-name key)
+                        formatted)
+              (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
+              nil)))
          (t
           (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
           nil))))))
 
-(defun org-roam-organize--warn-unknown-moc-file-keywords ()
-  "Warn about unknown keys in `org-roam-organize-moc-file-keywords'."
-  (dolist (entry org-roam-organize-moc-file-keywords)
+(defun org-roam-organize--warn-unknown-moc-file-keywords (template)
+  "Warn about unknown keys in TEMPLATE."
+  (dolist (entry template)
     (unless (assoc (car-safe entry)
                    org-roam-organize--moc-file-keyword-formatter-alist)
       (message "[WARNING] Ignored unknown MOC file keyword: %s" entry))))
 
+(defun org-roam-organize--record-file-keyword-lines (record)
+  "Return optional Org file keyword lines for RECORD."
+  (let ((template (org-roam-organize--record-template record)))
+    (cond
+     ((null template) "")
+     ((org-roam-organize--proper-list-p template)
+      (org-roam-organize--warn-unknown-moc-file-keywords template)
+      (concat
+       (or (org-roam-organize--moc-file-keyword-line template 'author) "")
+       (or (org-roam-organize--moc-file-keyword-line template 'date) "")
+       (or (org-roam-organize--moc-file-keyword-line template 'filetags) "")
+       (or (org-roam-organize--moc-file-keyword-line template 'description) "")))
+     (t
+      (message "[WARNING] Ignored invalid MOC file keyword template: %s" template)
+      ""))))
+
+(defun org-roam-organize--record-node-head (record)
+  "Return the Org file head for RECORD's managed node file."
+  (let ((tag (org-roam-organize--record-tag record)))
+    (when (stringp tag)
+      (concat
+       "#+TITLE: ${title}\n"
+       (org-roam-organize--record-file-keyword-lines record)))))
+
 (defun org-roam-organize--record-moc-head (record)
   "Return the Org file head for RECORD's MOC file."
   (let ((tag (org-roam-organize--record-tag record))
-        (title (org-roam-organize--record-moc-title record))
-        (moc-record (org-roam-organize--registry-moc-record)))
+        (title (org-roam-organize--record-moc-title record)))
     (when (and (stringp tag)
-               (stringp title)
-               moc-record
-               (stringp (org-roam-organize--record-tag moc-record)))
-      (org-roam-organize--warn-unknown-moc-file-keywords)
+               (stringp title))
       (concat
        (format ":PROPERTIES:\n:%s: %s\n:%s:\n:END:\n#+TITLE: %s\n"
                org-roam-organize-moc-managed-tag-property
                tag
                org-roam-organize-moc-managed-node-count-property
                title)
-       (or (org-roam-organize--moc-file-keyword-line 'author) "")
-       (or (org-roam-organize--moc-file-keyword-line 'date) "")
-       (format "#+FILETAGS: :%s:\n"
-               (org-roam-organize--record-tag moc-record))
-       (or (org-roam-organize--moc-file-keyword-line 'description) "")))))
+       (org-roam-organize--record-file-keyword-lines record)))))
+
+(defun org-roam-organize--empty-directory-p (directory)
+  "Return non-nil if DIRECTORY is an empty directory."
+  (and (file-directory-p directory)
+       (null (directory-files directory nil directory-files-no-dot-files-regexp))))
+
+(defun org-roam-organize--delete-empty-directory (directory)
+  "Delete DIRECTORY when it is empty and inside `org-roam-organize-directory'."
+  (when (and (stringp directory)
+             (org-roam-organize--path-inside-root-p
+              (file-relative-name directory org-roam-organize-directory))
+             (org-roam-organize--empty-directory-p directory))
+    (delete-directory directory)))
+
+(defun org-roam-organize--capture-target-file ()
+  "Return the active Org-roam capture file target, or nil."
+  (pcase (org-roam-capture--get-target)
+    (`(file ,path)
+     (org-roam-capture--target-truepath path))
+    (`(file+head ,path ,_head)
+     (org-roam-capture--target-truepath path))
+    (`(file+olp ,path ,_olp)
+     (org-roam-capture--target-truepath path))
+    (`(file+head+olp ,path ,_head ,_olp)
+     (org-roam-capture--target-truepath path))
+    (`(file+datetree ,path ,_tree-type)
+     (org-roam-capture--target-truepath path))
+    (_ nil)))
+
+(defun org-roam-organize--capture-create-parent-directory ()
+  "Create the parent directory for the active Org-roam capture target.
+
+Return nil so `org-roam-capture-preface-hook' continues with Org-roam's
+normal target setup."
+  (let* ((file (org-roam-organize--capture-target-file))
+         (directory (and file (file-name-directory file))))
+    (when (and directory
+               (org-roam-organize--path-inside-root-p
+                (file-relative-name directory org-roam-organize-directory))
+               (not (file-directory-p directory)))
+      (make-directory directory t)
+      (setq org-roam-organize--capture-created-directory directory)))
+  nil)
 
 (defun org-roam-organize--proper-list-p (object)
   "Return non-nil if OBJECT is a proper list."
@@ -513,6 +664,9 @@ human-readable report."
                (basic (when plistp (plist-get record :basic)))
                (directory (when plistp (org-roam-organize--record-directory record)))
                (inbox (when plistp (org-roam-organize--record-inbox record)))
+               (filetags-entry (when plistp
+                                 (org-roam-organize--record-template-filetags-entry record)))
+               (filetags (cdr-safe filetags-entry))
                (moc-path (when plistp (org-roam-organize--record-moc-path record)))
                (moc-title (when plistp (org-roam-organize--record-moc-title record)))
                (absolute-directory
@@ -556,11 +710,7 @@ human-readable report."
               (unless (stringp directory)
                 (setq result_bool nil)
                 (setq result_message
-                      (concat result_message "  :basic t requires string :directory\n"))))
-             (directory
-              (setq result_bool nil)
-              (setq result_message
-                    (concat result_message "  non-basic record must not define :directory\n"))))
+                      (concat result_message "  :basic t requires string :directory\n")))))
             (when (and (plist-member record :moc-path)
                        (not (stringp (plist-get record :moc-path))))
               (setq result_bool nil)
@@ -576,6 +726,26 @@ human-readable report."
               (setq result_bool nil)
               (setq result_message
                     (concat result_message "  :inbox string? nil (should be t)\n")))
+            (when (and (plist-member record :template)
+                       (not (org-roam-organize--proper-list-p
+                             (plist-get record :template))))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :template proper list? nil (should be t)\n")))
+            (when (and filetags-entry
+                       (not (and (org-roam-organize--proper-list-p filetags)
+                                 (seq-every-p #'stringp filetags))))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :template filetags string list? nil (should be t)\n")))
+            (when (and (stringp tag)
+                       filetags-entry
+                       (and (org-roam-organize--proper-list-p filetags)
+                            (seq-every-p #'stringp filetags))
+                       (not (member tag filetags)))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :template filetags include :tag? nil (should be t)\n")))
             (when (and (plist-member record :moc-path)
                        (stringp (plist-get record :moc-path))
                        (file-name-absolute-p (plist-get record :moc-path)))
@@ -614,11 +784,14 @@ human-readable report."
                     (concat result_message "  resolved :moc-path unique? nil (should be t)\n")))
             (when absolute-moc-path
               (push absolute-moc-path paths))
-            (when (and absolute-directory (member absolute-directory directories))
+            (when (and (org-roam-organize--record-basic-p record)
+                       absolute-directory
+                       (member absolute-directory directories))
               (setq result_bool nil)
               (setq result_message
-                    (concat result_message "  resolved :directory unique? nil (should be t)\n")))
-            (when absolute-directory
+                    (concat result_message "  resolved basic :directory unique? nil (should be t)\n")))
+            (when (and (org-roam-organize--record-basic-p record)
+                       absolute-directory)
               (push absolute-directory directories))
             (unless (stringp moc-title)
               (setq result_bool nil)
@@ -694,7 +867,20 @@ human-readable report."
           (push record missing-records))))
     (cons (nreverse output) (nreverse missing-records))))
 
-(defun org-roam-organize--record-capture-template (record)
+(defun org-roam-organize--record-node-capture-template (record)
+  "Return a managed node capture template for RECORD."
+  (let ((path (org-roam-organize--record-node-path-template record))
+        (head (org-roam-organize--record-node-head record)))
+    (when (and (stringp path) (stringp head))
+      (list org-roam-organize--node-capture-key
+            (format "%s node" (org-roam-organize--record-name record))
+            'plain
+            "%?"
+            :target
+            (list 'file+head path head)
+            :unnarrowed t))))
+
+(defun org-roam-organize--record-moc-capture-template (record)
   "Return a MOC capture template for RECORD."
   (let ((path (org-roam-organize--record-absolute-moc-path record))
         (head (org-roam-organize--record-moc-head record)))
@@ -703,8 +889,9 @@ human-readable report."
             "map of contents"
             'plain
             "%?"
-            :if-new
-            (list 'file+head path head)))))
+            :target
+            (list 'file+head path head)
+            :unnarrowed t))))
 
 (defun org-roam-organize--nodes-with-tag (tag)
   "Return level-0 Org-roam nodes with TAG.
@@ -1232,7 +1419,7 @@ validation."
             (failed-count 0))
         (dolist (record org-roam-organize-registry)
           (let* ((path (org-roam-organize--record-absolute-moc-path record))
-                 (template (org-roam-organize--record-capture-template record))
+                 (template (org-roam-organize--record-moc-capture-template record))
                  (key (car template))
                  (tag (org-roam-organize--record-tag record))
                  (title (org-roam-organize--record-moc-title record)))
@@ -1252,6 +1439,55 @@ validation."
               (setq created-count (1+ created-count))))))
         (message "[INFO] Create missing MOCs: %s created, %s skipped, %s failed."
                  created-count skipped-count failed-count))
+    (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
+
+;; 创建受管理的普通 org-roam node
+;;;###autoload
+(defun org-roam-organize-node-create ()
+  "Create a managed Org-roam node using `org-roam-organize-registry'.
+
+The selected registry record must define a relative `:directory'.  The
+created node uses the standard path layout
+<directory>/${id}/${slug}.org under `org-roam-organize-directory'.
+Org-roam Organize creates the UUID parent directory during Org-roam's capture
+preface phase and removes it after capture only when it remains empty."
+  (interactive)
+  (if org-roam-organize-mode
+      (let ((record (org-roam-organize--read-node-record)))
+        (if (not record)
+            (message "[WARNING] No registry record can create managed nodes.")
+          (let* ((title (read-string "Node title: "))
+                 (template (org-roam-organize--record-node-capture-template record))
+                 (key (car template)))
+            (cond
+             ((org-roam-organize--blank-string-p title)
+              (message "[WARNING] Node title cannot be empty."))
+             ((not (and template key))
+              (message "[WARNING] Cannot create node for registry record: %s" record))
+             (t
+              (let ((org-roam-organize--capture-created-directory nil))
+                (cl-labels
+                    ((cleanup ()
+                       (when org-roam-organize--capture-created-directory
+                         (run-at-time
+                          0 nil
+                          #'org-roam-organize--delete-empty-directory
+                          org-roam-organize--capture-created-directory))))
+                  (let ((org-roam-capture-preface-hook
+                         (cons #'org-roam-organize--capture-create-parent-directory
+                               org-roam-capture-preface-hook))
+                        (org-capture-after-finalize-hook
+                         (append org-capture-after-finalize-hook
+                                 (list #'cleanup))))
+                    (condition-case err
+                        (org-roam-capture- :node (org-roam-node-create :title title)
+                                           :keys key
+                                           :templates (list template))
+                      (error
+                       (when org-roam-organize--capture-created-directory
+                         (org-roam-organize--delete-empty-directory
+                          org-roam-organize--capture-created-directory))
+                       (signal (car err) (cdr err))))))))))))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 同步 MOC
