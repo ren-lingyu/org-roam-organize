@@ -85,25 +85,32 @@
     (:name "fleeting"
      :tag "idea"
      :basic t
-     :directory "fleeting")
+     :directory "fleeting"
+     :inbox "Inbox")
     (:name "literature"
      :tag "ref"
      :basic t
-     :directory "literature")
+     :directory "literature"
+     :inbox "Inbox")
     (:name "permanent"
      :tag "zettel"
      :basic t
-     :directory "permanent")
+     :directory "permanent"
+     :inbox "Inbox")
     (:name "note"
-     :tag "note")
+     :tag "note"
+     :inbox "Inbox")
     (:name "blog"
-     :tag "blog"))
+     :tag "blog"
+     :inbox "Inbox"))
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
 `:moc' and `:basic' are optional booleans.  A basic record must have
 a relative `:directory'.  `:moc-path' and `:moc-title' are optional
-overrides resolved from the record name when absent."
+overrides resolved from the record name when absent.  `:inbox' is an
+optional level-1 headline name used for newly added MOC node entries and
+defaults to \"Inbox\"."
   :type 'sexp
   :group 'org-roam-organize)
 
@@ -141,11 +148,14 @@ empty value.  String values are formatted according to
     (org-roam-node-title . function)
     (org-roam-capture- . function)
     (org-id-find . function)
+    (org-element-parse-buffer . function)
+    (org-element-map . function)
     (org-element-at-point . function)
     (org-element-type . function)
     (org-element-property . function)
     (org-back-to-heading . function)
     (org-entry-put . function)
+    (org-link-make-string . function)
     (seq-filter . function))
   "Runtime capabilities required by Org-roam Organize.
 
@@ -158,6 +168,12 @@ The list maps symbols to capability types checked by
 
 (defconst org-roam-organize--moc-capture-key "m"
   "Capture key used internally when creating MOC files.")
+
+(defconst org-roam-organize--moc-default-inbox-headline "Inbox"
+  "Default headline used for newly added MOC node entries.")
+
+(defconst org-roam-organize--moc-node-keyword "ROAM_NODE"
+  "Org keyword used for MOC node entries.")
 
 (defconst org-roam-organize--moc-file-keyword-formatter-alist
   '((author . identity)
@@ -343,6 +359,14 @@ the running Emacs."
   "Return RECORD's relative node directory."
   (plist-get record :directory))
 
+(defun org-roam-organize--record-inbox (record)
+  "Return RECORD's Inbox headline name."
+  (let ((inbox (plist-get record :inbox)))
+    (cond
+     ((stringp inbox) inbox)
+     ((plist-member record :inbox) nil)
+     (t org-roam-organize--moc-default-inbox-headline))))
+
 (defun org-roam-organize--registry-moc-record ()
   "Return the registry record that manages MOC nodes."
   (seq-find #'org-roam-organize--record-moc-p
@@ -488,6 +512,7 @@ human-readable report."
                (moc (when plistp (plist-get record :moc)))
                (basic (when plistp (plist-get record :basic)))
                (directory (when plistp (org-roam-organize--record-directory record)))
+               (inbox (when plistp (org-roam-organize--record-inbox record)))
                (moc-path (when plistp (org-roam-organize--record-moc-path record)))
                (moc-title (when plistp (org-roam-organize--record-moc-title record)))
                (absolute-directory
@@ -546,6 +571,11 @@ human-readable report."
               (setq result_bool nil)
               (setq result_message
                     (concat result_message "  :moc-title string? nil (should be t)\n")))
+            (when (and (plist-member record :inbox)
+                       (not (stringp (plist-get record :inbox))))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :inbox string? nil (should be t)\n")))
             (when (and (plist-member record :moc-path)
                        (stringp (plist-get record :moc-path))
                        (file-name-absolute-p (plist-get record :moc-path)))
@@ -593,7 +623,11 @@ human-readable report."
             (unless (stringp moc-title)
               (setq result_bool nil)
               (setq result_message
-                    (concat result_message "  resolved :moc-title string? nil (should be t)\n"))))))
+                    (concat result_message "  resolved :moc-title string? nil (should be t)\n")))
+            (unless (stringp inbox)
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  resolved :inbox string? nil (should be t)\n"))))))
       (unless (= moc-count 1)
         (setq result_bool nil)
         (setq result_message
@@ -672,6 +706,285 @@ human-readable report."
             :if-new
             (list 'file+head path head)))))
 
+(defun org-roam-organize--nodes-with-tag (tag)
+  "Return level-0 Org-roam nodes with TAG.
+
+The return value is a list of plists containing `:id' and `:title'."
+  (when org-roam-organize-mode
+    (mapcar
+     (lambda (row)
+       (list :id (nth 0 row)
+             :title (nth 1 row)))
+     (org-roam-db-query
+      [:select [n:id n:title]
+               :from (as tags t)
+               :join (as nodes n)
+               :on (and (= n:level 0) (= n:id t:node_id))
+               :where (= t:tag $s1)]
+      tag))))
+
+(defun org-roam-organize--moc-node-entry-line (id title &optional delete)
+  "Return a MOC node entry line for ID, TITLE, and DELETE flag."
+  (format "#+%s: %s%s\n"
+          org-roam-organize--moc-node-keyword
+          (org-link-make-string (concat "id:" id) title)
+          (if delete " :delete t" "")))
+
+(defun org-roam-organize--moc-node-entry-delete-p (suffix)
+  "Return non-nil if MOC node entry SUFFIX contains `:delete t'."
+  (when (stringp suffix)
+    (condition-case nil
+        (let ((start 0)
+              values)
+          (while (< start (length suffix))
+            (let ((result (read-from-string suffix start)))
+              (push (car result) values)
+              (setq start (cdr result))))
+          (eq (plist-get (nreverse values) :delete) t))
+      (error nil))))
+
+(defun org-roam-organize--blank-string-p (string)
+  "Return non-nil if STRING contains only whitespace."
+  (cl-every (lambda (char)
+              (memq char '(?\s ?\t ?\n ?\r)))
+            string))
+
+(defun org-roam-organize--element-in-comment-subtree-p (element)
+  "Return non-nil if ELEMENT belongs to a COMMENT subtree."
+  (let ((parent (org-element-property :parent element))
+        found)
+    (while (and parent (not found))
+      (when (and (eq (org-element-type parent) 'headline)
+                 (org-element-property :commentedp parent))
+        (setq found t))
+      (setq parent (org-element-property :parent parent)))
+    found))
+
+(defun org-roam-organize--element-commented-p (element)
+  "Return non-nil if ELEMENT is in COMMENT context."
+  (or (and (eq (org-element-type element) 'headline)
+           (org-element-property :commentedp element))
+      (org-roam-organize--element-in-comment-subtree-p element)))
+
+(defun org-roam-organize--moc-parse-node-entry-value (value)
+  "Parse a MOC node entry keyword VALUE.
+
+Return a plist with `:id', `:title', and `:delete', or nil when VALUE does
+not contain a valid id link at the beginning."
+  (with-temp-buffer
+    (insert value)
+    (org-mode)
+    (let* ((ast (org-element-parse-buffer))
+           link-result)
+      (org-element-map ast 'link
+        (lambda (link)
+          (unless link-result
+            (let ((prefix (buffer-substring-no-properties
+                           (point-min)
+                           (org-element-property :begin link))))
+              (when (and (org-roam-organize--blank-string-p prefix)
+                         (string= (org-element-property :type link) "id")
+                         (org-element-property :contents-begin link)
+                         (org-element-property :contents-end link))
+                (let* ((description
+                        (buffer-substring-no-properties
+                         (org-element-property :contents-begin link)
+                         (org-element-property :contents-end link)))
+                       (suffix
+                        (buffer-substring-no-properties
+                         (org-element-property :end link)
+                         (point-max))))
+                  (setq link-result
+                        (list
+                         :id (org-element-property :path link)
+                         :title description
+                         :delete
+                         (org-roam-organize--moc-node-entry-delete-p
+                          suffix)))))))))
+      link-result)))
+
+(defun org-roam-organize--moc-parse-node-entries ()
+  "Parse MOC node entries in the current buffer.
+
+Return a plist containing `:entries' and `:malformed'.  Entries are plists
+with `:id', `:title', `:delete', `:begin', and `:end'."
+  (let (entries malformed)
+    (org-element-map (org-element-parse-buffer) 'keyword
+      (lambda (keyword)
+        (when (and (string= (org-element-property :key keyword)
+                            org-roam-organize--moc-node-keyword)
+                   (not
+                    (org-roam-organize--element-commented-p keyword)))
+          (let* ((begin (org-element-property :begin keyword))
+                 (end (org-element-property :end keyword))
+                 (value (org-element-property :value keyword))
+                 (parsed
+                  (org-roam-organize--moc-parse-node-entry-value value)))
+            (if parsed
+                (push (append parsed
+                              (list :begin begin
+                                    :end end))
+                      entries)
+              (push (buffer-substring-no-properties
+                     begin
+                     (save-excursion
+                       (goto-char begin)
+                       (line-end-position)))
+                    malformed))))))
+    (list :entries (nreverse entries)
+          :malformed (nreverse malformed))))
+
+(defun org-roam-organize--moc-inbox-headline (name)
+  "Return the top-level Inbox headline element named NAME in the current buffer."
+  (let (inbox)
+    (org-element-map (org-element-parse-buffer) 'headline
+      (lambda (headline)
+        (when (and (not inbox)
+                   (= (or (org-element-property :level headline) 0) 1)
+                   (string= (org-element-property :raw-value headline)
+                            name)
+                   (not
+                    (org-roam-organize--element-commented-p headline)))
+          (setq inbox headline))))
+    inbox))
+
+(defun org-roam-organize--moc-first-child-headline-begin (headline)
+  "Return the beginning position of HEADLINE's first child headline."
+  (let ((contents-begin (org-element-property :contents-begin headline))
+        (end (org-element-property :end headline))
+        child-begin)
+    (when contents-begin
+      (org-element-map headline 'headline
+        (lambda (child)
+          (when (and (not child-begin)
+                     (> (org-element-property :begin child)
+                        (org-element-property :begin headline)))
+            (setq child-begin (org-element-property :begin child))))
+        nil nil nil)
+      (when (and child-begin
+                 end
+                 (< child-begin end))
+        child-begin))))
+
+(defun org-roam-organize--moc-inbox-insertion-point (name)
+  "Return the insertion point for new MOC node entries.
+
+Create the level-1 Inbox headline named NAME when it is missing."
+  (let ((inbox (org-roam-organize--moc-inbox-headline name)))
+    (if inbox
+        (let ((child-begin
+               (org-roam-organize--moc-first-child-headline-begin inbox))
+              (contents-begin (org-element-property :contents-begin inbox))
+              (end (org-element-property :end inbox)))
+          (goto-char (or child-begin contents-begin end))
+          (unless (bolp)
+            (insert "\n"))
+          (point))
+      (goto-char (point-max))
+      (unless (or (bobp) (bolp))
+        (insert "\n"))
+      (insert "* " name "\n")
+      (point))))
+
+(defun org-roam-organize--moc-managed-property-put (property value)
+  "Set top-level MOC PROPERTY to VALUE in the current buffer."
+  (let ((property (upcase property))
+        (value (format "%s" value)))
+    (save-excursion
+      (goto-char (point-min))
+      (unless (looking-at-p ":PROPERTIES:")
+        (insert ":PROPERTIES:\n:END:\n"))
+      (goto-char (point-min))
+      (let ((drawer-end
+             (save-excursion
+               (when (re-search-forward "^:END:[ \t]*$" nil t)
+                 (line-beginning-position)))))
+        (if (not drawer-end)
+            (progn
+              (goto-char (point-min))
+              (insert ":PROPERTIES:\n:END:\n")
+              (org-roam-organize--moc-managed-property-put property value))
+          (if (re-search-forward
+               (format "^:%s:[ \t]*.*$" (regexp-quote property))
+               drawer-end t)
+              (replace-match (format ":%s: %s" property value) t t)
+            (goto-char drawer-end)
+            (insert (format ":%s: %s\n" property value))))))))
+
+(defun org-roam-organize--moc-update-managed-information (record nodes)
+  "Update managed information in RECORD's MOC file for NODES."
+  (let ((path (org-roam-organize--record-absolute-moc-path record))
+        (tag (org-roam-organize--record-tag record)))
+    (when (and path tag (file-exists-p path))
+      (with-current-buffer (find-file-noselect path)
+        (org-roam-organize--moc-managed-property-put
+         org-roam-organize-moc-managed-tag-property
+         tag)
+        (org-roam-organize--moc-managed-property-put
+         org-roam-organize-moc-managed-node-count-property
+         (length nodes))
+        (save-buffer)))))
+
+(defun org-roam-organize--moc-sync-node-entries (record nodes)
+  "Sync MOC node entries for RECORD from NODES.
+
+Existing legal entries keep their relative position.  Duplicate entries are
+all synchronized and reported.  Entries whose ids are no longer in NODES are
+removed.  Missing nodes are appended under the Inbox headline."
+  (let ((path (org-roam-organize--record-absolute-moc-path record))
+        (node-table (make-hash-table :test 'equal))
+        (seen-table (make-hash-table :test 'equal))
+        duplicate-ids removed-ids malformed-lines)
+    (dolist (node nodes)
+      (puthash (plist-get node :id) node node-table))
+    (if (not (and path (file-exists-p path)))
+        (list :status 'failed
+              :record record
+              :reason "MOC file does not exist")
+      (with-current-buffer (find-file-noselect path)
+        (let* ((parse-result (org-roam-organize--moc-parse-node-entries))
+               (entries (plist-get parse-result :entries)))
+          (setq malformed-lines (plist-get parse-result :malformed))
+          (dolist (entry entries)
+            (let ((id (plist-get entry :id)))
+              (if (gethash id seen-table)
+                  (cl-pushnew id duplicate-ids :test #'equal)
+                (puthash id t seen-table))))
+          (dolist (entry (reverse entries))
+            (let* ((id (plist-get entry :id))
+                   (node (gethash id node-table)))
+              (goto-char (plist-get entry :begin))
+              (if node
+                  (progn
+                    (delete-region (plist-get entry :begin)
+                                   (plist-get entry :end))
+                    (insert
+                     (org-roam-organize--moc-node-entry-line
+                      id
+                      (plist-get node :title)
+                      (plist-get entry :delete))))
+                (push id removed-ids)
+                (delete-region (plist-get entry :begin)
+                               (plist-get entry :end)))))
+          (let (missing-nodes)
+            (dolist (node nodes)
+              (unless (gethash (plist-get node :id) seen-table)
+                (push node missing-nodes)))
+            (when missing-nodes
+              (org-roam-organize--moc-inbox-insertion-point
+               (org-roam-organize--record-inbox record))
+              (dolist (node (nreverse missing-nodes))
+                (insert
+                 (org-roam-organize--moc-node-entry-line
+                  (plist-get node :id)
+                  (plist-get node :title)))))))
+        (save-buffer)
+        (list :status 'ok
+              :record record
+              :duplicates (nreverse duplicate-ids)
+              :removed (nreverse removed-ids)
+              :malformed malformed-lines)))))
+
 ;; hash 表转换为 alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
   (when org-roam-organize-mode
@@ -719,7 +1032,7 @@ If no #+FILETAGS line exists, do nothing."
     (let* ((pos (or pos (point)))
            (el (save-excursion (goto-char pos) (org-element-at-point)))
            (title (org-element-property :raw-value el))
-           id node file)
+           id node)
       ;; 检查 headline 类型.
       (unless (eq (org-element-type el) 'headline)
         (user-error "Not on a headline"))
@@ -941,55 +1254,50 @@ validation."
                  created-count skipped-count failed-count))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
-;; 更新 MOC
+;; 同步 MOC
 ;;;###autoload
-(defun org-roam-organize-moc-update ()
-  "Update Org-roam nodes with tag count information. For each tag in `tag-id-alist`, count how many nodes have that tag, and write the count into the corresponding node's property field."
+(defun org-roam-organize-moc-sync ()
+  "Sync managed MOC files from Org-roam node tags."
   (interactive)
   (if org-roam-organize-mode
-      (let* ((moc_count_prop org-roam-organize-moc-managed-node-count-property)
-             (tag_id_result (org-roam-organize--registry-tag-id-alist))
-             (tag_id (car tag_id_result))
-             (missing_records (cdr tag_id_result))
-             (sth_unexpected nil))
-        ;; 开始提示
-        (message "[INFO] Begin Check and Update. ")
+      (let ((synced-count 0)
+            (failed-count 0)
+            (duplicate-count 0)
+            (removed-count 0)
+            (malformed-count 0))
         (org-roam-db)
-        (when missing_records
-          (setq sth_unexpected t)
-          (message "[WARNING] Some registry records do not resolve to level-0 MOC nodes: %s"
-                   missing_records))
-        (cond
-         ((not tag_id)
-          (progn
-            (setq sth_unexpected t)
-            (message "[WARNING] No tag-id map found. ")))
-         (t
-          (let* ((inhibit-message t)
-                 (tag_list (mapcar (lambda (e) (format "%s" (car e))) tag_id))
-                 (tag_count_hash (org-roam-organize--count-nodes-with-given-tag-list tag_list))
-                 (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline tag_id "tags" "tag")))
-            (dolist (entry tag_id)
-              (let* ((tag (car entry))
-                     (id (cdr entry))
-                     (count (gethash tag tag_count_hash))
-                     (marker (org-id-find id 'marker)))
-                (if (and marker
-                         count)
-                    (progn
-                      (with-current-buffer (marker-buffer marker)
-                        (goto-char marker)
-                        (let ((field (format "%s" (upcase moc_count_prop))))
-                          (org-entry-put (point) field (number-to-string count))
-                          (save-buffer))))
-                  (progn
-                    (setq sth_unexpected t)
-                    (message "[WARNING] SQL query failed or ID input is invalid. ")))))
-            (dolist (pair source_dest_alist)
-              (org-roam-organize--insert-id-type-link-headline pair)))))
-        (if sth_unexpected
-            (message "[WARNING] End, but something UNEXPECTED happened, please check *Message*. ")
-          (message "[INFO] Update Successful. ")))
+        (dolist (record org-roam-organize-registry)
+          (let* ((tag (org-roam-organize--record-tag record))
+                 (nodes (and (stringp tag)
+                             (org-roam-organize--nodes-with-tag tag)))
+                 (result (when (stringp tag)
+                           (org-roam-organize--moc-sync-node-entries
+                            record
+                            (or nodes nil)))))
+            (cond
+             ((not (and (stringp tag) result))
+              (setq failed-count (1+ failed-count))
+              (message "[WARNING] Cannot sync MOC for registry record: %s" record))
+             ((eq (plist-get result :status) 'failed)
+              (setq failed-count (1+ failed-count))
+              (message "[WARNING] Cannot sync MOC for registry record: %s (%s)"
+                       record
+                       (plist-get result :reason)))
+             (t
+              (org-roam-organize--moc-update-managed-information record nodes)
+              (setq synced-count (1+ synced-count))
+              (setq duplicate-count
+                    (+ duplicate-count
+                       (length (plist-get result :duplicates))))
+              (setq removed-count
+                    (+ removed-count
+                       (length (plist-get result :removed))))
+              (setq malformed-count
+                    (+ malformed-count
+                       (length (plist-get result :malformed))))))))
+        (message
+         "[INFO] Sync MOCs: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries."
+         synced-count failed-count duplicate-count removed-count malformed-count))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 文献节点反链补全
