@@ -2,7 +2,7 @@
 #+AUTHOR: aRenCoco
 
 * Overview
-Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating missing MOC files, updating MOC statistics, and completing missing backlinks.
+Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating missing MOC files, syncing MOC entries from Org-roam node tags, and completing missing backlinks.
 
 * Repository Structure
 #+BEGIN_SRC
@@ -22,6 +22,7 @@ The package includes the following main features:
 
 ** 2. Tag Processing
 - Tag-based node counting and statistics
+- Tag-based MOC membership synchronization
 
 ** 3. Backlink Management
 - Automatic insertion of missing backlinks for literature nodes
@@ -30,13 +31,14 @@ The package includes the following main features:
 
 ** 4. Statistical Functions
 - Count nodes with specific tags
-- Update node statistics in MOC files
+- Update managed tag and node count information in MOC files
 - Maintain dynamic counters in properties
 
 ** 5. MOC Management
 - Configure managed MOC records with =org-roam-organize-registry=
 - Create missing MOC files from registry-derived paths and file heads
 - Open the top-level MOC declared by the =:moc t= registry record
+- Sync MOC node entries using =#+ROAM_NODE= keywords
 
 * Requirements
 This package depends on the following:
@@ -49,14 +51,16 @@ This package depends on the following:
 Before using this package, you need to configure the following variables:
 
 - =org-roam-organize-directory=: Root directory for org-roam-organize
-- =org-roam-organize-registry=: Registry of managed MOC records
+- =org-roam-organize-registry=: Registry of managed MOC records and their tags, paths, directories, and inbox headlines
 - =org-roam-organize-moc-file-keywords=: Optional Org file keywords written when creating MOC files
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
 
 The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
-The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands.
+Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t=. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=.
+
+The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands. The old =org-roam-organize-moc-update= command was also replaced by =org-roam-organize-moc-sync=.
 
 * Keybindings
 This package does not install default keybindings. The commands are intended to be bound in user configuration.
@@ -64,12 +68,23 @@ This package does not install default keybindings. The commands are intended to 
 ** Suggested Global Keybindings
 The following =C-c o= keybindings are optional user configuration examples:
 
-- =C-c o o=: Toggle =org-roam-organize-mode=
-- =C-c o c=: Check setup variables and runtime capabilities
-- =C-c o m m=: Jump to the top-level MOC
-- =C-c o m c=: Create missing MOC files
-- =C-c o m u=: Update all MOC node statistics
-- =C-c o r c=: Complete missing backlinks for literature nodes
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-c o o") #'org-roam-organize-mode)
+  (global-set-key (kbd "C-c o c") #'org-roam-organize-check-setup)
+  (global-set-key (kbd "C-c o m m") #'org-roam-organize-moc-open-index)
+  (global-set-key (kbd "C-c o m c") #'org-roam-organize-moc-create)
+  (global-set-key (kbd "C-c o m s") #'org-roam-organize-moc-sync)
+  (global-set-key (kbd "C-c o r c") #'org-roam-organize-ref-complete-backlinks)
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+  (keymap-global-set "C-c o o" #'org-roam-organize-mode)
+  (keymap-global-set "C-c o c" #'org-roam-organize-check-setup)
+  (keymap-global-set "C-c o m m" #'org-roam-organize-moc-open-index)
+  (keymap-global-set "C-c o m c" #'org-roam-organize-moc-create)
+  (keymap-global-set "C-c o m s" #'org-roam-organize-moc-sync)
+  (keymap-global-set "C-c o r c" #'org-roam-organize-ref-complete-backlinks)
+#+END_SRC
 
 ** Suggested Command Aliases
 The following aliases are optional user configuration examples:
@@ -79,7 +94,7 @@ The following aliases are optional user configuration examples:
   (defalias 'oro-mkdirs #'org-roam-organize-create-directories)
   (defalias 'oro-map #'org-roam-organize-moc-open-index)
   (defalias 'oro-create-mocs #'org-roam-organize-moc-create)
-  (defalias 'oro-update #'org-roam-organize-moc-update)
+  (defalias 'oro-sync-mocs #'org-roam-organize-moc-sync)
   (defalias 'oro-backlinks #'org-roam-organize-ref-complete-backlinks)
 #+END_SRC
 
@@ -89,7 +104,8 @@ The following aliases are optional user configuration examples:
 3. Run =org-roam-organize-check-setup= to verify your configuration and runtime capabilities
 4. After first-time setup or registry directory changes, run =org-roam-organize-create-directories= to create basic registry directories
 5. After adding new registry records, run =org-roam-organize-moc-create= to create missing MOC files
-6. Use =org-roam-organize-moc-update= and =org-roam-organize-ref-complete-backlinks= to update derived MOC content
+6. Use =org-roam-organize-moc-sync= to sync MOC entries and managed information
+7. Use =org-roam-organize-ref-complete-backlinks= to complete missing citation backlinks
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -107,19 +123,24 @@ An example of configuration is shown here.
        (:name "fleeting"
         :tag "idea"
         :basic t
-        :directory "fleeting")
+        :directory "fleeting"
+        :inbox "Inbox")
        (:name "literature"
         :tag "ref"
         :basic t
-        :directory "literature")
+        :directory "literature"
+        :inbox "Inbox")
        (:name "permanent"
         :tag "zettel"
         :basic t
-        :directory "permanent")
+        :directory "permanent"
+        :inbox "Inbox")
        (:name "note"
-        :tag "note")
+        :tag "note"
+        :inbox "Inbox")
        (:name "blog"
-        :tag "blog")))
+        :tag "blog"
+        :inbox "Inbox")))
     (org-roam-organize-moc-file-keywords
      '((author . "John Doe")
        (date . "<%Y-%m-%d %A %H:%M:%S %z>")
@@ -131,14 +152,29 @@ An example of configuration is shown here.
      ("C-c o c" . org-roam-organize-check-setup)
      ("C-c o m m" . org-roam-organize-moc-open-index)
      ("C-c o m c" . org-roam-organize-moc-create)
-     ("C-c o m u" . org-roam-organize-moc-update)
+     ("C-c o m s" . org-roam-organize-moc-sync)
      ("C-c o r c" . org-roam-organize-ref-complete-backlinks))
     :hook (after-init-hook . org-roam-organize-mode))
 
 #+END_SRC
 
+* MOC Entry Format
+Managed MOC node entries are stored as Org keywords:
+
+#+BEGIN_SRC org
+  #+ROAM_NODE: [[id:node-id][Node title]]
+#+END_SRC
+
+Entries marked for future deletion workflows may use:
+
+#+BEGIN_SRC org
+  #+ROAM_NODE: [[id:node-id][Node title]] :delete t
+#+END_SRC
+
+During sync, existing valid entries keep their position and order. Missing nodes are added under the configured level-1 inbox headline. Entries whose target node no longer exists or no longer has the managed tag are removed. Duplicate entries are preserved, synchronized, and reported.
+
 * Implementation Details
-The package uses Org-roam's database queries to resolve MOC nodes by file path, count level-0 nodes by tag, and find missing tag or citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems.
+The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and find missing citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
 
