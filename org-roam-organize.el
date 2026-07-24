@@ -66,7 +66,7 @@
 
 (defcustom org-roam-organize-allow-outside-root
   nil
-  "Bool 型变量, 是否允许在非 org-roam-organize 根目录下启动 org-roam-organize, 默认值为nil"
+  "Bool 型变量, 是否允许在非 org-roam-organize 根目录下启动 org-roam-organize, 默认值为 nil."
   :type 'boolean
   :group 'org-roam-organize)
 
@@ -176,7 +176,7 @@ The list maps symbols to capability types checked by
 ;; 内部函数
 ;; ==============================
 
-;; 变量检查(不依赖 minor-mode 开启)
+;; 变量检查 (不依赖 minor-mode 开启)
 (defun org-roam-organize--check-variables (root_dir alist)
   "Check Org-roam Organize variables in ALIST under ROOT_DIR.
 
@@ -679,7 +679,7 @@ human-readable report."
             :if-new
             (list 'file+head path head)))))
 
-;; hash表转换为alist
+;; hash 表转换为 alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
   (when org-roam-organize-mode
     (let (result)
@@ -688,9 +688,9 @@ human-readable report."
          (key value)
          (push (cons key value) result))
        hash_table)
-      (nreverse result))))  ;; nreverse to reverse the list back to original order
+      (nreverse result))))  ;; Reverse the list back to original order.
 
-;; alist转换为hash表
+;; alist 转换为 hash 表
 (defun org-roam-organize--alist-to-hash-table (alist)
   (when org-roam-organize-mode
     (let ((ht (make-hash-table :test 'equal)))
@@ -701,49 +701,54 @@ human-readable report."
          ht))
       ht)))
 
-;; 替换tag
+;; 替换 tag
 (defun org-roam-organize--update-filetag (file source_tag target_tag)
-  "In FILE, replace SOURCE_TAG with TARGET_TAG in #+FILETAGS: line only. If no #+FILETAGS: line exists, do nothing."
+  "In FILE, replace SOURCE_TAG with TARGET_TAG in #+FILETAGS.
+
+If no #+FILETAGS line exists, do nothing."
   (when org-roam-organize-mode
     (with-current-buffer (find-file-noselect file)
       (goto-char (point-min))
       (if (re-search-forward "^#\\+FILETAGS:[ \t]*\\(.*\\)$" nil t)
           (let* ((old (match-string 1))
-                 ;; 保留所有原有 tag，只替换 source_tag
+                 ;; 保留所有原有 tag, 只替换 source_tag.
                  (new (replace-regexp-in-string (concat ":" source_tag ":") (concat ":" target_tag ":") old)))
             (unless (string= old new)
-              ;; 用 new 覆盖 old
+              ;; 用 new 覆盖 old.
               (replace-match new nil nil nil 1)
               (save-buffer)
               (message "Updated FILETAGS in %s: %s → %s" file source_tag target_tag)))
         (message "No #+FILETAGS: found in %s; skipping tag update" file)))))
 
-;; 从光标获取headline中通过id的引用指向的node的信息
+;; 从光标获取 headline 中通过 id 引用指向的 node 信息
 (defun org-roam-organize--get-node-info-from-cite-in-headline (&optional pos)
   (when org-roam-organize-mode
     (let* ((pos (or pos (point)))
            (el (save-excursion (goto-char pos) (org-element-at-point)))
            (title (org-element-property :raw-value el))
            id node file)
-      ;; 检查 headline 类型
+      ;; 检查 headline 类型.
       (unless (eq (org-element-type el) 'headline)
         (user-error "Not on a headline"))
-      ;; 提取 id
+      ;; 提取 id.
       (setq id
             (if (string-match "\\[\\[id:\\([^]]+\\)\\]\\[" title)
                 (match-string 1 title)
               (user-error "No [[id:...]] link found in this headline")))
-      ;; 获取 org-roam node
+      ;; 获取 org-roam node.
       (setq node
             (or
              (org-roam-node-from-id id)
              (user-error "No org-roam node with id %s" id)))
-      ;; 返回 plist
+      ;; 返回 plist.
       (list :id id :node node))))
 
-;; 对给定tag列表, 查出数据库中表nodes内level=0的node数量
+;; 对给定 tag 列表, 查出数据库中 nodes 表内 level=0 的 node 数量
 (defun org-roam-organize--count-nodes-with-given-tag-list (tag_list &optional hash_to_alist)
-  "Return an alist of (TAG . COUNT) for level=0 nodes, given a list of TAGS. Includes all tags in TAG_LIST, assigning zero to those not present in DB. The input parameter must be a 1-dim' list or vector. "
+  "Return tag counts for level-0 nodes in TAG_LIST.
+
+When HASH_TO_ALIST is non-nil, return an alist.  Otherwise return a hash
+table.  Tags not present in the Org-roam database are assigned zero."
   (when org-roam-organize-mode
     (let* ((tag_count (make-hash-table :test 'equal))
            (result
@@ -765,9 +770,13 @@ human-readable report."
           (org-roam-organize--hash-table-to-alist tag_count)
         tag_count))))
 
-;; 检查需要却没有被插入link于给定node的node的id
+;; 检查需要却没有被插入 link 于给定 node 的 node id
 (defun org-roam-organize--check-file-node-no-linked-headline (tag_id table col)
-  "Given TAG_ID (alist of TAG . ID), return an alist of (source_id . dest_id_list) where dest_id_list contains level=0 node ids for TAG not already linked from source_id."
+  "Return missing linked headline targets for TAG_ID.
+
+TAG_ID is an alist of TAG . ID.  TABLE and COL select the Org-roam database
+table and column used to find candidate nodes.  Return an alist of source node
+id to destination node id list."
   (when org-roam-organize-mode
     (let* ((tag_list
             (mapcar (lambda (e) (format "%s" (car e))) tag_id))
@@ -810,9 +819,11 @@ human-readable report."
            (lambda (x) (not (gethash x linked-ht)))
            all_nodes)))))))
 
-;; 在给定id的node中插入指定形式的id型link
+;; 在给定 id 的 node 中插入指定形式的 id 型 link
 (defun org-roam-organize--insert-id-type-link-headline (pair)
-  "Insert org entries for level0 nodes given SOURCE_DEST_ALIST. PAIR is a cons cell of (source_id . dest_id_list), where source_id is a string and dest_id_list is a list of node IDs (may be empty)."
+  "Insert Org entries for level-0 nodes in PAIR.
+
+PAIR is a cons cell of source node id to destination node id list."
   (when org-roam-organize-mode
     (let* ((source_id (car pair))
            (dest_ids (cdr pair)))
@@ -880,7 +891,7 @@ validation."
 ;; 可调用功能函数
 ;; ==============================
 
-;; 打开顶层moc
+;; 打开顶层 MOC
 ;;;###autoload
 (defun org-roam-organize-moc-open-index ()
   "Open the top-level Map of Contents file using its file path."
@@ -937,7 +948,7 @@ validation."
                  created-count skipped-count failed-count))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
-;; 更新moc
+;; 更新 MOC
 ;;;###autoload
 (defun org-roam-organize-moc-update ()
   "Update Org-roam nodes with tag count information. For each tag in `tag-id-alist`, count how many nodes have that tag, and write the count into the corresponding node's property field."
@@ -1015,7 +1026,7 @@ validation."
 ;; Minor-Mode
 ;; ==============================
 
-;; defination
+;; Definition.
 ;;;###autoload
 (define-minor-mode org-roam-organize-mode
   "org-roam-organize mode"
@@ -1024,7 +1035,7 @@ validation."
   :global t
   :init-value nil)
 
-;; hook
+;; Hook.
 (add-hook 'org-roam-organize-mode-hook
           (lambda ()
             (when org-roam-organize-mode

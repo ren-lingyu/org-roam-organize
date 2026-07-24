@@ -2,7 +2,7 @@
 #+AUTHOR: aRenCoco
 
 * Overview
-Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for maintaining MOC statistics, completing backlinks, and checking package setup.
+Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating missing MOC files, updating MOC statistics, and completing missing backlinks.
 
 * Repository Structure
 #+BEGIN_SRC
@@ -18,6 +18,7 @@ The package includes the following main features:
 
 ** 1. Node Management
 - Check package configuration and runtime capabilities
+- Create directories declared by basic registry records
 
 ** 2. Tag Processing
 - Tag-based node counting and statistics
@@ -33,8 +34,9 @@ The package includes the following main features:
 - Maintain dynamic counters in properties
 
 ** 5. MOC Management
-- Create MOC nodes based on templates
-- Dynamic MOC discovery via tags and properties
+- Configure managed MOC records with =org-roam-organize-registry=
+- Create missing MOC files from registry-derived paths and file heads
+- Open the top-level MOC declared by the =:moc t= registry record
 
 * Requirements
 This package depends on the following:
@@ -46,15 +48,16 @@ This package depends on the following:
 * Configuration
 Before using this package, you need to configure the following variables:
 
-- =org-roam-organize-directory=: Root directory for org-roam-organize
-- =org-roam-organize-directory-p=: Allow running outside root directory
-- =org-roam-organize-moc-directory=: Directory for MOC (Map of Contents) files
-- =org-roam-organize-moc-tag=: Tag used to identify MOC files
+- =org-roam-organize-root-directory=: Root directory for org-roam-organize
+- =org-roam-organize-allow-outside-root=: Allow running outside root directory
+- =org-roam-organize-registry=: Registry of managed MOC records
+- =org-roam-organize-moc-file-keywords=: Optional Org file keywords written when creating MOC files
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
-- =org-roam-organize-moc-top-moc-file=: Path to the top-level MOC file
-- =org-roam-organize-tag-title-alist=: Association list mapping tags to MOC titles
-- =org-roam-organize-moc-capture-template=: Org roam capture template for capture MOCs
+
+The root directory must be inside =org-roam-directory=. The variable
+=org-roam-organize-allow-outside-root= only allows enabling the mode while the
+current Emacs directory is outside the org-roam-organize root.
 
 The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands.
 
@@ -67,6 +70,7 @@ The following =C-c o= keybindings are optional user configuration examples:
 - =C-c o o=: Toggle =org-roam-organize-mode=
 - =C-c o c=: Check setup variables and runtime capabilities
 - =C-c o m m=: Jump to the top-level MOC
+- =C-c o m c=: Create missing MOC files
 - =C-c o m u=: Update all MOC node statistics
 - =C-c o r c=: Complete missing backlinks for literature nodes
 
@@ -75,17 +79,20 @@ The following aliases are optional user configuration examples:
 
 #+BEGIN_SRC emacs-lisp
   (defalias 'oro-check #'org-roam-organize-check-setup)
-  (defalias 'oro-mkdirs #'org-roam-organize-create-directory)
-  (defalias 'oro-map #'org-roam-organize-goto-map-of-maps)
-  (defalias 'oro-update #'org-roam-organize-update-mocs)
-  (defalias 'oro-backlinks #'org-roam-organize-ref-backlink-complete)
+  (defalias 'oro-mkdirs #'org-roam-organize-create-directories)
+  (defalias 'oro-map #'org-roam-organize-moc-open-index)
+  (defalias 'oro-create-mocs #'org-roam-organize-moc-create)
+  (defalias 'oro-update #'org-roam-organize-moc-update)
+  (defalias 'oro-backlinks #'org-roam-organize-ref-complete-backlinks)
 #+END_SRC
 
 * Usage
 1. Configure the required variables in your Emacs configuration
 2. Enable =org-roam-organize-mode= with =M-x org-roam-organize-mode= or your configured toggle key
-3. Use the keybindings to organize your Org-roam knowledge base
-4. Run =org-roam-organize-check-setup= to verify your configuration and runtime capabilities
+3. Run =org-roam-organize-check-setup= to verify your configuration and runtime capabilities
+4. After first-time setup or registry directory changes, run =org-roam-organize-create-directories= to create basic registry directories
+5. After adding new registry records, run =org-roam-organize-moc-create= to create missing MOC files
+6. Use =org-roam-organize-moc-update= and =org-roam-organize-ref-complete-backlinks= to update derived MOC content
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -93,49 +100,51 @@ An example of configuration is shown here.
     :straight (:host github :repo "ren-lingyu/org-roam-organize")
     :after org-roam
     :custom
-    (org-roam-organize-directory org-roam-directory)
-    (org-roam-organize-moc-directory (expand-file-name "./moc/" org-roam-directory))
-    (org-roam-organize-moc-tag "map")
-    (org-roam-organize-moc-top-moc-file (expand-file-name "./moc/maps.org" org-roam-directory))
-    (org-roam-organize-directory-p t)
-    (org-roam-organize-tag-title-alist '(("map" . "Maps")
-                                         ("zettel" . "Permanent")
-                                         ("ref" . "Literature")
-                                         ("idea" . "Fleeting")
-                                         ("note" . "Note")
-                                         ("blog" . "Blog")))
+    (org-roam-organize-root-directory org-roam-directory)
+    (org-roam-organize-allow-outside-root t)
+    (org-roam-organize-registry
+     '((:name "maps"
+        :tag "map"
+        :moc t
+        :basic t
+        :directory "moc")
+       (:name "fleeting"
+        :tag "idea"
+        :basic t
+        :directory "fleeting")
+       (:name "literature"
+        :tag "ref"
+        :basic t
+        :directory "literature")
+       (:name "permanent"
+        :tag "zettel"
+        :basic t
+        :directory "permanent")
+       (:name "note"
+        :tag "note")
+       (:name "blog"
+        :tag "blog")))
+    (org-roam-organize-moc-file-keywords
+     '((author . "John Doe")
+       (date . "<%Y-%m-%d %A %H:%M:%S %z>")
+       (description . nil)))
     (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
     (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
-    (org-roam-organize-moc-capture-template `("m" "map of contents" plain "%?"
-                                          :if-new (file+head
-                                                   "moc/${slug}.org"
-                                                   ,(concat
-                                                     ":PROPERTIES:\n"
-                                                     ":MOC_MANAGED_TAG: ${moc_managed_tag}\n"
-                                                     ":MOC_MANAGED_NODE_COUNT:\n"
-                                                     ":END:\n"
-                                                     "#+TITLE: ${title}\n"
-                                                     "#+AUTHOR: aRenCoco\n"
-                                                     "#+DATE: " (format-time-string "<%Y-%m-%d %A %H:%M:%S %z>") "\n"
-                                                     "#+FILETAGS: :map:\n"
-                                                     "#+DESCRIPTION:\n"))
-                                          :unnarrowed t))
-    :config
-    (org-roam-organize-create-directory)
     :bind
     (("C-c o o" . org-roam-organize-mode)
      ("C-c o c" . org-roam-organize-check-setup)
-     ("C-c o m m" . org-roam-organize-goto-map-of-maps)
-     ("C-c o m u" . org-roam-organize-update-mocs)
-     ("C-c o r c" . org-roam-organize-ref-backlink-complete))
+     ("C-c o m m" . org-roam-organize-moc-open-index)
+     ("C-c o m c" . org-roam-organize-moc-create)
+     ("C-c o m u" . org-roam-organize-moc-update)
+     ("C-c o r c" . org-roam-organize-ref-complete-backlinks))
     :hook (after-init-hook . org-roam-organize-mode))
 
 #+END_SRC
 
 * Implementation Details
-The package uses Org-roam's database queries to manage node relationships and maintain consistency across the knowledge base. It includes configuration validation, runtime capability validation, and warning messages for common setup problems.
+The package uses Org-roam's database queries to resolve MOC nodes by file path, count level-0 nodes by tag, and find missing tag or citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems.
 
-The mode includes a startup hook that validates configuration variables and ensures the Emacs session is started in the appropriate directory.
+The mode includes a startup hook that validates setup and ensures the Emacs session is started in the appropriate directory unless =org-roam-organize-allow-outside-root= is non-nil.
 
 * License
 This project is licensed under the GNU General Public License v3.0. See [[file:LICENSE][LICENSE]] for details.
