@@ -147,6 +147,12 @@ name used for newly added MOC node entries and defaults to \"Inbox\".
   :group 'org-roam-organize)
 
 ;; ==============================
+;; 前置声明
+;; ==============================
+
+(defvar org-roam-organize-mode)
+
+;; ==============================
 ;; 常量定义
 ;; ==============================
 
