@@ -229,7 +229,13 @@ after the Org keyword name.  Keywords not listed here use `identity'.")
 
 ALIST should map variable symbols to expected type symbols.  Directory
 variables must be existing directories inside ROOT_DIR.  Return a cons cell
-whose car is the boolean result and whose cdr is a human-readable report."
+whose car is the boolean result and whose cdr is a human-readable report.
+
+Implementation notes: this is a report builder, not a signaling validator.
+It walks the variable/type alist once, reads each bound variable by symbol,
+checks only the small set of supported type tags, and accumulates both a
+boolean result and diagnostic lines so callers can show all configuration
+problems at once."
   (if (listp alist)
       (let* ((result_bool t)
              (result_message
@@ -326,7 +332,12 @@ ALIST should map capability symbols to expected capability type symbols.
 Return a cons cell whose car is the boolean result and whose cdr is a
 human-readable report.  This check is capability-based rather than
 version-based so package startup depends on interfaces actually available in
-the running Emacs."
+the running Emacs.
+
+Implementation notes: each capability is checked with `fboundp' or `boundp'
+according to its declared type.  The function mirrors
+`org-roam-organize--check-variables' by collecting a full report instead of
+stopping at the first missing interface."
   (if (listp alist)
       (let ((result_bool t)
             (result_message
@@ -355,7 +366,11 @@ the running Emacs."
     (cons nil "Inner Constant org-roam-organize--capability-alist is NOT defined properly. ")))
 
 (defun org-roam-organize--check-root-directory ()
-  "Check whether the Org-roam Organize root is inside `org-roam-directory'."
+  "Check whether the Org-roam Organize root is inside `org-roam-directory'.
+
+Implementation notes: both directories are normalized with
+`expand-file-name', then checked with `file-in-directory-p'.  Returning a
+report cons keeps this check composable with the other setup checks."
   (let* ((root org-roam-organize-directory)
          (roam-root org-roam-directory)
          (inside-p
@@ -373,32 +388,56 @@ the running Emacs."
       (format "  in org-roam-directory? %s (should be t)\n" inside-p)))))
 
 (defun org-roam-organize--record-name (record)
-  "Return RECORD's name."
+  "Return RECORD's name.
+
+Implementation notes: this accessor centralizes the `:name' key so callers do
+not directly depend on registry plist layout."
   (plist-get record :name))
 
 (defun org-roam-organize--record-name-p (name)
-  "Return non-nil if NAME is a safe registry record name."
+  "Return non-nil if NAME is a safe registry record name.
+
+Implementation notes: NAME must be a string matching the conservative record
+name regexp.  That allows later path derivation to use simple concatenation
+without slugifying or escaping."
   (and (stringp name)
        (string-match-p org-roam-organize--record-name-regexp name)))
 
 (defun org-roam-organize--record-tag (record)
-  "Return RECORD's managed node tag."
+  "Return RECORD's managed node tag.
+
+Implementation notes: this is a thin registry accessor; validation decides
+whether the returned value is acceptable."
   (plist-get record :tag))
 
 (defun org-roam-organize--record-moc-p (record)
-  "Return non-nil if RECORD manages MOC nodes."
+  "Return non-nil if RECORD manages MOC nodes.
+
+Implementation notes: only literal `t' enables MOC status, keeping absent and
+nil equivalent and avoiding extra type semantics."
   (eq (plist-get record :moc) t))
 
 (defun org-roam-organize--record-basic-p (record)
-  "Return non-nil if RECORD is a basic registry record."
+  "Return non-nil if RECORD is a basic registry record.
+
+Implementation notes: only literal `t' marks a basic record.  The basic flag
+is later used to decide which directories should be created and validated as
+base kind directories."
   (eq (plist-get record :basic) t))
 
 (defun org-roam-organize--record-directory (record)
-  "Return RECORD's relative node directory."
+  "Return RECORD's relative node directory.
+
+Implementation notes: this returns the raw plist value.  Path safety and
+normalization are intentionally handled by the path helper functions."
   (plist-get record :directory))
 
 (defun org-roam-organize--record-inbox (record)
-  "Return RECORD's Inbox headline name."
+  "Return RECORD's Inbox headline name.
+
+Implementation notes: an absent `:inbox' key falls back to the package
+default, while an explicitly non-string value returns nil so registry
+validation can report it."
   (let ((inbox (plist-get record :inbox)))
     (cond
      ((stringp inbox) inbox)
@@ -406,29 +445,49 @@ the running Emacs."
      (t org-roam-organize--moc-default-inbox-headline))))
 
 (defun org-roam-organize--record-template (record)
-  "Return RECORD's file keyword template alist."
+  "Return RECORD's file keyword template alist.
+
+Implementation notes: this accessor returns the raw structured template.
+Formatting, ordering, and warning behavior are handled by the file keyword
+line functions."
   (plist-get record :template))
 
 (defun org-roam-organize--record-template-filetags-entry (record)
-  "Return RECORD's template filetags entry, or nil."
+  "Return RECORD's template filetags entry, or nil.
+
+Implementation notes: registry validation only needs the first `filetags'
+entry to check the core tag/filetags invariant.  Template generation itself
+still iterates the full alist and preserves repeated keys."
   (let ((template (org-roam-organize--record-template record)))
     (when (org-roam-organize--proper-list-p template)
       (assoc 'filetags template))))
 
 (defun org-roam-organize--registry-moc-record ()
-  "Return the registry record that manages MOC nodes."
+  "Return the registry record that manages MOC nodes.
+
+Implementation notes: malformed registry entries are filtered out before
+`seq-find'.  The separate validator enforces that exactly one such record
+exists."
   (seq-find #'org-roam-organize--record-moc-p
             (seq-filter #'org-roam-organize--plistp
                         org-roam-organize-registry)))
 
 (defun org-roam-organize--registry-basic-records ()
-  "Return basic records from `org-roam-organize-registry'."
+  "Return basic records from `org-roam-organize-registry'.
+
+Implementation notes: this filters malformed entries first, then selects
+records whose `:basic' value is literal `t'.  Directory creation uses this
+list as its source of truth."
   (seq-filter #'org-roam-organize--record-basic-p
               (seq-filter #'org-roam-organize--plistp
                           org-roam-organize-registry)))
 
 (defun org-roam-organize--registry-node-records ()
-  "Return records that can create managed non-MOC nodes."
+  "Return records that can create managed non-MOC nodes.
+
+Implementation notes: records marked as MOC are excluded, and only records
+with a string `:directory' are offered.  This keeps interactive node creation
+limited to records that can produce a concrete path template."
   (seq-filter
    (lambda (record)
      (and (not (org-roam-organize--record-moc-p record))
@@ -437,7 +496,11 @@ the running Emacs."
                org-roam-organize-registry)))
 
 (defun org-roam-organize--read-node-record ()
-  "Read and return a registry record for managed node creation."
+  "Read and return a registry record for managed node creation.
+
+Implementation notes: selectable records are converted to a display alist
+using their name and tag.  `completing-read' returns the display string, which
+is mapped back to the original registry plist."
   (let* ((records (org-roam-organize--registry-node-records))
          (alist
           (mapcar
@@ -452,7 +515,11 @@ the running Emacs."
         (cdr (assoc choice alist))))))
 
 (defun org-roam-organize--record-moc-title (record)
-  "Return RECORD's MOC title."
+  "Return RECORD's MOC title.
+
+Implementation notes: explicit `:moc-title' wins.  If the key is present but
+not a string, nil is returned so validation can report it.  Otherwise a safe
+record name is converted with `upcase-initials'."
   (let ((explicit-title (plist-get record :moc-title))
         (name (org-roam-organize--record-name record)))
     (cond
@@ -462,7 +529,11 @@ the running Emacs."
      (t nil))))
 
 (defun org-roam-organize--record-moc-path (record)
-  "Return RECORD's relative MOC file path."
+  "Return RECORD's relative MOC file path.
+
+Implementation notes: explicit `:moc-path' wins unless it is explicitly
+non-string.  Without an override, the path is derived from the single MOC
+record's directory plus RECORD's safe name and `.org' suffix."
   (let ((explicit-path (plist-get record :moc-path))
         (name (org-roam-organize--record-name record)))
     (cond
@@ -480,7 +551,11 @@ the running Emacs."
            ".org")))))))
 
 (defun org-roam-organize--path-inside-root-p (path)
-  "Return non-nil if relative PATH resolves inside root directory."
+  "Return non-nil if relative PATH resolves inside root directory.
+
+Implementation notes: absolute paths are rejected first.  The relative path
+is then expanded under `org-roam-organize-directory' and checked with
+`file-in-directory-p' so `..' components cannot escape the root."
   (and (stringp path)
        (not (file-name-absolute-p path))
        (file-in-directory-p
@@ -489,17 +564,28 @@ the running Emacs."
          (expand-file-name org-roam-organize-directory)))))
 
 (defun org-roam-organize--absolute-path-in-root (path)
-  "Return normalized absolute PATH under root, or nil."
+  "Return normalized absolute PATH under root, or nil.
+
+Implementation notes: this is the single conversion point from registry
+relative paths to absolute paths.  It returns nil unless the safety predicate
+accepts PATH."
   (when (org-roam-organize--path-inside-root-p path)
     (expand-file-name path org-roam-organize-directory)))
 
 (defun org-roam-organize--record-absolute-directory (record)
-  "Return RECORD's absolute node directory."
+  "Return RECORD's absolute node directory.
+
+Implementation notes: the raw `:directory' value is resolved through
+`org-roam-organize--absolute-path-in-root', so callers get nil for unsafe or
+missing directories."
   (let ((directory (org-roam-organize--record-directory record)))
     (org-roam-organize--absolute-path-in-root directory)))
 
 (defun org-roam-organize--record-absolute-moc-path (record)
-  "Return RECORD's absolute MOC file path."
+  "Return RECORD's absolute MOC file path.
+
+Implementation notes: the derived or explicit MOC path is resolved through
+the shared root-safe path helper before any file operation sees it."
   (let ((path (org-roam-organize--record-moc-path record)))
     (org-roam-organize--absolute-path-in-root path)))
 
@@ -509,7 +595,11 @@ the running Emacs."
 The standard node layout is <directory>/${id}/${slug}.org under
 `org-roam-organize-directory'.  This function only provides the target path
 template; UUID parent directory creation is left to the Org-roam capture and
-Emacs save workflow."
+Emacs save workflow.
+
+Implementation notes: the template is generated only when RECORD has a
+string directory that resolves inside the root.  `${id}' and `${slug}' are
+left for Org-roam capture expansion."
   (let ((directory (org-roam-organize--record-directory record)))
     (when (and (stringp directory)
                (org-roam-organize--path-inside-root-p directory))
@@ -518,19 +608,32 @@ Emacs save workflow."
        org-roam-organize-directory))))
 
 (defun org-roam-organize--moc-file-keyword-name (key)
-  "Return Org file keyword name for KEY."
+  "Return Org file keyword name for KEY.
+
+Implementation notes: registry template keys are symbols, so the function
+uses `symbol-name' and `upcase' to map `author' to AUTHOR-style Org file
+keywords."
   (upcase (symbol-name key)))
 
 (defun org-roam-organize--moc-filetags-format (tags)
   "Return Org FILETAGS value from TAGS.
 
-TAGS must be a list of strings."
+TAGS must be a list of strings.
+
+Implementation notes: this formatter is deliberately stricter than generic
+keyword formatting because FILETAGS has structured Org syntax.  Invalid input
+returns nil so the caller can warn and skip the line."
   (when (and (listp tags)
              (seq-every-p #'stringp tags))
     (format ":%s:" (mapconcat #'identity tags ":"))))
 
 (defun org-roam-organize--moc-file-keyword-line (entry)
-  "Return Org file keyword line for ENTRY, or nil."
+  "Return Org file keyword line for ENTRY, or nil.
+
+Implementation notes: ENTRY is read as an alist cell.  Special keys use
+`org-roam-organize--moc-file-keyword-formatter-alist'; all other keys use
+`identity'.  Nil values intentionally emit an empty keyword line, while
+non-string formatted results are ignored with a warning."
   (let* ((key (car-safe entry))
          (value (cdr-safe entry))
          (formatter
@@ -555,7 +658,11 @@ TAGS must be a list of strings."
       nil))))
 
 (defun org-roam-organize--record-file-keyword-lines (record)
-  "Return optional Org file keyword lines for RECORD."
+  "Return optional Org file keyword lines for RECORD.
+
+Implementation notes: the record template is treated as an ordered alist.
+Each entry is formatted independently and pushed into a temporary list, then
+reversed so repeated keys and user-specified ordering are preserved."
   (let ((template (org-roam-organize--record-template record)))
     (cond
      ((null template) "")
@@ -571,7 +678,11 @@ TAGS must be a list of strings."
       ""))))
 
 (defun org-roam-organize--record-node-head (record)
-  "Return the Org file head for RECORD's managed node file."
+  "Return the Org file head for RECORD's managed node file.
+
+Implementation notes: node heads always start with Org-roam's `${title}'
+placeholder.  Additional file keywords are appended from RECORD's structured
+template; ID writing is left to Org-roam capture."
   (let ((tag (org-roam-organize--record-tag record)))
     (when (stringp tag)
       (concat
@@ -579,7 +690,11 @@ TAGS must be a list of strings."
        (org-roam-organize--record-file-keyword-lines record)))))
 
 (defun org-roam-organize--record-moc-head (record)
-  "Return the Org file head for RECORD's MOC file."
+  "Return the Org file head for RECORD's MOC file.
+
+Implementation notes: MOC files get a leading property drawer for managed
+metadata, followed by a title and the same ordered file keyword template used
+for ordinary managed nodes."
   (let ((tag (org-roam-organize--record-tag record))
         (title (org-roam-organize--record-moc-title record)))
     (when (and (stringp tag)
@@ -593,12 +708,20 @@ TAGS must be a list of strings."
        (org-roam-organize--record-file-keyword-lines record)))))
 
 (defun org-roam-organize--empty-directory-p (directory)
-  "Return non-nil if DIRECTORY is an empty directory."
+  "Return non-nil if DIRECTORY is an empty directory.
+
+Implementation notes: the check delegates existence/type handling to
+`file-directory-p' and uses `directory-files-no-dot-files-regexp' so `.' and
+`..' do not count as contents."
   (and (file-directory-p directory)
        (null (directory-files directory nil directory-files-no-dot-files-regexp))))
 
 (defun org-roam-organize--delete-empty-directory (directory)
-  "Delete DIRECTORY when it is empty and inside `org-roam-organize-directory'."
+  "Delete DIRECTORY when it is empty and inside `org-roam-organize-directory'.
+
+Implementation notes: deletion is intentionally narrow: DIRECTORY must be a
+string, resolve inside the organize root, and still be empty.  This is used
+only to clean a capture-created UUID directory that was not populated."
   (when (and (stringp directory)
              (org-roam-organize--path-inside-root-p
               (file-relative-name directory org-roam-organize-directory))
@@ -606,7 +729,12 @@ TAGS must be a list of strings."
     (delete-directory directory)))
 
 (defun org-roam-organize--capture-target-file ()
-  "Return the active Org-roam capture file target, or nil."
+  "Return the active Org-roam capture file target, or nil.
+
+Implementation notes: the function mirrors Org-roam's file-like target
+variants and resolves each target path through
+`org-roam-capture--target-truepath'.  Non-file targets return nil because
+there is no parent directory to prepare."
   (pcase (org-roam-capture--get-target)
     (`(file ,path)
      (org-roam-capture--target-truepath path))
@@ -624,7 +752,12 @@ TAGS must be a list of strings."
   "Create the parent directory for the active Org-roam capture target.
 
 Return nil so `org-roam-capture-preface-hook' continues with Org-roam's
-normal target setup."
+normal target setup.
+
+Implementation notes: this hook runs after Org-roam has enough capture state
+to expand `${id}' and `${slug}'.  It creates only the resolved parent
+directory, records it in a dynamically bound variable, and lets the caller
+clean it later if capture leaves it empty."
   (let* ((file (org-roam-organize--capture-target-file))
          (directory (and file (file-name-directory file))))
     (when (and directory
@@ -636,14 +769,21 @@ normal target setup."
   nil)
 
 (defun org-roam-organize--proper-list-p (object)
-  "Return non-nil if OBJECT is a proper list."
+  "Return non-nil if OBJECT is a proper list.
+
+Implementation notes: the cdr chain is walked manually instead of using
+`length' so dotted lists return nil instead of signaling an error."
   (let ((tail object))
     (while (consp tail)
       (setq tail (cdr tail)))
     (null tail)))
 
 (defun org-roam-organize--plistp (object)
-  "Return non-nil if OBJECT is a plist-like proper list."
+  "Return non-nil if OBJECT is a plist-like proper list.
+
+Implementation notes: a plist-like value must first be a proper list and then
+have an even number of elements.  Key/value semantics are validated
+elsewhere."
   (and (org-roam-organize--proper-list-p object)
        (= 0 (% (length object) 2))))
 
@@ -651,7 +791,13 @@ normal target setup."
   "Validate `org-roam-organize-registry'.
 
 Return a cons cell whose car is the boolean result and whose cdr is a
-human-readable report."
+human-readable report.
+
+Implementation notes: validation is deliberately report-oriented.  It first
+rejects an improper top-level registry, then walks records once, guarding all
+derived values behind plist checks so malformed records are reported instead
+of crashing.  It also checks uniqueness using normalized absolute paths and
+keeps template validation light except for the tag/filetags invariant."
   (let ((result_bool t)
         (result_message "Org-roam Organize registry records are as follow.\n")
         (moc-count 0)
@@ -815,7 +961,12 @@ human-readable report."
   "Check whether Org-roam Organize can be enabled.
 
 Return a cons cell whose car is the boolean result and whose cdr is a
-human-readable report."
+human-readable report.
+
+Implementation notes: setup is the conjunction of variable checks, root
+checks, registry validation, and runtime capability checks.  Each subcheck
+still contributes its full diagnostic text so the user can fix multiple
+problems in one pass."
   (let ((variable_check_result
          (org-roam-organize--check-variables
           org-roam-organize-directory
@@ -848,7 +999,12 @@ human-readable report."
 
 ;; 根据 registry 和 org-roam 数据库获得 tag 和 MOC id 的对应关系
 (defun org-roam-organize--moc-node-id-by-path (path)
-  "Return the level-0 Org-roam node id for absolute file PATH."
+  "Return the level-0 Org-roam node id for absolute file PATH.
+
+Implementation notes: the query looks up the `nodes' table by exact absolute
+file path and requires level 0 so headline nodes do not masquerade as MOC
+file nodes.  The SQL form is built with `vector' syntax for consistency with
+dynamic EmacSQL query construction."
   (caar
    (org-roam-db-query
     (vector :select (vector 'n:id)
@@ -857,7 +1013,12 @@ human-readable report."
     path)))
 
 (defun org-roam-organize--registry-tag-id-alist ()
-  "Return an alist of managed tag to MOC node id from registry records."
+  "Return an alist of managed tag to MOC node id from registry records.
+
+Implementation notes: each registry record is resolved to its MOC path, then
+looked up in the Org-roam database.  The result cons keeps successful
+TAG . ID pairs in the car and unresolved records in the cdr so callers can
+distinguish partial failure from an empty registry."
   (let (output missing-records)
     (dolist (record org-roam-organize-registry)
       (let* ((tag (org-roam-organize--record-tag record))
@@ -870,7 +1031,11 @@ human-readable report."
     (cons (nreverse output) (nreverse missing-records))))
 
 (defun org-roam-organize--record-node-capture-template (record)
-  "Return a managed node capture template for RECORD."
+  "Return a managed node capture template for RECORD.
+
+Implementation notes: this builds a one-template Org-roam capture list using
+the registry-derived node path template and file head.  It does not register
+the template globally; callers pass it directly to `org-roam-capture-'."
   (let ((path (org-roam-organize--record-node-path-template record))
         (head (org-roam-organize--record-node-head record)))
     (when (and (stringp path) (stringp head))
@@ -883,7 +1048,11 @@ human-readable report."
             :unnarrowed t))))
 
 (defun org-roam-organize--record-moc-capture-template (record)
-  "Return a MOC capture template for RECORD."
+  "Return a MOC capture template for RECORD.
+
+Implementation notes: MOC creation uses the same capture protocol as normal
+node creation, but targets a fixed absolute MOC path instead of the UUID
+bundle path template."
   (let ((path (org-roam-organize--record-absolute-moc-path record))
         (head (org-roam-organize--record-moc-head record)))
     (when (and (stringp path) (stringp head))
@@ -898,7 +1067,11 @@ human-readable report."
 (defun org-roam-organize--nodes-with-tag (tag)
   "Return level-0 Org-roam nodes with TAG.
 
-The return value is a list of plists containing `:id' and `:title'."
+The return value is a list of plists containing `:id' and `:title'.
+
+Implementation notes: the query joins `tags' to level-0 `nodes' and maps
+database rows to small plists used by MOC sync.  Membership is derived from
+Org-roam's database, which itself is derived from Org files."
   (when org-roam-organize-mode
     (mapcar
      (lambda (row)
@@ -913,14 +1086,22 @@ The return value is a list of plists containing `:id' and `:title'."
       tag))))
 
 (defun org-roam-organize--moc-node-entry-line (id title &optional delete)
-  "Return a MOC node entry line for ID, TITLE, and DELETE flag."
+  "Return a MOC node entry line for ID, TITLE, and DELETE flag.
+
+Implementation notes: `org-link-make-string' constructs the id link so link
+descriptions are escaped according to Org syntax.  The optional delete marker
+is appended as keyword suffix data and otherwise left uninterpreted here."
   (format "#+%s: %s%s\n"
           org-roam-organize--moc-node-keyword
           (org-link-make-string (concat "id:" id) title)
           (if delete " :delete t" "")))
 
 (defun org-roam-organize--moc-node-entry-delete-p (suffix)
-  "Return non-nil if MOC node entry SUFFIX contains `:delete t'."
+  "Return non-nil if MOC node entry SUFFIX contains `:delete t'.
+
+Implementation notes: the suffix is read as Lisp data into a plist-like list,
+then queried with `plist-get'.  Read errors are caught and treated as a
+non-delete marker so malformed suffixes do not break MOC parsing."
   (when (stringp suffix)
     (condition-case nil
         (let ((start 0)
@@ -933,13 +1114,21 @@ The return value is a list of plists containing `:id' and `:title'."
       (error nil))))
 
 (defun org-roam-organize--blank-string-p (string)
-  "Return non-nil if STRING contains only whitespace."
+  "Return non-nil if STRING contains only whitespace.
+
+Implementation notes: this intentionally checks a small whitespace character
+set directly.  It is used while parsing keyword values where an empty prefix
+before the first Org link is required."
   (cl-every (lambda (char)
               (memq char '(?\s ?\t ?\n ?\r)))
             string))
 
 (defun org-roam-organize--element-in-comment-subtree-p (element)
-  "Return non-nil if ELEMENT belongs to a COMMENT subtree."
+  "Return non-nil if ELEMENT belongs to a COMMENT subtree.
+
+Implementation notes: Org Element nodes have parent links, so the
+implementation walks ancestors until it finds a commented headline or reaches
+the root."
   (let ((parent (org-element-property :parent element))
         found)
     (while (and parent (not found))
@@ -950,7 +1139,11 @@ The return value is a list of plists containing `:id' and `:title'."
     found))
 
 (defun org-roam-organize--element-commented-p (element)
-  "Return non-nil if ELEMENT is in COMMENT context."
+  "Return non-nil if ELEMENT is in COMMENT context.
+
+Implementation notes: a value is considered commented when it is itself a
+commented headline or when any ancestor headline is commented.  This keeps
+MOC parsing from touching COMMENT subtrees."
   (or (and (eq (org-element-type element) 'headline)
            (org-element-property :commentedp element))
       (org-roam-organize--element-in-comment-subtree-p element)))
@@ -959,7 +1152,12 @@ The return value is a list of plists containing `:id' and `:title'."
   "Parse a MOC node entry keyword VALUE.
 
 Return a plist with `:id', `:title', and `:delete', or nil when VALUE does
-not contain a valid id link at the beginning."
+not contain a valid id link at the beginning.
+
+Implementation notes: VALUE is parsed in a temporary Org buffer so link
+syntax is handled by Org Element rather than regular expressions.  Only the
+first id link with no non-whitespace prefix is accepted; text after the link
+is passed to the delete-marker parser."
   (with-temp-buffer
     (insert value)
     (org-mode)
@@ -996,7 +1194,12 @@ not contain a valid id link at the beginning."
   "Parse MOC node entries in the current buffer.
 
 Return a plist containing `:entries' and `:malformed'.  Entries are plists
-with `:id', `:title', `:delete', `:begin', and `:end'."
+with `:id', `:title', `:delete', `:begin', and `:end'.
+
+Implementation notes: the current buffer is parsed with Org Element and only
+real `#+ROAM_NODE' keyword elements outside COMMENT context are considered.
+Malformed lines are retained as strings for reporting, while legal entries
+carry buffer positions so sync can replace or remove them later."
   (let (entries malformed)
     (org-element-map (org-element-parse-buffer) 'keyword
       (lambda (keyword)
@@ -1024,7 +1227,12 @@ with `:id', `:title', `:delete', `:begin', and `:end'."
           :malformed (nreverse malformed))))
 
 (defun org-roam-organize--moc-inbox-headline (name)
-  "Return the top-level Inbox headline element named NAME in the current buffer."
+  "Return the top-level Inbox headline element named NAME in the current buffer.
+
+Implementation notes: this scans headline elements and accepts only the first
+non-commented level-1 headline whose raw title equals NAME.  Regex matching
+is avoided so source blocks, COMMENT subtrees, and nested headlines do not
+become false inboxes."
   (let (inbox)
     (org-element-map (org-element-parse-buffer) 'headline
       (lambda (headline)
@@ -1038,7 +1246,11 @@ with `:id', `:title', `:delete', `:begin', and `:end'."
     inbox))
 
 (defun org-roam-organize--moc-first-child-headline-begin (headline)
-  "Return the beginning position of HEADLINE's first child headline."
+  "Return the beginning position of HEADLINE's first child headline.
+
+Implementation notes: the child search is constrained to HEADLINE's parsed
+element tree.  The returned position lets insertion happen inside the Inbox
+section before nested child headings."
   (let ((contents-begin (org-element-property :contents-begin headline))
         (end (org-element-property :end headline))
         child-begin)
@@ -1058,7 +1270,11 @@ with `:id', `:title', `:delete', `:begin', and `:end'."
 (defun org-roam-organize--moc-inbox-insertion-point (name)
   "Return the insertion point for new MOC node entries.
 
-Create the level-1 Inbox headline named NAME when it is missing."
+Create the level-1 Inbox headline named NAME when it is missing.
+
+Implementation notes: existing inboxes receive new entries before their first
+child headline, preserving manual subsection structure.  Missing inboxes are
+appended as a level-1 headline at the end of the file."
   (let ((inbox (org-roam-organize--moc-inbox-headline name)))
     (if inbox
         (let ((child-begin
@@ -1076,7 +1292,11 @@ Create the level-1 Inbox headline named NAME when it is missing."
       (point))))
 
 (defun org-roam-organize--moc-managed-property-put (property value)
-  "Set top-level MOC PROPERTY to VALUE in the current buffer."
+  "Set top-level MOC PROPERTY to VALUE in the current buffer.
+
+Implementation notes: the function works only at the file top.  It creates a
+property drawer if necessary, updates an existing property line inside the
+drawer when found, or inserts a new property before `:END:'."
   (let ((property (upcase property))
         (value (format "%s" value)))
     (save-excursion
@@ -1101,7 +1321,11 @@ Create the level-1 Inbox headline named NAME when it is missing."
             (insert (format ":%s: %s\n" property value))))))))
 
 (defun org-roam-organize--moc-update-managed-information (record nodes)
-  "Update managed information in RECORD's MOC file for NODES."
+  "Update managed information in RECORD's MOC file for NODES.
+
+Implementation notes: derived metadata is written after a successful sync.
+The MOC file is opened non-interactively, the managed tag and node count
+properties are updated through the drawer helper, then the buffer is saved."
   (let ((path (org-roam-organize--record-absolute-moc-path record))
         (tag (org-roam-organize--record-tag record)))
     (when (and path tag (file-exists-p path))
@@ -1119,7 +1343,13 @@ Create the level-1 Inbox headline named NAME when it is missing."
 
 Existing legal entries keep their relative position.  Duplicate entries are
 all synchronized and reported.  Entries whose ids are no longer in NODES are
-removed.  Missing nodes are appended under the Inbox headline."
+removed.  Missing nodes are appended under the Inbox headline.
+
+Implementation notes: NODES are indexed by id in a hash table.  Existing
+entries are parsed with Org Element, duplicates are detected with a second
+hash table, and replacements/removals run from the end of the buffer toward
+the beginning so saved positions remain valid.  Missing nodes are appended
+after existing edits have completed."
   (let ((path (org-roam-organize--record-absolute-moc-path record))
         (node-table (make-hash-table :test 'equal))
         (seen-table (make-hash-table :test 'equal))
@@ -1176,6 +1406,12 @@ removed.  Missing nodes are appended under the Inbox headline."
 
 ;; hash 表转换为 alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
+  "Return HASH_TABLE as an alist when organize mode is enabled.
+
+Implementation notes: the function walks HASH_TABLE with `maphash', pushes
+each key/value cons to a list, and reverses the result to compensate for push
+order.  It is kept small because callers decide whether alist ordering
+matters."
   (when org-roam-organize-mode
     (let (result)
       (maphash
@@ -1187,6 +1423,11 @@ removed.  Missing nodes are appended under the Inbox headline."
 
 ;; alist 转换为 hash 表
 (defun org-roam-organize--alist-to-hash-table (alist)
+  "Return ALIST grouped into a hash table when organize mode is enabled.
+
+Implementation notes: duplicate keys are preserved by appending each cdr to
+the existing value list.  This is used for database rows where one source key
+can refer to many destination node ids."
   (when org-roam-organize-mode
     (let ((ht (make-hash-table :test 'equal)))
       (dolist (row alist)
@@ -1200,7 +1441,12 @@ removed.  Missing nodes are appended under the Inbox headline."
 (defun org-roam-organize--update-filetag (file source_tag target_tag)
   "In FILE, replace SOURCE_TAG with TARGET_TAG in #+FILETAGS.
 
-If no #+FILETAGS line exists, do nothing."
+If no #+FILETAGS line exists, do nothing.
+
+Implementation notes: this legacy helper opens FILE without selecting it,
+searches for the first FILETAGS line, and performs a narrow textual
+replacement of `:SOURCE_TAG:' with `:TARGET_TAG:'.  It intentionally does not
+create FILETAGS or reinterpret unrelated tag text."
   (when org-roam-organize-mode
     (with-current-buffer (find-file-noselect file)
       (goto-char (point-min))
@@ -1217,6 +1463,12 @@ If no #+FILETAGS line exists, do nothing."
 
 ;; 从光标获取 headline 中通过 id 引用指向的 node 信息
 (defun org-roam-organize--get-node-info-from-cite-in-headline (&optional pos)
+  "Return id and Org-roam node referenced by the headline at POS.
+
+Implementation notes: the function inspects the Org element at POS, requires
+it to be a headline, extracts the first `[[id:...]]' link from the raw
+headline title with a simple compatibility regexp, and resolves that id with
+`org-roam-node-from-id'."
   (when org-roam-organize-mode
     (let* ((pos (or pos (point)))
            (el (save-excursion (goto-char pos) (org-element-at-point)))
@@ -1243,7 +1495,11 @@ If no #+FILETAGS line exists, do nothing."
   "Return tag counts for level-0 nodes in TAG_LIST.
 
 When HASH_TO_ALIST is non-nil, return an alist.  Otherwise return a hash
-table.  Tags not present in the Org-roam database are assigned zero."
+table.  Tags not present in the Org-roam database are assigned zero.
+
+Implementation notes: the result hash is prefilled with zero for every input
+tag, then updated from a grouped Org-roam DB query.  The query joins `tags'
+to level-0 `nodes' so headline tags do not affect file-node counts."
   (when org-roam-organize-mode
     (let* ((tag_count (make-hash-table :test 'equal))
            (result
@@ -1271,7 +1527,12 @@ table.  Tags not present in the Org-roam database are assigned zero."
 
 TAG_ID is an alist of TAG . ID.  TABLE and COL select the Org-roam database
 table and column used to find candidate nodes.  Return an alist of source node
-id to destination node id list."
+id to destination node id list.
+
+Implementation notes: the first query dynamically selects all candidate node
+ids from TABLE/COL for each tag-like key.  The second query reads existing id
+links from each source node.  Both row sets are grouped into hash tables, then
+set difference produces the missing destination ids per source."
   (when org-roam-organize-mode
     (let* ((tag_list
             (mapcar (lambda (e) (format "%s" (car e))) tag_id))
@@ -1317,7 +1578,11 @@ id to destination node id list."
 (defun org-roam-organize--insert-id-type-link-headline (pair)
   "Insert Org entries for level-0 nodes in PAIR.
 
-PAIR is a cons cell of source node id to destination node id list."
+PAIR is a cons cell of source node id to destination node id list.
+
+Implementation notes: source and destination ids are resolved back to
+Org-roam nodes.  For each resolvable destination, a second-level id-link
+headline is appended to the source node's file and the buffer is saved."
   (when org-roam-organize-mode
     (let* ((source_id (car pair))
            (dest_ids (cdr pair)))
@@ -1343,7 +1608,11 @@ PAIR is a cons cell of source node id to destination node id list."
 ;; 变量检查
 ;;;###autoload
 (defun org-roam-organize-check-variables ()
-  "Check Org-roam Organize configuration variables."
+  "Check Org-roam Organize configuration variables.
+
+Implementation notes: this interactive wrapper delegates to
+`org-roam-organize--check-variables' with the package's declared variable
+type table, then displays the generated report in the echo area."
   (interactive)
   (let ((check_result (org-roam-organize--check-variables org-roam-organize-directory org-roam-organize--variable-type-alist)))
     (message "%s" (if (consp check_result)
@@ -1355,7 +1624,11 @@ PAIR is a cons cell of source node id to destination node id list."
   "Check whether Org-roam Organize can be enabled.
 
 This command reports both variable validation and runtime capability
-validation."
+validation.
+
+Implementation notes: the command is a user-facing wrapper around
+`org-roam-organize--check-setup'.  It adds a short success prefix when all
+subchecks pass and otherwise relays the detailed failure report unchanged."
   (interactive)
   (let ((check_result (org-roam-organize--check-setup)))
     (message "%s"
@@ -1371,6 +1644,12 @@ validation."
 ;; 创建目录
 ;;;###autoload
 (defun org-roam-organize-create-directories ()
+  "Create the root and basic registry directories when missing.
+
+Implementation notes: the directory list is built from
+`org-roam-organize-directory' plus absolute directories derived from
+`:basic t' registry records.  Existing directories and nil entries are
+skipped; missing directories are created recursively."
   (interactive)
   (let ((dir_list
          (cons
@@ -1388,7 +1667,12 @@ validation."
 ;; 打开顶层 MOC
 ;;;###autoload
 (defun org-roam-organize-moc-open-index ()
-  "Open the top-level Map of Contents file using its file path."
+  "Open the top-level Map of Contents file using its file path.
+
+Implementation notes: the top-level MOC is the single `:moc t' registry
+record.  Its path is resolved through the registry helpers; the command only
+opens the file when the resolved path exists and otherwise reports the
+configuration or filesystem problem."
   (interactive)
   (if org-roam-organize-mode
       (let ((file_path
@@ -1411,7 +1695,12 @@ validation."
 ;; 创建缺失的 MOC 对应的 org-roam node
 ;;;###autoload
 (defun org-roam-organize-moc-create ()
-  "Create missing MOC files declared in `org-roam-organize-registry'."
+  "Create missing MOC files declared in `org-roam-organize-registry'.
+
+Implementation notes: every registry record gets a derived MOC path and
+capture template.  Existing files are skipped, malformed records are counted
+as failed, and missing files are created through `org-roam-capture-' with a
+single immediate-finish template generated from the registry."
   (interactive)
   (if org-roam-organize-mode
       (let ((debug-on-error t)
@@ -1451,7 +1740,13 @@ The selected registry record must define a relative `:directory'.  The
 created node uses the standard path layout
 <directory>/${id}/${slug}.org under `org-roam-organize-directory'.
 Org-roam Organize creates the UUID parent directory during Org-roam's capture
-preface phase and removes it after capture only when it remains empty."
+preface phase and removes it after capture only when it remains empty.
+
+Implementation notes: the command reads a registry record, asks for a title,
+builds a temporary one-entry capture template, and calls `org-roam-capture-'
+directly.  A dynamically scoped preface hook creates the expanded parent
+directory after Org-roam has assigned capture placeholders; an
+after-finalize hook removes only that directory if it stayed empty."
   (interactive)
   (if org-roam-organize-mode
       (let ((record (org-roam-organize--read-node-record)))
@@ -1494,7 +1789,12 @@ preface phase and removes it after capture only when it remains empty."
 ;; 同步 MOC
 ;;;###autoload
 (defun org-roam-organize-moc-sync ()
-  "Sync managed MOC files from Org-roam node tags."
+  "Sync managed MOC files from Org-roam node tags.
+
+Implementation notes: the command refreshes access to the Org-roam database,
+then walks registry records.  For each tag, matching level-0 nodes are loaded
+from the DB, node entries are synchronized in the corresponding MOC file, and
+derived managed properties are updated only after a successful entry sync."
   (interactive)
   (if org-roam-organize-mode
       (let ((synced-count 0)
@@ -1540,6 +1840,12 @@ preface phase and removes it after capture only when it remains empty."
 ;; 文献节点反链补全
 ;;;###autoload
 (defun org-roam-organize-ref-complete-backlinks ()
+  "Append missing literature backlinks from citation data.
+
+Implementation notes: cite refs are read from the Org-roam `refs' table,
+then `org-roam-organize--check-file-node-no-linked-headline' compares them
+with citation rows and existing id links.  Missing destinations are appended
+as second-level id-link headlines in the literature node files."
   (interactive)
   (if org-roam-organize-mode
       (progn
