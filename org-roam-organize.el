@@ -141,8 +141,10 @@ records may also use `:directory' to create managed nodes in an existing
 kind directory.  `:moc-path' and `:moc-title' are optional overrides resolved
 from the record name when absent.  `:inbox' is an optional level-1 headline
 name used for newly added MOC node entries and defaults to \"Inbox\".
-`:template' is an optional alist for file keywords; its keys are formatted by
-`org-roam-organize--moc-file-keyword-formatter-alist'."
+`:template' is an optional ordered alist for file keywords.  Repeated keys are
+emitted repeatedly.  Special keys may use formatter functions from
+`org-roam-organize--moc-file-keyword-formatter-alist'; other keys are written
+with `identity'."
   :type 'sexp
   :group 'org-roam-organize)
 
@@ -207,14 +209,12 @@ The list maps symbols to capability types checked by
   "Org keyword used for MOC node entries.")
 
 (defconst org-roam-organize--moc-file-keyword-formatter-alist
-  '((author . identity)
-    (date . format-time-string)
-    (description . identity)
+  '((date . format-time-string)
     (filetags . org-roam-organize--moc-filetags-format))
-  "Allowed optional MOC file keywords and their formatter functions.
+  "Special Org file keyword formatter functions.
 
 Formatter functions receive the template value and return the string written
-after the Org keyword name.")
+after the Org keyword name.  Keywords not listed here use `identity'.")
 
 (defvar org-roam-organize--capture-created-directory nil
   "Directory created for the active managed node capture.")
@@ -529,34 +529,30 @@ TAGS must be a list of strings."
              (seq-every-p #'stringp tags))
     (format ":%s:" (mapconcat #'identity tags ":"))))
 
-(defun org-roam-organize--moc-file-keyword-line (template key)
-  "Return optional Org file keyword line for KEY in TEMPLATE, or nil."
-  (let ((entry (assoc key template))
-        (formatter
-         (cdr (assoc key org-roam-organize--moc-file-keyword-formatter-alist))))
-    (when entry
-      (let ((value (cdr entry)))
-        (cond
-         ((null value)
-          (format "#+%s:\n" (org-roam-organize--moc-file-keyword-name key)))
-         ((functionp formatter)
-          (let ((formatted (funcall formatter value)))
-            (if (stringp formatted)
-                (format "#+%s: %s\n"
-                        (org-roam-organize--moc-file-keyword-name key)
-                        formatted)
-              (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
-              nil)))
-         (t
+(defun org-roam-organize--moc-file-keyword-line (entry)
+  "Return Org file keyword line for ENTRY, or nil."
+  (let* ((key (car-safe entry))
+         (value (cdr-safe entry))
+         (formatter
+          (or (cdr (assoc key org-roam-organize--moc-file-keyword-formatter-alist))
+              #'identity)))
+    (cond
+     ((not (symbolp key))
+      (message "[WARNING] Ignored invalid MOC file keyword: %s" entry)
+      nil)
+     ((null value)
+      (format "#+%s:\n" (org-roam-organize--moc-file-keyword-name key)))
+     ((functionp formatter)
+      (let ((formatted (funcall formatter value)))
+        (if (stringp formatted)
+            (format "#+%s: %s\n"
+                    (org-roam-organize--moc-file-keyword-name key)
+                    formatted)
           (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
-          nil))))))
-
-(defun org-roam-organize--warn-unknown-moc-file-keywords (template)
-  "Warn about unknown keys in TEMPLATE."
-  (dolist (entry template)
-    (unless (assoc (car-safe entry)
-                   org-roam-organize--moc-file-keyword-formatter-alist)
-      (message "[WARNING] Ignored unknown MOC file keyword: %s" entry))))
+          nil)))
+     (t
+      (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
+      nil))))
 
 (defun org-roam-organize--record-file-keyword-lines (record)
   "Return optional Org file keyword lines for RECORD."
@@ -564,12 +560,12 @@ TAGS must be a list of strings."
     (cond
      ((null template) "")
      ((org-roam-organize--proper-list-p template)
-      (org-roam-organize--warn-unknown-moc-file-keywords template)
-      (concat
-       (or (org-roam-organize--moc-file-keyword-line template 'author) "")
-       (or (org-roam-organize--moc-file-keyword-line template 'date) "")
-       (or (org-roam-organize--moc-file-keyword-line template 'filetags) "")
-       (or (org-roam-organize--moc-file-keyword-line template 'description) "")))
+      (let (lines)
+        (dolist (entry template)
+          (let ((line (org-roam-organize--moc-file-keyword-line entry)))
+            (when line
+              (push line lines))))
+        (apply #'concat (nreverse lines))))
      (t
       (message "[WARNING] Ignored invalid MOC file keyword template: %s" template)
       ""))))
