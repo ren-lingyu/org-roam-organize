@@ -177,16 +177,17 @@ with `identity'."
     (org-roam-capture-preface-hook . variable)
     (org-roam-capture--get-target . function)
     (org-roam-capture--target-truepath . function)
-    (org-id-find . function)
+    (org-capture-after-finalize-hook . variable)
+    (org-mode . function)
     (org-element-parse-buffer . function)
     (org-element-map . function)
     (org-element-at-point . function)
     (org-element-type . function)
     (org-element-property . function)
-    (org-back-to-heading . function)
-    (org-entry-put . function)
     (org-link-make-string . function)
-    (seq-filter . function))
+    (seq-every-p . function)
+    (seq-filter . function)
+    (seq-find . function))
   "Runtime capabilities required by Org-roam Organize.
 
 The list maps symbols to capability types checked by
