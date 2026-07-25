@@ -851,9 +851,9 @@ human-readable report."
   "Return the level-0 Org-roam node id for absolute file PATH."
   (caar
    (org-roam-db-query
-    [:select [n:id]
-             :from (as nodes n)
-             :where (and (= n:level 0) (= n:file $s1))]
+    (vector :select (vector 'n:id)
+            :from '(as nodes n)
+            :where '(and (= n:level 0) (= n:file $s1)))
     path)))
 
 (defun org-roam-organize--registry-tag-id-alist ()
@@ -905,11 +905,11 @@ The return value is a list of plists containing `:id' and `:title'."
        (list :id (nth 0 row)
              :title (nth 1 row)))
      (org-roam-db-query
-      [:select [n:id n:title]
-               :from (as tags t)
-               :join (as nodes n)
-               :on (and (= n:level 0) (= n:id t:node_id))
-               :where (= t:tag $s1)]
+      (vector :select (vector 'n:id 'n:title)
+              :from '(as tags t)
+              :join '(as nodes n)
+              :on '(and (= n:level 0) (= n:id t:node_id))
+              :where '(= t:tag $s1))
       tag))))
 
 (defun org-roam-organize--moc-node-entry-line (id title &optional delete)
@@ -1248,12 +1248,12 @@ table.  Tags not present in the Org-roam database are assigned zero."
     (let* ((tag_count (make-hash-table :test 'equal))
            (result
             (org-roam-db-query
-             [:select [t:tag (funcall count t:tag)]
-                      :from (as tags t)
-                      :join (as nodes n)
-                      :on (and (= n:level 0) (= n:id t:node_id))
-                      :where (in t:tag $v1)
-                      :group-by t:tag]
+             (vector :select (vector 't:tag '(funcall count t:tag))
+                     :from '(as tags t)
+                     :join '(as nodes n)
+                     :on '(and (= n:level 0) (= n:id t:node_id))
+                     :where '(in t:tag $v1)
+                     :group-by 't:tag)
              (vconcat tag_list))))
       (dolist (tag tag_list)
         (puthash tag 0 tag_count))
@@ -1281,20 +1281,19 @@ id to destination node id list."
             (mapcar
              (lambda (x) (cons (nth 0 x) (nth 1 x)))
              (org-roam-db-query
-              (vector
-               :select (vector (intern (concat "t:" col)) (intern "t:node_id"))
-               :from (list 'as (intern (concat table)) 't)
-               :join '(as nodes n) :on '(and (= n:level 0) (= n:id t:node_id))
-               :where (list 'in (intern (concat "t:" col)) '$v1))
+              (vector :select (vector (intern (concat "t:" col)) (intern "t:node_id"))
+                      :from (list 'as (intern (concat table)) 't)
+                      :join '(as nodes n) :on '(and (= n:level 0) (= n:id t:node_id))
+                      :where (list 'in (intern (concat "t:" col)) '$v1))
               (vconcat tag_list))))
            (result_id_linked_id
             (mapcar
              (lambda (x) (cons (nth 0 x) (nth 1 x)))
              (org-roam-db-query
-              [:select [l:source l:dest]
-                       :from (as links l)
-                       :join (as nodes n) :on (and (= n:level 0) (= n:id l:dest))
-                       :where (and (= l:type "id") (in l:source $v1))]
+              (vector :select (vector 'l:source 'l:dest)
+                      :from '(as links l)
+                      :join '(as nodes n) :on '(and (= n:level 0) (= n:id l:dest))
+                      :where '(and (= l:type "id") (in l:source $v1)))
               (vconcat id_list))))
            (tag_to_nodes (org-roam-organize--alist-to-hash-table result_tag_all_id))
            (source_to_linked (org-roam-organize--alist-to-hash-table result_id_linked_id)))
@@ -1549,10 +1548,10 @@ preface phase and removes it after capture only when it remains empty."
         (let* ((ref_id (mapcar
                         (lambda (x) (cons (nth 0 x) (nth 1 x)))
                         (org-roam-db-query
-                         [:select [r:ref r:node_id]
-                                  :from (as refs r)
-                                  :join (as nodes n) :on (and (= level 0) (= n:id r:node_id))
-                                  :where (= r:type "cite")])))
+                         (vector :select (vector 'r:ref 'r:node_id)
+                                 :from '(as refs r)
+                                 :join '(as nodes n) :on '(and (= n:level 0) (= n:id r:node_id))
+                                 :where '(= r:type "cite")))))
                (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline ref_id "citations" "cite_key")))
           (message "[INFO] Check Complete. Insert backlinks Start up. ")
           (dolist
