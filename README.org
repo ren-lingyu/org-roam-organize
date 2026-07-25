@@ -28,7 +28,7 @@ The package includes the following main features:
 ** 3. Backlink Management
 - Automatic insertion of missing backlinks for literature nodes
 - Citation-based reference completion
-- Link consistency maintenance
+- Append missing id-link headlines for cited nodes
 
 ** 4. Statistical Functions
 - Count nodes with specific tags
@@ -58,7 +58,9 @@ Before using this package, you need to configure the following variables:
 
 The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
-Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=. The optional =:template= alist configures file keywords written when creating MOC and managed node files; =filetags= values are string lists. When a record declares both =:tag= and =filetags=, =filetags= must include the record tag.
+Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=.
+
+The optional =:template= value is an ordered alist for Org file keywords written when creating MOC and managed node files. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty keyword line. The =date= key is passed to =format-time-string=. The =filetags= key expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other keys are written directly as strings. When a record declares both =:tag= and a =filetags= entry, =filetags= must include the record tag.
 
 The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands. The old =org-roam-organize-moc-update= command was also replaced by =org-roam-organize-moc-sync=.
 
@@ -215,7 +217,7 @@ Entries marked for future deletion workflows may use:
 During sync, existing valid entries keep their position and order. Missing nodes are added under the configured level-1 inbox headline. Entries whose target node no longer exists or no longer has the managed tag are removed. Duplicate entries are preserved, synchronized, and reported.
 
 * Implementation Details
-The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and find missing citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems.
+The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and find missing citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing functions, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
 
