@@ -217,6 +217,13 @@ The list maps symbols to capability types checked by
 Formatter functions receive the template value and return the string written
 after the Org keyword name.  Keywords not listed here use `identity'.")
 
+(defconst org-roam-organize--node-path-template
+  "${id}/${slug}.org"
+  "Relative path template inside a managed node kind directory.
+
+The standard node layout is ${id}/${slug}.org under kind directory,
+where `${id}' and `${slug}' are left for Org-roam capture expansion.")
+
 (defvar org-roam-organize--capture-created-directory nil
   "Directory created for the active managed node capture.")
 
@@ -593,10 +600,10 @@ the shared root-safe path helper before any file operation sees it."
 (defun org-roam-organize--record-node-path-template (record)
   "Return RECORD's managed node path template.
 
-The standard node layout is <directory>/${id}/${slug}.org under
-`org-roam-organize-directory'.  This function only provides the target path
-template; UUID parent directory creation is left to the Org-roam capture and
-Emacs save workflow.
+The standard node layout uses `org-roam-organize--node-path-template'
+under RECORD's directory inside `org-roam-organize-directory'.
+This function only provides the target path template; UUID parent directory
+creation is left to the Org-roam capture and Emacs save workflow.
 
 Implementation notes: the template is generated only when RECORD has a
 string directory that resolves inside the root.  `${id}' and `${slug}' are
@@ -605,7 +612,7 @@ left for Org-roam capture expansion."
     (when (and (stringp directory)
                (org-roam-organize--path-inside-root-p directory))
       (expand-file-name
-       (concat (file-name-as-directory directory) "${id}/${slug}.org")
+       (concat (file-name-as-directory directory) org-roam-organize--node-path-template)
        org-roam-organize-directory))))
 
 (defun org-roam-organize--moc-file-keyword-name (key)
