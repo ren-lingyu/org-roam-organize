@@ -5,13 +5,28 @@
 Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating managed nodes, creating missing MOC files, syncing MOC entries from Org-roam node tags, and completing missing backlinks.
 
 * Repository Structure
-#+BEGIN_SRC
-  org-roam-organize/
-  ├── org-roam-organize.el      Main Elisp implementation
-  ├── LICENSE                   GNU General Public License v3.0
-  ├── README.org                Project documentation
-  └── .gitignore                Git ignore configuration
+#+BEGIN_SRC text
+.
+├── org-roam-organize.el
+├── README.org
+├── LICENSE
+├── flake.nix
+├── flake.lock
+└── tests/
+    ├── default.nix
+    ├── ert/
+    │   ├── default.nix
+    │   └── ert.el
+    └── package-lint/
+        └── default.nix
 #+END_SRC
+
+Key conventions:
+
+- =org-roam-organize.el= is the package implementation and public entry point.
+- =flake.nix= defines the package build, development shell, ERT check, and package-lint check.
+- =tests/ert/ert.el= contains the ERT test suite.
+- =tests/package-lint/default.nix= runs package-lint against the packaged Elisp source.
 
 * Features
 The package includes the following main features:
@@ -60,7 +75,13 @@ The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
 Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=.
 
-The optional =:template= value is an ordered alist for Org file keywords written when creating MOC and managed node files. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty keyword line. The =date= key is passed to =format-time-string=. The =filetags= key expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other keys are written directly as strings. When a record declares both =:tag= and a =filetags= entry, =filetags= must include the record tag.
+The optional =:template= value is an ordered alist for Org file keywords written when creating MOC and managed node files. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty keyword line. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= key expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other keys are written directly as strings. When a record declares both =:tag= and a =filetags= entry, =filetags= must include the record tag.
+
+For a dynamic date, use Org capture's time escape syntax:
+
+#+BEGIN_SRC emacs-lisp
+  (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
+#+END_SRC
 
 The old fixed directory and file-moving interface was removed in v0.4.0. This includes the former fleeting/permanent directory variables, move-related variables and aliases, and headline move/delete commands. The old =org-roam-organize-moc-update= command was also replaced by =org-roam-organize-moc-sync=.
 
@@ -220,6 +241,13 @@ During sync, existing valid entries keep their position and order. Missing nodes
 The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and find missing citation backlinks. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing functions, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
+
+* Tests
+The repository provides Nix checks for ERT and package-lint:
+
+#+BEGIN_SRC sh
+  nix flake check
+#+END_SRC
 
 * License
 This project is licensed under the GNU General Public License v3.0. See [[file:LICENSE][LICENSE]] for details.
