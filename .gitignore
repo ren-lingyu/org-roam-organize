@@ -1,15 +1,24 @@
 *
 */
 
-!.gitignore
-!LICENSE
 !README.org
-
-!.github
-!.github/
+!.gitignore
+!.gitsubmodules
+!LICENSE
+!flake.nix
+!flake.lock
 
 !*.el
 
+!.github/
+!.github/**/
+!.github/**/*.yaml
+
+!tests/
+!tests/**/
+!tests/**/*.el
+!tests/**/*.nix
+
 *~
-*#*
+*#
 **/tmp/
