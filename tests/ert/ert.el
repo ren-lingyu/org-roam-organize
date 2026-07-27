@@ -151,6 +151,108 @@
              "#+AUTHOR: John Doe\n"
              "#+LANGUAGE: en\n")))))
 
+(ert-deftest org-roam-organize-test-record-provider-defaults-when-missing-or-nil ()
+  (let ((missing '(:name "idea" :tag "idea" :directory "fleeting"))
+        (explicit-nil '(:name "idea" :tag "idea" :directory "fleeting" :provider nil)))
+    (should (eq (org-roam-organize--record-provider missing)
+                #'org-roam-organize--default-node-provider))
+    (should (eq (org-roam-organize--record-provider explicit-nil)
+                #'org-roam-organize--default-node-provider))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-invalid-provider ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "idea" :tag "idea" :directory "fleeting" :provider "invalid"))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p ":provider function" (cdr result))))))
+
+(ert-deftest org-roam-organize-test-node-create-uses-default-provider ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (record '(:name "idea" :tag "idea" :directory "fleeting"))
+         captured)
+    (cl-letf (((symbol-function 'org-roam-organize--read-node-record)
+               (lambda () record))
+              ((symbol-function 'org-roam-organize--default-node-provider)
+               (lambda (_record)
+                 '(:title "Default Title" :info (:author "John Doe"))))
+              ((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest args)
+                 (setq captured args))))
+      (org-roam-organize-node-create))
+    (should (equal (nth 0 captured) "Default Title"))
+    (should (equal (nth 2 captured) '(:author "John Doe")))
+    (should (eq (nth 4 captured) t))))
+
+(ert-deftest org-roam-organize-test-node-create-uses-custom-provider-request ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (record '(:name "idea"
+                   :tag "idea"
+                   :directory "fleeting"
+                   :provider org-roam-organize-test--custom-provider))
+         captured)
+    (cl-letf (((symbol-function 'org-roam-organize--read-node-record)
+               (lambda () record))
+              ((symbol-function 'org-roam-organize-test--custom-provider)
+               (lambda (_record)
+                 '(:title "Custom Title"
+                   :info (:author "Jane Doe" :date "2026")
+                   :path "/tmp/ignored.org")))
+              ((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest args)
+                 (setq captured args))))
+      (org-roam-organize-node-create))
+    (let* ((template (nth 1 captured))
+           (target (plist-get (nthcdr 4 template) :target)))
+      (should (equal (nth 0 captured) "Custom Title"))
+      (should (equal (nth 2 captured) '(:author "Jane Doe" :date "2026")))
+      (should (equal target
+                     `(file+head
+                       ,(expand-file-name "fleeting/${id}/${slug}.org" root)
+                       ,(org-roam-organize--record-node-head record)))))))
+
+(ert-deftest org-roam-organize-test-node-create-cancels-when-provider-returns-nil ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (record '(:name "idea"
+                   :tag "idea"
+                   :directory "fleeting"
+                   :provider org-roam-organize-test--cancel-provider))
+         captured)
+    (cl-letf (((symbol-function 'org-roam-organize--read-node-record)
+               (lambda () record))
+              ((symbol-function 'org-roam-organize-test--cancel-provider)
+               (lambda (_record) nil))
+              ((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest args)
+                 (setq captured args))))
+      (org-roam-organize-node-create))
+    (should-not captured)))
+
+(ert-deftest org-roam-organize-test-node-create-rejects-invalid-provider-request ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (record '(:name "idea"
+                   :tag "idea"
+                   :directory "fleeting"
+                   :provider org-roam-organize-test--invalid-request-provider))
+         captured)
+    (cl-letf (((symbol-function 'org-roam-organize--read-node-record)
+               (lambda () record))
+              ((symbol-function 'org-roam-organize-test--invalid-request-provider)
+               (lambda (_record) '(:title "" :info (:author "Jane Doe"))))
+              ((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest args)
+                 (setq captured args))))
+      (org-roam-organize-node-create))
+    (should-not captured)))
+
 (ert-deftest org-roam-organize-test-moc-create-skips-existing-mocs ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (existing-path (expand-file-name "moc/maps.org" root))
