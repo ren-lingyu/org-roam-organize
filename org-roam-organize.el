@@ -99,6 +99,7 @@
         (list :name "literature"
               :tag "ref"
               :basic t
+              :cite t
               :directory "literature"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
@@ -135,12 +136,14 @@
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
-`:moc' and `:basic' are optional booleans.  A `:moc t' record must also be
-`:basic t'.  A basic record must have a relative `:directory'; non-basic
-records may also use `:directory' to create managed nodes in an existing
-kind directory.  `:moc-path' and `:moc-title' are optional overrides resolved
-from the record name when absent.  `:inbox' is an optional level-1 headline
-name used for newly added MOC node entries and defaults to \"Inbox\".
+`:moc', `:basic', and `:cite' are optional booleans.  A `:moc t' record must
+also be `:basic t'.  At most one record may use `:cite t'; that record
+identifies literature nodes for citing-node entry synchronization.  A basic
+record must have a relative `:directory'; non-basic records may also use
+`:directory' to create managed nodes in an existing kind directory.
+`:moc-path' and `:moc-title' are optional overrides resolved from the record
+name when absent.  `:inbox' is an optional level-1 headline name used for
+newly added generated entries and defaults to \"Inbox\".
 `:template' is an optional structured alist for the generated file head.  Its
 `properties' section is an ordered alist emitted inside an Org property
 drawer.  Its `keywords' section is an ordered alist emitted as Org file
@@ -213,10 +216,13 @@ The list maps symbols to capability types checked by
   "Capture key used internally when creating managed node files.")
 
 (defconst org-roam-organize--moc-default-inbox-headline "Inbox"
-  "Default headline used for newly added MOC node entries.")
+  "Default headline used for newly added generated entries.")
 
 (defconst org-roam-organize--moc-node-keyword "ROAM_NODE"
   "Org keyword used for MOC node entries.")
+
+(defconst org-roam-organize--cite-citing-node-keyword "ROAM_CITING_NODE"
+  "Org keyword used for generated citing-node entries.")
 
 (defconst org-roam-organize--file-head-formatter-alist
   '((filetags . org-roam-organize--file-head-filetags-format))
@@ -443,6 +449,15 @@ is later used to decide which directories should be created and validated as
 base kind directories."
   (eq (plist-get record :basic) t))
 
+(defun org-roam-organize--record-cite-p (record)
+  "Return non-nil if RECORD manages citation reference nodes.
+
+Implementation notes: only literal `t' enables citation-reference status.
+The flag is optional and is checked separately from tag, directory, and MOC
+status so setups that do not use citing-node entry synchronization remain
+valid."
+  (eq (plist-get record :cite) t))
+
 (defun org-roam-organize--record-directory (record)
   "Return RECORD's relative node directory.
 
@@ -519,6 +534,26 @@ Implementation notes: this filters malformed entries first, then selects
 records whose `:basic' value is literal `t'.  Directory creation uses this
 list as its source of truth."
   (seq-filter #'org-roam-organize--record-basic-p
+              (seq-filter #'org-roam-organize--plistp
+                          org-roam-organize-registry)))
+
+(defun org-roam-organize--registry-cite-record ()
+  "Return the single registry record marked with `:cite t', or nil.
+
+Implementation notes: malformed registry entries are ignored.  Validation
+ensures there is at most one citation record, while
+`org-roam-organize-cite-sync' requires one at command time."
+  (seq-find #'org-roam-organize--record-cite-p
+            (seq-filter #'org-roam-organize--plistp
+                        org-roam-organize-registry)))
+
+(defun org-roam-organize--registry-cite-records ()
+  "Return registry records marked with `:cite t'.
+
+Implementation notes: malformed registry entries are ignored.  This helper is
+used by the citation sync command to enforce command-time existence and
+uniqueness without making citation support mandatory for setup validation."
+  (seq-filter #'org-roam-organize--record-cite-p
               (seq-filter #'org-roam-organize--plistp
                           org-roam-organize-registry)))
 
@@ -997,6 +1032,7 @@ checked when node creation calls the provider."
   (let ((result_bool t)
         (result_message "Org-roam Organize registry records are as follow.\n")
         (moc-count 0)
+        (cite-count 0)
         names tags paths directories)
     (if (not (org-roam-organize--proper-list-p org-roam-organize-registry))
         (cons nil "`org-roam-organize-registry' must be a proper list.")
@@ -1006,6 +1042,7 @@ checked when node creation calls the provider."
                (tag (when plistp (org-roam-organize--record-tag record)))
                (moc (when plistp (plist-get record :moc)))
                (basic (when plistp (plist-get record :basic)))
+               (cite (when plistp (plist-get record :cite)))
                (directory (when plistp (org-roam-organize--record-directory record)))
                (inbox (when plistp (org-roam-organize--record-inbox record)))
                (provider (when plistp (plist-get record :provider)))
@@ -1045,12 +1082,18 @@ checked when node creation calls the provider."
               (setq result_bool nil)
               (setq result_message
                     (concat result_message "  :basic boolean? nil (should be t)\n")))
+            (when (and cite (not (booleanp cite)))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :cite boolean? nil (should be t)\n")))
             (when (org-roam-organize--record-moc-p record)
               (setq moc-count (1+ moc-count))
               (unless (org-roam-organize--record-basic-p record)
                 (setq result_bool nil)
                 (setq result_message
                       (concat result_message "  :moc t requires :basic t\n"))))
+            (when (org-roam-organize--record-cite-p record)
+              (setq cite-count (1+ cite-count)))
             (cond
              ((org-roam-organize--record-basic-p record)
               (unless (stringp directory)
@@ -1173,6 +1216,12 @@ checked when node creation calls the provider."
               (concat result_message
                       (format "Exactly one :moc t record? %s (should be 1)\n"
                               moc-count))))
+      (when (> cite-count 1)
+        (setq result_bool nil)
+        (setq result_message
+              (concat result_message
+                      (format "At most one :cite t record? %s (should be 0 or 1)\n"
+                              cite-count))))
       (cons result_bool result_message))))
 
 (defun org-roam-organize--check-setup ()
@@ -1297,6 +1346,29 @@ Org-roam's database, which itself is derived from Org files."
              :title (nth 1 row)))
      (org-roam-db-query
       (vector :select (vector 'n:id 'n:title)
+              :from '(as tags t)
+              :join '(as nodes n)
+              :on '(and (= n:level 0) (= n:id t:node_id))
+              :where '(= t:tag $s1))
+      tag))))
+
+(defun org-roam-organize--nodes-with-tag-and-file (tag)
+  "Return level-0 Org-roam nodes with TAG, including file paths.
+
+The return value is a list of plists containing `:id', `:title', and `:file'.
+
+Implementation notes: this is used by cite synchronization, which needs
+to update each literature node file even when that node currently has no
+incoming citing-node entries.  The query uses the same tag-membership source
+as MOC sync and extends the selected node fields with `nodes.file'."
+  (when org-roam-organize-mode
+    (mapcar
+     (lambda (row)
+       (list :id (nth 0 row)
+             :title (nth 1 row)
+             :file (nth 2 row)))
+     (org-roam-db-query
+      (vector :select (vector 'n:id 'n:title 'n:file)
               :from '(as tags t)
               :join '(as nodes n)
               :on '(and (= n:level 0) (= n:id t:node_id))
@@ -1712,6 +1784,94 @@ headline name, and MOC suffix handlers that preserve the existing
    record
    "MOC file does not exist"))
 
+(defun org-roam-organize--cite-citing-node-data (ref-node-ids)
+  "Return citing-node data for citation reference node ids REF-NODE-IDS.
+
+The return value is a plist with `:alist' and `:conflicts'.  `:alist' maps a
+reference node id to a list of citing node plists containing `:id' and
+`:title'.  `:conflicts' contains cite keys that are attached to more than one
+reference node.
+
+Implementation notes: the query joins Org-roam `refs' and `citations' on
+the naked cite key while requiring `refs.type = \"cite\"'.  Only level-0
+citing nodes are selected.  Duplicate citation occurrences from the same
+citing node are collapsed by a per-reference hash table.  When a cite key is
+associated with multiple reference nodes, that key is reported as a conflict
+and its citation rows are skipped rather than merged into an arbitrary node."
+  (let* ((rows
+          (when ref-node-ids
+            (org-roam-db-query
+             (vector :select (vector 'r:ref 'r:node_id 'c:node_id 'n:title)
+                     :from '(as refs r)
+                     :join '(as citations c)
+                     :on '(= r:ref c:cite_key)
+                     :join '(as nodes n)
+                     :on '(and (= n:level 0) (= n:id c:node_id))
+                     :where '(and (= r:type "cite")
+                                  (in r:node_id $v1)))
+             (vconcat ref-node-ids))))
+         (key-to-ref-ids (make-hash-table :test 'equal))
+         (ref-to-citing-table (make-hash-table :test 'equal))
+         (ref-to-citing-list (make-hash-table :test 'equal))
+         conflicts alist)
+    (dolist (row rows)
+      (let ((cite-key (nth 0 row))
+            (ref-id (nth 1 row)))
+        (unless (member ref-id (gethash cite-key key-to-ref-ids))
+          (puthash cite-key
+                   (cons ref-id (gethash cite-key key-to-ref-ids))
+                   key-to-ref-ids))))
+    (maphash
+     (lambda (cite-key ref-ids)
+       (when (> (length ref-ids) 1)
+         (push cite-key conflicts)))
+     key-to-ref-ids)
+    (dolist (row rows)
+      (let ((cite-key (nth 0 row))
+            (ref-id (nth 1 row))
+            (citing-id (nth 2 row))
+            (citing-title (nth 3 row)))
+        (unless (member cite-key conflicts)
+          (let ((citing-table
+                 (or (gethash ref-id ref-to-citing-table)
+                     (let ((table (make-hash-table :test 'equal)))
+                       (puthash ref-id table ref-to-citing-table)
+                       table))))
+            (unless (gethash citing-id citing-table)
+              (puthash citing-id
+                       (list :id citing-id
+                             :title citing-title)
+                       citing-table)
+              (puthash ref-id
+                       (cons (list :id citing-id
+                                   :title citing-title)
+                             (gethash ref-id ref-to-citing-list))
+                       ref-to-citing-list))))))
+    (maphash
+     (lambda (ref-id citing-list)
+       (push (cons ref-id (nreverse citing-list)) alist))
+     ref-to-citing-list)
+    (list :alist (nreverse alist)
+          :conflicts (nreverse conflicts))))
+
+(defun org-roam-organize--cite-sync-citing-node-entries (record path nodes)
+  "Sync citing-node entries for citation RECORD at PATH from NODES.
+
+Implementation notes: this cite-specific wrapper delegates the shared
+id-link-keyword synchronization work to
+`org-roam-organize--sync-id-link-keyword-entries'.  It supplies the
+`#+ROAM_CITING_NODE' keyword and the record's inbox headline name.  Citation
+entries do not currently use suffix metadata."
+  (org-roam-organize--sync-id-link-keyword-entries
+   org-roam-organize--cite-citing-node-keyword
+   path
+   nodes
+   (org-roam-organize--record-inbox record)
+   nil
+   nil
+   record
+   "Reference file does not exist"))
+
 ;; hash 表转换为 alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
   "Return HASH_TABLE as an alist when organize mode is enabled.
@@ -1828,86 +1988,6 @@ to level-0 `nodes' so headline tags do not affect file-node counts."
       (if hash_to_alist
           (org-roam-organize--hash-table-to-alist tag_count)
         tag_count))))
-
-;; 检查需要却没有被插入 link 于给定 node 的 node id
-(defun org-roam-organize--check-file-node-no-linked-headline (tag_id table col)
-  "Return missing linked headline targets for TAG_ID.
-
-TAG_ID is an alist of TAG . ID.  TABLE and COL select the Org-roam database
-table and column used to find candidate nodes.  Return an alist of source node
-id to destination node id list.
-
-Implementation notes: the first query dynamically selects all candidate node
-ids from TABLE/COL for each tag-like key.  The second query reads existing id
-links from each source node.  Both row sets are grouped into hash tables, then
-set difference produces the missing destination ids per source."
-  (when org-roam-organize-mode
-    (let* ((tag_list
-            (mapcar (lambda (e) (format "%s" (car e))) tag_id))
-           (id_list
-            (mapcar (lambda (e) (format "%s" (cdr e))) tag_id))
-           (result_tag_all_id
-            (mapcar
-             (lambda (x) (cons (nth 0 x) (nth 1 x)))
-             (org-roam-db-query
-              (vector :select (vector (intern (concat "t:" col)) (intern "t:node_id"))
-                      :from (list 'as (intern (concat table)) 't)
-                      :join '(as nodes n) :on '(and (= n:level 0) (= n:id t:node_id))
-                      :where (list 'in (intern (concat "t:" col)) '$v1))
-              (vconcat tag_list))))
-           (result_id_linked_id
-            (mapcar
-             (lambda (x) (cons (nth 0 x) (nth 1 x)))
-             (org-roam-db-query
-              (vector :select (vector 'l:source 'l:dest)
-                      :from '(as links l)
-                      :join '(as nodes n) :on '(and (= n:level 0) (= n:id l:dest))
-                      :where '(and (= l:type "id") (in l:source $v1)))
-              (vconcat id_list))))
-           (tag_to_nodes (org-roam-organize--alist-to-hash-table result_tag_all_id))
-           (source_to_linked (org-roam-organize--alist-to-hash-table result_id_linked_id)))
-      (cl-loop
-       for pair in tag_id
-       for tag    = (car pair)
-       for source = (cdr pair)
-       for all_nodes   = (gethash tag tag_to_nodes)
-       for linked_nodes = (gethash source source_to_linked)
-       collect
-       (cons
-        source
-        (let ((linked-ht (make-hash-table :test 'equal)))
-          (dolist (x linked_nodes)
-            (puthash x t linked-ht))
-          (seq-filter
-           (lambda (x) (not (gethash x linked-ht)))
-           all_nodes)))))))
-
-;; 在给定 id 的 node 中插入指定形式的 id 型 link
-(defun org-roam-organize--insert-id-type-link-headline (pair)
-  "Insert Org entries for level-0 nodes in PAIR.
-
-PAIR is a cons cell of source node id to destination node id list.
-
-Implementation notes: source and destination ids are resolved back to
-Org-roam nodes.  For each resolvable destination, a second-level id-link
-headline is appended to the source node's file and the buffer is saved."
-  (when org-roam-organize-mode
-    (let* ((source_id (car pair))
-           (dest_ids (cdr pair)))
-      (when dest_ids
-        (dolist (id dest_ids)
-          (let* ((node (org-roam-node-from-id id))
-                 (source-node (org-roam-node-from-id source_id)))
-            (when (and node source-node)
-              (let* ((content
-                      (format "** [[id:%s][%s]]\n"
-                              (org-roam-node-id node)
-                              (org-roam-node-title node))))
-                (with-current-buffer (find-file-noselect (org-roam-node-file source-node))
-                  (goto-char (point-max))
-                  (insert content)
-                  (save-buffer))
-                (message "%s" content)))))))))
 
 ;; ==============================
 ;; 可调用结构函数
@@ -2142,33 +2222,79 @@ derived managed properties are updated only after a successful entry sync."
          synced-count failed-count duplicate-count removed-count malformed-count))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
-;; 文献节点反链补全
+;; 文献引用节点条目同步
 ;;;###autoload
-(defun org-roam-organize-ref-complete-backlinks ()
-  "Append missing literature backlinks from citation data.
+(defun org-roam-organize-cite-sync ()
+  "Sync citing-node entries for managed citation reference nodes.
 
-Implementation notes: cite refs are read from the Org-roam `refs' table,
-then `org-roam-organize--check-file-node-no-linked-headline' compares them
-with citation rows and existing id links.  Missing destinations are appended
-as second-level id-link headlines in the literature node files."
+Implementation notes: the command requires exactly one registry record marked
+with `:cite t'.  It refreshes the Org-roam database, reads every level-0 node
+with that record's tag, computes citing-node relationships from `refs' and
+`citations', and synchronizes `#+ROAM_CITING_NODE' keyword entries in each
+reference node's configured Inbox headline.  The sync is intentionally global
+so stale entries can be removed from reference nodes that no longer have
+incoming citations."
   (interactive)
   (if org-roam-organize-mode
-      (progn
-        (message "[INFO] Begin Check and Insert. ")
-        (org-roam-db)
-        (let* ((ref_id (mapcar
-                        (lambda (x) (cons (nth 0 x) (nth 1 x)))
-                        (org-roam-db-query
-                         (vector :select (vector 'r:ref 'r:node_id)
-                                 :from '(as refs r)
-                                 :join '(as nodes n) :on '(and (= n:level 0) (= n:id r:node_id))
-                                 :where '(= r:type "cite")))))
-               (source_dest_alist (org-roam-organize--check-file-node-no-linked-headline ref_id "citations" "cite_key")))
-          (message "[INFO] Check Complete. Insert backlinks Start up. ")
-          (dolist
-              (pair source_dest_alist)
-            (org-roam-organize--insert-id-type-link-headline pair))
-          (message "[INFO] Insert Complete. ")))
+      (let ((records (org-roam-organize--registry-cite-records)))
+        (cond
+         ((not records)
+          (message "[WARNING] No :cite t registry record is configured."))
+         ((> (length records) 1)
+          (message "[WARNING] Multiple :cite t registry records are configured."))
+         (t
+          (let ((record (car records))
+                (synced-count 0)
+                (failed-count 0)
+                (duplicate-count 0)
+                (removed-count 0)
+                (malformed-count 0)
+                (conflict-count 0))
+            (org-roam-db)
+            (let* ((tag (org-roam-organize--record-tag record))
+                   (ref-nodes
+                    (and (stringp tag)
+                         (org-roam-organize--nodes-with-tag-and-file tag)))
+                   (ref-node-ids (mapcar (lambda (node)
+                                           (plist-get node :id))
+                                         ref-nodes))
+                   (cite-data
+                    (org-roam-organize--cite-citing-node-data ref-node-ids))
+                   (citing-alist (plist-get cite-data :alist))
+                   (conflicts (plist-get cite-data :conflicts)))
+              (setq conflict-count (length conflicts))
+              (dolist (ref-node ref-nodes)
+                (let* ((path (plist-get ref-node :file))
+                       (citing-nodes
+                       (or (cdr (assoc (plist-get ref-node :id)
+                                        citing-alist))
+                            nil))
+                       (result
+                        (org-roam-organize--cite-sync-citing-node-entries
+                         record
+                         path
+                         citing-nodes)))
+                  (cond
+                   ((or (not result)
+                        (eq (plist-get result :status) 'failed))
+                    (setq failed-count (1+ failed-count))
+                    (message "[WARNING] Cannot sync citing-node entries for node: %s (%s)"
+                             ref-node
+                             (plist-get result :reason)))
+                   (t
+                    (setq synced-count (1+ synced-count))
+                    (setq duplicate-count
+                          (+ duplicate-count
+                             (length (plist-get result :duplicates))))
+                    (setq removed-count
+                          (+ removed-count
+                             (length (plist-get result :removed))))
+                    (setq malformed-count
+                          (+ malformed-count
+                             (length (plist-get result :malformed)))))))))
+            (message
+             "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s conflicted cite keys."
+             synced-count failed-count duplicate-count removed-count malformed-count conflict-count)))))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; ==============================

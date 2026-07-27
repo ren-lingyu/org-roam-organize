@@ -40,10 +40,10 @@ The package includes the following main features:
 - Tag-based node counting and statistics
 - Tag-based MOC membership synchronization
 
-** 3. Backlink Management
-- Automatic insertion of missing backlinks for literature nodes
-- Citation-based reference completion
-- Append missing id-link headlines for cited nodes
+** 3. Citation Management
+- Synchronize citing-node entries for literature nodes
+- Citation entry synchronization
+- Maintain generated =#+ROAM_CITING_NODE= keyword entries
 
 ** 4. Statistical Functions
 - Count nodes with specific tags
@@ -73,7 +73,7 @@ Before using this package, you need to configure the following variables:
 
 The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
-Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=.
+Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citing-node entry synchronization. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
 
 The optional =:template= value is a structured alist for the generated file head. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
@@ -113,7 +113,7 @@ The following =C-c o= keybindings are optional user configuration examples:
   (global-set-key (kbd "C-c o m m") #'org-roam-organize-moc-open-index)
   (global-set-key (kbd "C-c o m c") #'org-roam-organize-moc-create)
   (global-set-key (kbd "C-c o m s") #'org-roam-organize-moc-sync)
-  (global-set-key (kbd "C-c o r c") #'org-roam-organize-ref-complete-backlinks)
+  (global-set-key (kbd "C-c o r c") #'org-roam-organize-cite-sync)
 #+END_SRC
 
 #+BEGIN_SRC emacs-lisp
@@ -123,7 +123,7 @@ The following =C-c o= keybindings are optional user configuration examples:
   (keymap-global-set "C-c o m m" #'org-roam-organize-moc-open-index)
   (keymap-global-set "C-c o m c" #'org-roam-organize-moc-create)
   (keymap-global-set "C-c o m s" #'org-roam-organize-moc-sync)
-  (keymap-global-set "C-c o r c" #'org-roam-organize-ref-complete-backlinks)
+  (keymap-global-set "C-c o r c" #'org-roam-organize-cite-sync)
 #+END_SRC
 
 ** Suggested Command Aliases
@@ -136,7 +136,7 @@ The following aliases are optional user configuration examples:
   (defalias 'oro-map #'org-roam-organize-moc-open-index)
   (defalias 'oro-create-mocs #'org-roam-organize-moc-create)
   (defalias 'oro-sync-mocs #'org-roam-organize-moc-sync)
-  (defalias 'oro-backlinks #'org-roam-organize-ref-complete-backlinks)
+  (defalias 'oro-cite-sync #'org-roam-organize-cite-sync)
 #+END_SRC
 
 * Usage
@@ -147,7 +147,7 @@ The following aliases are optional user configuration examples:
 5. Use =org-roam-organize-node-create= to create managed non-MOC nodes from registry records with =:directory=
 6. After adding new registry records, run =org-roam-organize-moc-create= to create missing MOC files
 7. Use =org-roam-organize-moc-sync= to sync MOC entries and managed information
-8. Use =org-roam-organize-ref-complete-backlinks= to complete missing citation backlinks
+8. Use =org-roam-organize-cite-sync= to sync citing-node entries
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -221,7 +221,7 @@ An example of configuration is shown here.
      ("C-c o m m" . org-roam-organize-moc-open-index)
      ("C-c o m c" . org-roam-organize-moc-create)
      ("C-c o m s" . org-roam-organize-moc-sync)
-     ("C-c o r c" . org-roam-organize-ref-complete-backlinks))
+     ("C-c o r c" . org-roam-organize-cite-sync))
     :hook (after-init-hook . org-roam-organize-mode))
 
 #+END_SRC
@@ -253,6 +253,7 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
         (list (list :name "literature"
                     :tag "ref"
                     :basic t
+                    :cite t
                     :directory "literature"
                     :provider #'my-org-roam-organize-literature-provider
                     :template '((properties . ((roam_refs . "@${citar-key}")))
@@ -277,8 +278,17 @@ Entries marked for future deletion workflows may use:
 
 During sync, existing valid entries keep their position and order. Missing nodes are added under the configured level-1 inbox headline. Entries whose target node no longer exists or no longer has the managed tag are removed. Duplicate entries are preserved, synchronized, and reported.
 
+* Citation Entry Format
+Generated citing-node entries for literature nodes are stored as Org keywords under the =:inbox= level-1 headline of each =:cite t= record node:
+
+#+BEGIN_SRC org
+  #+ROAM_CITING_NODE: [[id:node-id][Node title]]
+#+END_SRC
+
+The command =org-roam-organize-cite-sync= performs a global sync for the single =:cite t= registry record. It computes citation relationships from Org-roam's =refs= and =citations= tables, uses naked cite keys in the database query, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them.
+
 * Implementation Details
-The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and find missing citation backlinks. MOC entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing functions, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
+The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and compute citing-node relationships. MOC and citation entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing functions, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
 

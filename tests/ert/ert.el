@@ -83,6 +83,37 @@
       (should-not (car result))
       (should (string-match-p "Exactly one :moc t record" (cdr result))))))
 
+(ert-deftest org-roam-organize-test-registry-allows-zero-or-one-cite-record ()
+  (let ((org-roam-organize-directory
+         (org-roam-organize-test--temporary-root)))
+    (let ((org-roam-organize-registry
+           '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+             (:name "literature" :tag "ref" :basic t :directory "literature"))))
+      (let ((result (org-roam-organize--validate-registry)))
+        (should (car result))))
+    (let ((org-roam-organize-registry
+           '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+             (:name "literature" :tag "ref" :cite t :basic t :directory "literature"))))
+      (let ((result (org-roam-organize--validate-registry)))
+        (should (car result))))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-multiple-cite-records ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature" :tag "ref" :cite t :basic t :directory "literature")
+           (:name "papers" :tag "paper" :cite t :basic t :directory "papers"))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p "At most one :cite t record" (cdr result))))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-invalid-cite-value ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature" :tag "ref" :cite "yes" :basic t :directory "literature"))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p ":cite boolean" (cdr result))))))
+
 (ert-deftest org-roam-organize-test-create-directories-uses-basic-registry-directories ()
   (let* ((root (file-name-as-directory
                 (make-temp-file "org-roam-organize-test-" t)))
@@ -503,6 +534,113 @@
       (should (search-forward
                "#+ROAM_NODE: [[id:node-a][Updated Title]] :delete t"
                nil t)))))
+
+(ert-deftest org-roam-organize-test-cite-citing-node-data-deduplicates-and-reports-conflicts ()
+  (let ((org-roam-organize-mode t)
+        captured-query
+        captured-args)
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (query &rest args)
+                 (setq captured-query query)
+                 (setq captured-args args)
+                 '(("key-a" "ref-a" "citing-a" "Citing A")
+                   ("key-a" "ref-a" "citing-a" "Citing A")
+                   ("key-a" "ref-a" "citing-b" "Citing B")
+                   ("key-conflict" "ref-b" "citing-c" "Citing C")
+                   ("key-conflict" "ref-c" "citing-d" "Citing D")))))
+      (let* ((result
+              (org-roam-organize--cite-citing-node-data
+               '("ref-a" "ref-b" "ref-c")))
+             (alist (plist-get result :alist)))
+        (should (vectorp captured-query))
+        (should (equal captured-args
+                       (list (vconcat '("ref-a" "ref-b" "ref-c")))))
+        (should (equal (plist-get result :conflicts)
+                       '("key-conflict")))
+        (should (equal (cdr (assoc "ref-a" alist))
+                       '((:id "citing-a" :title "Citing A")
+                         (:id "citing-b" :title "Citing B"))))
+        (should-not (assoc "ref-b" alist))
+        (should-not (assoc "ref-c" alist))))))
+
+(ert-deftest org-roam-organize-test-cite-sync-wrapper-uses-citing-node-keyword ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (path (expand-file-name "literature/ref.org" root))
+         (record '(:name "literature"
+                   :tag "ref"
+                   :cite t
+                   :inbox "Inbox"))
+         (nodes '((:id "citing-a" :title "Citing A"))))
+    (write-region "#+TITLE: Ref\n" nil path)
+    (let ((result
+           (org-roam-organize--cite-sync-citing-node-entries
+            record
+            path
+            nodes)))
+      (should (eq (plist-get result :status) 'ok)))
+    (with-temp-buffer
+      (insert-file-contents path)
+      (should (search-forward "* Inbox" nil t))
+      (should (search-forward
+               "#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]"
+               nil t)))))
+
+(ert-deftest org-roam-organize-test-cite-sync-requires-cite-record ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature" :tag "ref" :basic t :directory "literature")))
+        synced)
+    (cl-letf (((symbol-function 'org-roam-organize--cite-sync-citing-node-entries)
+               (lambda (&rest _args)
+                 (setq synced t))))
+      (org-roam-organize-cite-sync))
+    (should-not synced)))
+
+(ert-deftest org-roam-organize-test-cite-sync-syncs-all-cite-nodes ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (ref-a-file (expand-file-name "literature/ref-a.org" root))
+         (ref-b-file (expand-file-name "literature/ref-b.org" root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "literature"
+             :tag "ref"
+             :cite t
+             :basic t
+             :directory "literature"
+             :inbox "Inbox"))))
+    (write-region "#+TITLE: Ref A\n" nil ref-a-file)
+    (write-region
+     (concat
+      "#+TITLE: Ref B\n"
+      "* Inbox\n"
+      "#+ROAM_CITING_NODE: [[id:stale][Stale]]\n")
+     nil ref-b-file)
+    (cl-letf (((symbol-function 'org-roam-db)
+               (lambda () t))
+              ((symbol-function 'org-roam-organize--nodes-with-tag-and-file)
+               (lambda (tag)
+                 (should (equal tag "ref"))
+                 `((:id "ref-a" :title "Ref A" :file ,ref-a-file)
+                   (:id "ref-b" :title "Ref B" :file ,ref-b-file))))
+              ((symbol-function 'org-roam-organize--cite-citing-node-data)
+               (lambda (ids)
+                 (should (equal ids '("ref-a" "ref-b")))
+                 '(:alist (("ref-a" . ((:id "citing-a" :title "Citing A"))))
+                          :conflicts nil)))
+              ((symbol-function 'message)
+               (lambda (&rest _args) nil)))
+      (org-roam-organize-cite-sync))
+    (with-temp-buffer
+      (insert-file-contents ref-a-file)
+      (should (search-forward
+               "#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]"
+               nil t)))
+    (with-temp-buffer
+      (insert-file-contents ref-b-file)
+      (should-not (search-forward "Stale" nil t)))))
 
 (ert-deftest org-roam-organize-test-mode-does-not-register-raw-capture-template ()
   (let* ((root (org-roam-organize-test--temporary-root))
