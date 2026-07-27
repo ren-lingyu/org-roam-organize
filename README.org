@@ -6,19 +6,19 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
 
 * Repository Structure
 #+BEGIN_SRC text
-.
-├── org-roam-organize.el
-├── README.org
-├── LICENSE
-├── flake.nix
-├── flake.lock
-└── tests/
-    ├── default.nix
-    ├── ert/
-    │   ├── default.nix
-    │   └── ert.el
-    └── package-lint/
-        └── default.nix
+  .
+  ├── org-roam-organize.el
+  ├── README.org
+  ├── LICENSE
+  ├── flake.nix
+  ├── flake.lock
+  └── tests/
+  ├── default.nix
+  ├── ert/
+  │   ├── default.nix
+  │   └── ert.el
+  └── package-lint/
+  └── default.nix
 #+END_SRC
 
 Key conventions:
@@ -93,7 +93,7 @@ The provider should return nil to cancel creation, or a request plist with a non
 
 #+BEGIN_SRC emacs-lisp
   (:title TITLE
-   :info INFO)
+          :info INFO)
 #+END_SRC
 
 The =:info= plist is passed to =org-roam-capture-= so placeholders such as =${author}= in =:template= values can be expanded. Providers only supply title and capture info; Org-roam-organize still controls paths, targets, and capture templates.
@@ -164,66 +164,65 @@ An example of configuration is shown here.
                  :directory "navigation"
                  :inbox "Inbox"
                  :template '((keywords . ((author . nil)
-                                           (date . nil)
-                                           (description . nil)
-                                           (filetags . ("map"))))))
+                                          (date . nil)
+                                          (description . nil)
+                                          (filetags . ("map"))))))
            (list :name "fleeting"
                  :tag "idea"
                  :basic t
                  :directory "fleeting"
                  :inbox "Inbox"
                  :template '((keywords . ((author . nil)
-                                           (date . nil)
-                                           (description . nil)
-                                           (filetags . ("idea"))))))
+                                          (date . nil)
+                                          (description . nil)
+                                          (filetags . ("idea"))))))
            (list :name "literature"
                  :tag "ref"
                  :basic t
                  :directory "literature"
                  :inbox "Inbox"
                  :template '((keywords . ((author . nil)
-                                           (date . nil)
-                                           (description . nil)
-                                           (filetags . ("ref"))))))
+                                          (date . nil)
+                                          (description . nil)
+                                          (filetags . ("ref"))))))
            (list :name "permanent"
                  :tag "zettel"
                  :basic t
                  :directory "permanent"
                  :inbox "Inbox"
                  :template '((keywords . ((author . nil)
-                                           (date . nil)
-                                           (description . nil)
-                                           (filetags . ("zettel"))))))
+                                          (date . nil)
+                                          (description . nil)
+                                          (filetags . ("zettel"))))))
            (list :name "note"
                  :tag "note"
                  :basic nil
                  :directory "permanent"
                  :inbox "Inbox"
                  :template '((keywords . ((author . nil)
-                                           (date . nil)
-                                           (description . nil)
-                                           (filetags . ("zettel" "note"))))))
+                                          (date . nil)
+                                          (description . nil)
+                                          (filetags . ("zettel" "note"))))))
            (list :name "blog"
                  :tag "blog"
                  :basic nil
                  :directory "permanent"
                  :inbox "Inbox"
                  :template '((keywords . ((author . nil)
-                                           (date . nil)
-                                           (description . nil)
-                                           (filetags . ("zettel" "blog")))))))
-    (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
-    (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
-    :bind
-    (("C-c o o" . org-roam-organize-mode)
-     ("C-c o c" . org-roam-organize-check-setup)
-     ("C-c o n c" . org-roam-organize-node-create)
-     ("C-c o m m" . org-roam-organize-moc-open-index)
-     ("C-c o m c" . org-roam-organize-moc-create)
-     ("C-c o m s" . org-roam-organize-moc-sync)
-     ("C-c o r c" . org-roam-organize-cite-sync))
-    :hook (after-init-hook . org-roam-organize-mode))
-
+                                          (date . nil)
+                                          (description . nil)
+                                          (filetags . ("zettel" "blog")))))))
+     (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
+     (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
+     :bind
+     (("C-c o o" . org-roam-organize-mode)
+      ("C-c o c" . org-roam-organize-check-setup)
+      ("C-c o n c" . org-roam-organize-node-create)
+      ("C-c o m m" . org-roam-organize-moc-open-index)
+      ("C-c o m c" . org-roam-organize-moc-create)
+      ("C-c o m s" . org-roam-organize-moc-sync)
+      ("C-c o r c" . org-roam-organize-cite-sync))
+     :hook (after-init-hook . org-roam-organize-mode))
 #+END_SRC
 
 * Managed Node Creation

@@ -84,18 +84,18 @@
               :directory "navigation"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
-                                        (date . nil)
-                                        (description . nil)
-                                        (filetags . ("map"))))))
+                                       (date . nil)
+                                       (description . nil)
+                                       (filetags . ("map"))))))
         (list :name "fleeting"
               :tag "idea"
               :basic t
               :directory "fleeting"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
-                                        (date . nil)
-                                        (description . nil)
-                                        (filetags . ("idea"))))))
+                                       (date . nil)
+                                       (description . nil)
+                                       (filetags . ("idea"))))))
         (list :name "literature"
               :tag "ref"
               :basic t
@@ -103,36 +103,36 @@
               :directory "literature"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
-                                        (date . nil)
-                                        (description . nil)
-                                        (filetags . ("ref"))))))
+                                       (date . nil)
+                                       (description . nil)
+                                       (filetags . ("ref"))))))
         (list :name "permanent"
               :tag "zettel"
               :basic t
               :directory "permanent"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
-                                        (date . nil)
-                                        (description . nil)
-                                        (filetags . ("zettel"))))))
+                                       (date . nil)
+                                       (description . nil)
+                                       (filetags . ("zettel"))))))
         (list :name "note"
               :tag "note"
               :basic nil
               :directory "permanent"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
-                                        (date . nil)
-                                        (description . nil)
-                                        (filetags . ("zettel" "note"))))))
+                                       (date . nil)
+                                       (description . nil)
+                                       (filetags . ("zettel" "note"))))))
         (list :name "blog"
               :tag "blog"
               :basic nil
               :directory "permanent"
               :inbox "Inbox"
               :template '((keywords . ((author . nil)
-                                        (date . nil)
-                                        (description . nil)
-                                        (filetags . ("zettel" "blog")))))))
+                                       (date . nil)
+                                       (description . nil)
+                                       (filetags . ("zettel" "blog")))))))
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
@@ -2267,7 +2267,7 @@ incoming citations."
               (dolist (ref-node ref-nodes)
                 (let* ((path (plist-get ref-node :file))
                        (citing-nodes
-                       (or (cdr (assoc (plist-get ref-node :id)
+                        (or (cdr (assoc (plist-get ref-node :id)
                                         citing-alist))
                             nil))
                        (result
