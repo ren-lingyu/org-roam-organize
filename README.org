@@ -157,61 +157,61 @@ An example of configuration is shown here.
     :custom
     (org-roam-organize-directory org-roam-directory)
     (org-roam-organize-registry
-     '((:name "navigation"
-        :tag "map"
-        :moc t
-        :basic t
-        :directory "navigation"
-        :inbox "Inbox"
-        :template ((author . nil)
-                   (date . nil)
-                   (description . nil)
-                   (filetags . ("map"))))
-       (:name "fleeting"
-        :tag "idea"
-        :basic t
-        :directory "fleeting"
-        :inbox "Inbox"
-        :template ((author . nil)
-                   (date . nil)
-                   (description . nil)
-                   (filetags . ("idea"))))
-       (:name "literature"
-        :tag "ref"
-        :basic t
-        :directory "literature"
-        :inbox "Inbox"
-        :template ((author . nil)
-                   (date . nil)
-                   (description . nil)
-                   (filetags . ("ref"))))
-       (:name "permanent"
-        :tag "zettel"
-        :basic t
-        :directory "permanent"
-        :inbox "Inbox"
-        :template ((author . nil)
-                   (date . nil)
-                   (description . nil)
-                   (filetags . ("zettel"))))
-       (:name "note"
-        :tag "note"
-        :basic nil
-        :directory "permanent"
-        :inbox "Inbox"
-        :template ((author . nil)
-                   (date . nil)
-                   (description . nil)
-                   (filetags . ("zettel" "note"))))
-       (:name "blog"
-        :tag "blog"
-        :basic nil
-        :directory "permanent"
-        :inbox "Inbox"
-        :template ((author . nil)
-                   (date . nil)
-                   (description . nil)
-                   (filetags . ("zettel" "blog")))))
+     (list (list :name "navigation"
+                 :tag "map"
+                 :moc t
+                 :basic t
+                 :directory "navigation"
+                 :inbox "Inbox"
+                 :template '((author . nil)
+                             (date . nil)
+                             (description . nil)
+                             (filetags . ("map"))))
+           (list :name "fleeting"
+                 :tag "idea"
+                 :basic t
+                 :directory "fleeting"
+                 :inbox "Inbox"
+                 :template '((author . nil)
+                             (date . nil)
+                             (description . nil)
+                             (filetags . ("idea"))))
+           (list :name "literature"
+                 :tag "ref"
+                 :basic t
+                 :directory "literature"
+                 :inbox "Inbox"
+                 :template '((author . nil)
+                             (date . nil)
+                             (description . nil)
+                             (filetags . ("ref"))))
+           (list :name "permanent"
+                 :tag "zettel"
+                 :basic t
+                 :directory "permanent"
+                 :inbox "Inbox"
+                 :template '((author . nil)
+                             (date . nil)
+                             (description . nil)
+                             (filetags . ("zettel"))))
+           (list :name "note"
+                 :tag "note"
+                 :basic nil
+                 :directory "permanent"
+                 :inbox "Inbox"
+                 :template '((author . nil)
+                             (date . nil)
+                             (description . nil)
+                             (filetags . ("zettel" "note"))))
+           (list :name "blog"
+                 :tag "blog"
+                 :basic nil
+                 :directory "permanent"
+                 :inbox "Inbox"
+                 :template '((author . nil)
+                             (date . nil)
+                             (description . nil)
+                             (filetags . ("zettel" "blog"))))))
     (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
     (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
     :bind
