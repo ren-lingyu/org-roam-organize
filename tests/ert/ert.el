@@ -420,6 +420,90 @@
                        ,(org-roam-organize--record-moc-head
                          (cadr org-roam-organize-registry))))))))
 
+(ert-deftest org-roam-organize-test-sync-id-link-keyword-entries-updates-inbox ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (path (expand-file-name "moc/maps.org" root))
+         (nodes '((:id "node-a" :title "Title A")
+                  (:id "node-b" :title "Title B"))))
+    (write-region
+     (concat
+      "#+TITLE: Maps\n"
+      "* Inbox\n"
+      "#+ROAM_TEST: [[id:node-a][Old Title]]\n"
+      "#+ROAM_TEST: [[id:node-a][Duplicate Old Title]]\n"
+      "#+ROAM_TEST: [[id:removed][Removed Title]]\n"
+      "#+ROAM_TEST: malformed\n"
+      "** Child\n"
+      "Child body\n"
+      "* COMMENT Ignored\n"
+      "#+ROAM_TEST: [[id:commented][Commented Title]]\n"
+      "#+BEGIN_SRC org\n"
+      "#+ROAM_TEST: [[id:source][Source Title]]\n"
+      "#+END_SRC\n")
+     nil path)
+    (let ((result
+           (org-roam-organize--sync-id-link-keyword-entries
+            "ROAM_TEST"
+            path
+            nodes
+            "Inbox")))
+      (should (eq (plist-get result :status) 'ok))
+      (should (equal (plist-get result :duplicates) '("node-a")))
+      (should (equal (plist-get result :removed) '("removed")))
+      (should (equal (plist-get result :malformed)
+                     '("#+ROAM_TEST: malformed"))))
+    (let ((content
+           (with-temp-buffer
+             (insert-file-contents path)
+             (buffer-string))))
+      (with-temp-buffer
+        (insert content)
+        (should (= (how-many
+                    (regexp-quote "#+ROAM_TEST: [[id:node-a][Title A]]")
+                    (point-min)
+                    (point-max))
+                   2))
+        (should (= (how-many
+                    (regexp-quote "#+ROAM_TEST: [[id:node-b][Title B]]")
+                    (point-min)
+                    (point-max))
+                   1))
+        (should (string-match-p
+                 (regexp-quote "* Inbox\n#+ROAM_TEST: [[id:node-a][Title A]]")
+                 content))
+        (should (string-match-p
+                 (regexp-quote "#+ROAM_TEST: [[id:node-b][Title B]]\n** Child")
+                 content))
+        (should-not (string-match-p "Removed Title" content))
+        (should (string-match-p "COMMENT Ignored" content))
+        (should (string-match-p "Commented Title" content))
+        (should (string-match-p "Source Title" content))))))
+
+(ert-deftest org-roam-organize-test-moc-sync-wrapper-preserves-delete-marker ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "idea" :tag "idea" :inbox "Inbox")))
+         (path (expand-file-name "moc/idea.org" root))
+         (record '(:name "idea"
+                   :tag "idea"
+                   :inbox "Inbox"))
+         (nodes '((:id "node-a" :title "Updated Title"))))
+    (write-region
+     (concat
+      "#+TITLE: Idea\n"
+      "* Inbox\n"
+      "#+ROAM_NODE: [[id:node-a][Old Title]] :delete t\n")
+     nil path)
+    (let ((result (org-roam-organize--moc-sync-node-entries record nodes)))
+      (should (eq (plist-get result :status) 'ok)))
+    (with-temp-buffer
+      (insert-file-contents path)
+      (should (search-forward
+               "#+ROAM_NODE: [[id:node-a][Updated Title]] :delete t"
+               nil t)))))
+
 (ert-deftest org-roam-organize-test-mode-does-not-register-raw-capture-template ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (default-directory temporary-file-directory)

@@ -1303,16 +1303,31 @@ Org-roam's database, which itself is derived from Org files."
               :where '(= t:tag $s1))
       tag))))
 
+(defun org-roam-organize--id-link-keyword-entry-line
+    (keyword id title &optional suffix)
+  "Return an Org KEYWORD entry line linking to ID with TITLE.
+
+Implementation notes: `org-link-make-string' constructs the id link so link
+descriptions are escaped according to Org syntax.  Optional SUFFIX text is
+appended after the link and otherwise left uninterpreted here so specialized
+callers can preserve their own keyword metadata."
+  (format "#+%s: %s%s\n"
+          keyword
+          (org-link-make-string (concat "id:" id) title)
+          (or suffix "")))
+
 (defun org-roam-organize--moc-node-entry-line (id title &optional delete)
   "Return a MOC node entry line for ID, TITLE, and DELETE flag.
 
-Implementation notes: `org-link-make-string' constructs the id link so link
-descriptions are escaped according to Org syntax.  The optional delete marker
-is appended as keyword suffix data and otherwise left uninterpreted here."
-  (format "#+%s: %s%s\n"
-          org-roam-organize--moc-node-keyword
-          (org-link-make-string (concat "id:" id) title)
-          (if delete " :delete t" "")))
+Implementation notes: this is the MOC-specific wrapper around
+`org-roam-organize--id-link-keyword-entry-line'.  It fixes the keyword name
+to `org-roam-organize--moc-node-keyword' and serializes the existing
+`:delete t' marker when requested."
+  (org-roam-organize--id-link-keyword-entry-line
+   org-roam-organize--moc-node-keyword
+   id
+   title
+   (when delete " :delete t")))
 
 (defun org-roam-organize--moc-node-entry-delete-p (suffix)
   "Return non-nil if MOC node entry SUFFIX contains `:delete t'.
@@ -1366,16 +1381,18 @@ MOC parsing from touching COMMENT subtrees."
            (org-element-property :commentedp element))
       (org-roam-organize--element-in-comment-subtree-p element)))
 
-(defun org-roam-organize--moc-parse-node-entry-value (value)
-  "Parse a MOC node entry keyword VALUE.
+(defun org-roam-organize--parse-id-link-keyword-entry-value
+    (value &optional suffix-parser)
+  "Parse an id-link keyword VALUE.
 
-Return a plist with `:id', `:title', and `:delete', or nil when VALUE does
-not contain a valid id link at the beginning.
+Return a plist with `:id' and `:title', plus any plist returned by
+SUFFIX-PARSER.  Return nil when VALUE does not contain a valid id link at the
+beginning.
 
 Implementation notes: VALUE is parsed in a temporary Org buffer so link
 syntax is handled by Org Element rather than regular expressions.  Only the
 first id link with no non-whitespace prefix is accepted; text after the link
-is passed to the delete-marker parser."
+is passed to SUFFIX-PARSER when provided."
   (with-temp-buffer
     (insert value)
     (org-mode)
@@ -1400,36 +1417,56 @@ is passed to the delete-marker parser."
                          (org-element-property :end link)
                          (point-max))))
                   (setq link-result
-                        (list
-                         :id (org-element-property :path link)
-                         :title description
-                         :delete
-                         (org-roam-organize--moc-node-entry-delete-p
-                          suffix)))))))))
+                        (append
+                         (list
+                          :id (org-element-property :path link)
+                          :title description)
+                         (when suffix-parser
+                           (funcall suffix-parser suffix))))))))))
       link-result)))
 
-(defun org-roam-organize--moc-parse-node-entries ()
-  "Parse MOC node entries in the current buffer.
+(defun org-roam-organize--moc-parse-node-entry-value (value)
+  "Parse a MOC node entry keyword VALUE.
+
+Return a plist with `:id', `:title', and `:delete', or nil when VALUE does
+not contain a valid id link at the beginning.
+
+Implementation notes: this MOC-specific wrapper delegates id-link parsing to
+`org-roam-organize--parse-id-link-keyword-entry-value' and only adds parsing
+of the MOC `:delete t' suffix."
+  (org-roam-organize--parse-id-link-keyword-entry-value
+   value
+   (lambda (suffix)
+     (list :delete
+           (org-roam-organize--moc-node-entry-delete-p suffix)))))
+
+(defun org-roam-organize--parse-id-link-keyword-entries
+    (keyword-name &optional suffix-parser)
+  "Parse id-link entries for KEYWORD-NAME in the current buffer.
 
 Return a plist containing `:entries' and `:malformed'.  Entries are plists
-with `:id', `:title', `:delete', `:begin', and `:end'.
+with `:id', `:title', `:begin', and `:end', plus any data supplied by
+SUFFIX-PARSER.
 
 Implementation notes: the current buffer is parsed with Org Element and only
-real `#+ROAM_NODE' keyword elements outside COMMENT context are considered.
-Malformed lines are retained as strings for reporting, while legal entries
-carry buffer positions so sync can replace or remove them later."
+real keyword elements matching KEYWORD-NAME outside COMMENT context are
+considered.  Malformed lines are retained as strings for reporting, while
+legal entries carry buffer positions so sync can replace or remove them
+later."
   (let (entries malformed)
     (org-element-map (org-element-parse-buffer) 'keyword
       (lambda (keyword)
         (when (and (string= (org-element-property :key keyword)
-                            org-roam-organize--moc-node-keyword)
+                            keyword-name)
                    (not
                     (org-roam-organize--element-commented-p keyword)))
           (let* ((begin (org-element-property :begin keyword))
                  (end (org-element-property :end keyword))
                  (value (org-element-property :value keyword))
                  (parsed
-                  (org-roam-organize--moc-parse-node-entry-value value)))
+                  (org-roam-organize--parse-id-link-keyword-entry-value
+                   value
+                   suffix-parser)))
             (if parsed
                 (push (append parsed
                               (list :begin begin
@@ -1444,7 +1481,23 @@ carry buffer positions so sync can replace or remove them later."
     (list :entries (nreverse entries)
           :malformed (nreverse malformed))))
 
-(defun org-roam-organize--moc-inbox-headline (name)
+(defun org-roam-organize--moc-parse-node-entries ()
+  "Parse MOC node entries in the current buffer.
+
+Return a plist containing `:entries' and `:malformed'.  Entries are plists
+with `:id', `:title', `:delete', `:begin', and `:end'.
+
+Implementation notes: this MOC-specific wrapper parses real
+`#+ROAM_NODE' keyword elements by delegating to
+`org-roam-organize--parse-id-link-keyword-entries' and adding MOC delete
+suffix parsing."
+  (org-roam-organize--parse-id-link-keyword-entries
+   org-roam-organize--moc-node-keyword
+   (lambda (suffix)
+     (list :delete
+           (org-roam-organize--moc-node-entry-delete-p suffix)))))
+
+(defun org-roam-organize--inbox-headline (name)
   "Return the top-level Inbox headline element named NAME in the current buffer.
 
 Implementation notes: this scans headline elements and accepts only the first
@@ -1463,7 +1516,7 @@ become false inboxes."
           (setq inbox headline))))
     inbox))
 
-(defun org-roam-organize--moc-first-child-headline-begin (headline)
+(defun org-roam-organize--first-child-headline-begin (headline)
   "Return the beginning position of HEADLINE's first child headline.
 
 Implementation notes: the child search is constrained to HEADLINE's parsed
@@ -1485,18 +1538,18 @@ section before nested child headings."
                  (< child-begin end))
         child-begin))))
 
-(defun org-roam-organize--moc-inbox-insertion-point (name)
-  "Return the insertion point for new MOC node entries.
+(defun org-roam-organize--inbox-insertion-point (name)
+  "Return the insertion point for new generated entries.
 
 Create the level-1 Inbox headline named NAME when it is missing.
 
 Implementation notes: existing inboxes receive new entries before their first
 child headline, preserving manual subsection structure.  Missing inboxes are
 appended as a level-1 headline at the end of the file."
-  (let ((inbox (org-roam-organize--moc-inbox-headline name)))
+  (let ((inbox (org-roam-organize--inbox-headline name)))
     (if inbox
         (let ((child-begin
-               (org-roam-organize--moc-first-child-headline-begin inbox))
+               (org-roam-organize--first-child-headline-begin inbox))
               (contents-begin (org-element-property :contents-begin inbox))
               (end (org-element-property :end inbox)))
           (goto-char (or child-begin contents-begin end))
@@ -1556,20 +1609,25 @@ properties are updated through the drawer helper, then the buffer is saved."
          (length nodes))
         (save-buffer)))))
 
-(defun org-roam-organize--moc-sync-node-entries (record nodes)
-  "Sync MOC node entries for RECORD from NODES.
+(defun org-roam-organize--sync-id-link-keyword-entries
+    (keyword-name path nodes inbox-name
+                  &optional suffix-parser suffix-builder record missing-reason)
+  "Sync id-link KEYWORD-NAME entries at PATH from NODES.
 
 Existing legal entries keep their relative position.  Duplicate entries are
 all synchronized and reported.  Entries whose ids are no longer in NODES are
 removed.  Missing nodes are appended under the Inbox headline.
 
 Implementation notes: NODES are indexed by id in a hash table.  Existing
-entries are parsed with Org Element, duplicates are detected with a second
-hash table, and replacements/removals run from the end of the buffer toward
-the beginning so saved positions remain valid.  Missing nodes are appended
-after existing edits have completed."
-  (let ((path (org-roam-organize--record-absolute-moc-path record))
-        (node-table (make-hash-table :test 'equal))
+entries are parsed with Org Element, using SUFFIX-PARSER for
+keyword-specific metadata.  Duplicates are detected with a second hash table,
+and replacements/removals run from the end of the buffer toward the beginning
+so saved positions remain valid.  Missing nodes are appended after existing
+edits have completed.  SUFFIX-BUILDER receives an existing parsed entry and
+returns text to preserve after the regenerated id link.  MISSING-REASON lets
+callers keep domain-specific failure messages while sharing the same sync
+implementation."
+  (let ((node-table (make-hash-table :test 'equal))
         (seen-table (make-hash-table :test 'equal))
         duplicate-ids removed-ids malformed-lines)
     (dolist (node nodes)
@@ -1577,9 +1635,12 @@ after existing edits have completed."
     (if (not (and path (file-exists-p path)))
         (list :status 'failed
               :record record
-              :reason "MOC file does not exist")
+              :reason (or missing-reason "Target file does not exist"))
       (with-current-buffer (find-file-noselect path)
-        (let* ((parse-result (org-roam-organize--moc-parse-node-entries))
+        (let* ((parse-result
+                (org-roam-organize--parse-id-link-keyword-entries
+                 keyword-name
+                 suffix-parser))
                (entries (plist-get parse-result :entries)))
           (setq malformed-lines (plist-get parse-result :malformed))
           (dolist (entry entries)
@@ -1596,10 +1657,12 @@ after existing edits have completed."
                     (delete-region (plist-get entry :begin)
                                    (plist-get entry :end))
                     (insert
-                     (org-roam-organize--moc-node-entry-line
+                     (org-roam-organize--id-link-keyword-entry-line
+                      keyword-name
                       id
                       (plist-get node :title)
-                      (plist-get entry :delete))))
+                      (when suffix-builder
+                        (funcall suffix-builder entry)))))
                 (push id removed-ids)
                 (delete-region (plist-get entry :begin)
                                (plist-get entry :end)))))
@@ -1608,11 +1671,11 @@ after existing edits have completed."
               (unless (gethash (plist-get node :id) seen-table)
                 (push node missing-nodes)))
             (when missing-nodes
-              (org-roam-organize--moc-inbox-insertion-point
-               (org-roam-organize--record-inbox record))
+              (org-roam-organize--inbox-insertion-point inbox-name)
               (dolist (node (nreverse missing-nodes))
                 (insert
-                 (org-roam-organize--moc-node-entry-line
+                 (org-roam-organize--id-link-keyword-entry-line
+                  keyword-name
                   (plist-get node :id)
                   (plist-get node :title)))))))
         (save-buffer)
@@ -1621,6 +1684,33 @@ after existing edits have completed."
               :duplicates (nreverse duplicate-ids)
               :removed (nreverse removed-ids)
               :malformed malformed-lines)))))
+
+(defun org-roam-organize--moc-sync-node-entries (record nodes)
+  "Sync MOC node entries for RECORD from NODES.
+
+Existing legal entries keep their relative position.  Duplicate entries are
+all synchronized and reported.  Entries whose ids are no longer in NODES are
+removed.  Missing nodes are appended under the Inbox headline.
+
+Implementation notes: this MOC-specific wrapper delegates the shared
+id-link-keyword synchronization work to
+`org-roam-organize--sync-id-link-keyword-entries'.  It supplies the
+`#+ROAM_NODE' keyword, the record's MOC file path, the record's inbox
+headline name, and MOC suffix handlers that preserve the existing
+`:delete t' marker."
+  (org-roam-organize--sync-id-link-keyword-entries
+   org-roam-organize--moc-node-keyword
+   (org-roam-organize--record-absolute-moc-path record)
+   nodes
+   (org-roam-organize--record-inbox record)
+   (lambda (suffix)
+     (list :delete
+           (org-roam-organize--moc-node-entry-delete-p suffix)))
+   (lambda (entry)
+     (when (plist-get entry :delete)
+       " :delete t"))
+   record
+   "MOC file does not exist"))
 
 ;; hash 表转换为 alist
 (defun org-roam-organize--hash-table-to-alist (hash_table)
