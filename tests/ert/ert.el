@@ -172,6 +172,101 @@
              "#+AUTHOR: ${citar-author}\n"
              "#+FILETAGS: :ref:\n")))))
 
+(ert-deftest org-roam-organize-test-record-node-capture-template-preserves-dynamic-fields ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (record '(:name "literature"
+                   :tag "ref"
+                   :directory "literature"
+                   :template ((properties . ((roam_refs . "@${citar-key}")))
+                              (keywords . ((author . "${citar-author}")
+                                           (date . "%<%Y-%m-%d>")
+                                           (filetags . ("ref")))))))
+         (template (org-roam-organize--record-node-capture-template record))
+         (target (plist-get (nthcdr 4 template) :target))
+         (head (nth 2 target)))
+    (should (equal (nth 1 target)
+                   (expand-file-name "literature/${id}/${slug}.org" root)))
+    (dolist (expected '(":ROAM_REFS: @${citar-key}"
+                        "#+TITLE: ${title}"
+                        "#+AUTHOR: ${citar-author}"
+                        "#+DATE: %<%Y-%m-%d>"
+                        "#+FILETAGS: :ref:"))
+      (should (string-match-p (regexp-quote expected) head)))))
+
+(ert-deftest org-roam-organize-test-file-head-formatters-preserve-capture-text ()
+  (should (equal (org-roam-organize--file-head-entry-value
+                  '(author . "${citar-author}"))
+                 "${citar-author}"))
+  (should (equal (org-roam-organize--file-head-entry-value
+                  '(date . "%<%Y-%m-%d>"))
+                 "%<%Y-%m-%d>"))
+  (should (equal (org-roam-organize--file-head-entry-value
+                  '(filetags . ("ref" "note")))
+                 ":ref:note:")))
+
+(ert-deftest org-roam-organize-test-capture-node-passes-title-info-and-template ()
+  (let ((template '("n" "test node" plain "%?"
+                    :target (file+head "/tmp/test.org" "#+TITLE: ${title}\n")
+                    :unnarrowed t))
+        captured)
+    (cl-letf (((symbol-function 'org-roam-capture-)
+               (lambda (&rest args)
+                 (setq captured args))))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       '(:citar-author "Jane Doe" :citar-key "doe2026")))
+    (should (equal (plist-get captured :keys) "n"))
+    (should (equal (org-roam-node-title (plist-get captured :node))
+                   "Dynamic Title"))
+    (should (equal (plist-get captured :info)
+                   '(:citar-author "Jane Doe" :citar-key "doe2026")))
+    (should (equal (plist-get captured :templates)
+                   (list template)))))
+
+(ert-deftest org-roam-organize-test-capture-template-dynamic-fields-expand ()
+  (let* ((root (file-name-as-directory
+                (make-temp-file "org-roam-organize-test-" t)))
+         (org-roam-directory root)
+         (org-roam-db-location (expand-file-name ".org-roam.db" root))
+         (org-roam-organize-directory root)
+         (org-id-locations-file (expand-file-name ".org-id-locations" root))
+         (year (format-time-string "%Y"))
+         (record '(:name "literature"
+                   :tag "ref"
+                   :directory "literature"
+                   :template ((properties . ((roam_refs . "@${citar-key}")))
+                              (keywords . ((author . "${citar-author}")
+                                           (date . "%<%Y>")
+                                           (filetags . ("ref")))))))
+         (template (org-roam-organize--record-node-capture-template record)))
+    (org-roam-organize--capture-node
+     "Dynamic Capture"
+     template
+     '(:citar-author "Jane Doe" :citar-key "doe2026")
+     '(:immediate-finish t)
+     t)
+    (let* ((files (directory-files-recursively root "\\.org\\'"))
+           (node-file (car files))
+           (relative (and node-file (file-relative-name node-file root)))
+           (content (and node-file
+                         (with-temp-buffer
+                           (insert-file-contents node-file)
+                           (buffer-string)))))
+      (should (= (length files) 1))
+      (should (string-match-p
+               "\\`literature/[[:alnum:]-]+/dynamic_capture\\.org\\'"
+               relative))
+      (dolist (expected (list ":ROAM_REFS: @doe2026"
+                              "#+TITLE: Dynamic Capture"
+                              "#+AUTHOR: Jane Doe"
+                              (format "#+DATE: %s" year)
+                              "#+FILETAGS: :ref:"))
+        (should (string-match-p (regexp-quote expected) content)))
+      (should-not (string-match-p (regexp-quote "${citar-author}") content))
+      (should-not (string-match-p (regexp-quote "%<%Y>") content)))))
+
 (ert-deftest org-roam-organize-test-record-provider-defaults-when-missing-or-nil ()
   (let ((missing '(:name "idea" :tag "idea" :directory "fleeting"))
         (explicit-nil '(:name "idea" :tag "idea" :directory "fleeting" :provider nil)))
