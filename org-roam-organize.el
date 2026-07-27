@@ -927,6 +927,24 @@ capture lifecycle remain outside the provider request."
     (unless (org-roam-organize--blank-string-p title)
       (list :title title))))
 
+(defun org-roam-organize--moc-node-provider (record)
+  "Return RECORD's MOC node creation request.
+
+The return value is nil when RECORD cannot produce a MOC title, otherwise a
+plist with `:title' and optional `:info'.
+
+Implementation notes: MOC creation uses the same provider request protocol as
+ordinary managed node creation, but the provider is selected internally by the
+MOC creation command instead of being read from the registry.  The title is
+derived from `org-roam-organize--record-moc-title'.  The capture info keeps
+the existing `:moc_managed_tag' field so templates that still reference it
+continue to receive the same dynamic value."
+  (let ((title (org-roam-organize--record-moc-title record))
+        (tag (org-roam-organize--record-tag record)))
+    (when (stringp title)
+      (list :title title
+            :info `(:moc_managed_tag ,tag)))))
+
 (defun org-roam-organize--node-request-valid-p (request)
   "Return non-nil if REQUEST can create a managed node.
 
@@ -1899,7 +1917,9 @@ configuration or filesystem problem."
 
 Implementation notes: every registry record gets a derived MOC path and
 capture template.  Existing files are skipped, malformed records are counted
-as failed, and missing files are created through `org-roam-capture-' with a
+as failed, and missing files are created through the same provider request
+protocol used by ordinary managed node creation.  The provider is the
+internal `org-roam-organize--moc-node-provider', and the capture still uses a
 single immediate-finish template generated from the registry."
   (interactive)
   (if org-roam-organize-mode
@@ -1911,9 +1931,12 @@ single immediate-finish template generated from the registry."
           (let* ((path (org-roam-organize--record-absolute-moc-path record))
                  (template (org-roam-organize--record-moc-capture-template record))
                  (tag (org-roam-organize--record-tag record))
-                 (title (org-roam-organize--record-moc-title record)))
+                 (request (org-roam-organize--moc-node-provider record)))
             (cond
-             ((not (and path template tag title))
+             ((not (and path
+                        template
+                        tag
+                        (org-roam-organize--node-request-valid-p request)))
               (setq failed-count (1+ failed-count))
               (message "[WARNING] Cannot create MOC for registry record: %s" record))
              ((file-exists-p path)
@@ -1921,9 +1944,9 @@ single immediate-finish template generated from the registry."
               (message "[INFO] MOC already exists, skipped: %s" path))
              (t
               (org-roam-organize--capture-node
-               title
+               (plist-get request :title)
                template
-               `(:moc_managed_tag ,tag)
+               (plist-get request :info)
                '(:immediate-finish t))
               (setq created-count (1+ created-count))))))
         (message "[INFO] Create missing MOCs: %s created, %s skipped, %s failed."

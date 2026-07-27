@@ -285,6 +285,18 @@
       (org-roam-organize-node-create))
     (should-not captured)))
 
+(ert-deftest org-roam-organize-test-moc-node-provider-uses-moc-title-and-tag-info ()
+  (let ((record '(:name "idea"
+                  :tag "idea"
+                  :moc-title "Ideas")))
+    (should (equal (org-roam-organize--moc-node-provider record)
+                   '(:title "Ideas" :info (:moc_managed_tag "idea"))))))
+
+(ert-deftest org-roam-organize-test-moc-node-provider-uses-derived-moc-title ()
+  (let ((record '(:name "literature" :tag "ref")))
+    (should (equal (org-roam-organize--moc-node-provider record)
+                   '(:title "Literature" :info (:moc_managed_tag "ref"))))))
+
 (ert-deftest org-roam-organize-test-moc-create-skips-existing-mocs ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (existing-path (expand-file-name "moc/maps.org" root))
@@ -305,6 +317,7 @@
            (template (car templates))
            (target (plist-get (nthcdr 4 template) :target)))
       (should (equal (plist-get args :keys) "m"))
+      (should (equal (plist-get args :info) '(:moc_managed_tag "idea")))
       (should (equal (org-roam-node-title (plist-get args :node)) "Idea"))
       (should (equal target
                      `(file+head
