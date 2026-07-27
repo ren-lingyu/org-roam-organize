@@ -504,5 +504,12 @@
     (should (string-match-p "org-roam-organize-test--missing-variable"
                             (cdr result)))))
 
+(ert-deftest org-roam-organize-test-required-runtime-capabilities-exist ()
+  (let ((result
+         (org-roam-organize--check-capabilities
+          org-roam-organize--capability-alist)))
+    (ert-info ((cdr result))
+      (should (car result)))))
+
 (provide 'org-roam-organize-test)
 ;;; org-roam-organize-test.el ends here
