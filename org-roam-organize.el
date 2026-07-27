@@ -146,7 +146,11 @@ are written into the generated Org-roam capture template, so Org capture
 escapes such as `%<...>' and Org-roam placeholders such as `${field}' may be
 expanded by `org-roam-capture-'.  Repeated keys are emitted repeatedly.  The
 `filetags' key accepts a list of strings and is formatted as Org file tags;
-other keys are written with `identity'."
+other keys are written with `identity'.  `:provider' is an optional function
+used when creating ordinary managed nodes.  It is called with the full record
+and should return nil to cancel creation or a request plist containing
+`:title' and optional `:info'.  The provider does not control paths, targets,
+or capture templates."
   :type 'sexp
   :group 'org-roam-organize)
 
@@ -461,6 +465,15 @@ Implementation notes: this accessor returns the raw structured template.
 Formatting, ordering, and warning behavior are handled by the file keyword
 line functions."
   (plist-get record :template))
+
+(defun org-roam-organize--record-provider (record)
+  "Return RECORD's managed node provider.
+
+Implementation notes: a missing or nil `:provider' value falls back to
+`org-roam-organize--default-node-provider'.  Validation is responsible for
+reporting non-nil provider values that cannot be called."
+  (or (plist-get record :provider)
+      #'org-roam-organize--default-node-provider))
 
 (defun org-roam-organize--record-template-filetags-entry (record)
   "Return RECORD's template filetags entry, or nil.
@@ -831,15 +844,16 @@ directory lifecycle under Org-roam Organize control."
                            :props props
                            :templates (list template))))))
 
-(defun org-roam-organize--default-node-request (_record)
+(defun org-roam-organize--default-node-provider (_record)
   "Return the default managed node creation request.
 
 The return value is nil when creation is canceled, otherwise a plist with
 `:title' and optional `:info'.
 
-Implementation notes: this function is the future default provider boundary.
-It currently reads only a title and leaves dynamic capture info empty.  Path,
-target, template, and capture lifecycle remain outside the request."
+Implementation notes: this provider reads only a title and leaves dynamic
+capture info empty.  It ignores the registry record argument because default
+ordinary node creation only needs a title.  Path, target, template, and
+capture lifecycle remain outside the provider request."
   (let ((title (read-string "Node title: ")))
     (unless (org-roam-organize--blank-string-p title)
       (list :title title))))
@@ -849,7 +863,9 @@ target, template, and capture lifecycle remain outside the request."
 
 Implementation notes: a request must be a proper plist with a non-empty
 string `:title'.  `:info' is optional, but when present it must also be a
-proper plist because it is passed through to `org-roam-capture-'."
+proper plist because it is passed through to `org-roam-capture-'.  Extra
+request keys are ignored by callers so the provider protocol can grow
+without breaking existing providers."
   (and (org-roam-organize--plistp request)
        (let ((title (plist-get request :title))
              (info (plist-get request :info)))
@@ -887,7 +903,10 @@ Implementation notes: validation is deliberately report-oriented.  It first
 rejects an improper top-level registry, then walks records once, guarding all
 derived values behind plist checks so malformed records are reported instead
 of crashing.  It also checks uniqueness using normalized absolute paths and
-keeps template validation light except for the tag/filetags invariant."
+keeps template validation light except for the tag/filetags invariant.
+Provider validation is intentionally shallow: a non-nil `:provider' must be
+callable, while provider return values are checked when node creation calls
+the provider."
   (let ((result_bool t)
         (result_message "Org-roam Organize registry records are as follow.\n")
         (moc-count 0)
@@ -902,6 +921,7 @@ keeps template validation light except for the tag/filetags invariant."
                (basic (when plistp (plist-get record :basic)))
                (directory (when plistp (org-roam-organize--record-directory record)))
                (inbox (when plistp (org-roam-organize--record-inbox record)))
+               (provider (when plistp (plist-get record :provider)))
                (filetags-entry (when plistp
                                  (org-roam-organize--record-template-filetags-entry record)))
                (filetags (cdr-safe filetags-entry))
@@ -964,6 +984,10 @@ keeps template validation light except for the tag/filetags invariant."
               (setq result_bool nil)
               (setq result_message
                     (concat result_message "  :inbox string? nil (should be t)\n")))
+            (when (and provider (not (functionp provider)))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :provider function? nil (should be t)\n")))
             (when (and (plist-member record :template)
                        (not (org-roam-organize--proper-list-p
                              (plist-get record :template))))
@@ -1828,27 +1852,31 @@ single immediate-finish template generated from the registry."
 The selected registry record must define a relative `:directory'.  The
 created node uses the standard path layout
 <directory>/${id}/${slug}.org under `org-roam-organize-directory'.
+If the record declares `:provider', that provider supplies the node title and
+optional capture info; otherwise the built-in default provider reads a title.
 Org-roam Organize creates the UUID parent directory during Org-roam's capture
 preface phase and removes it after capture only when it remains empty.
 
-Implementation notes: the command reads a registry record, obtains a node
-creation request from `org-roam-organize--default-node-request', builds a
-temporary one-entry capture template, and delegates the capture call to
-`org-roam-organize--capture-node'.  That helper installs a dynamically scoped
-preface hook to create the expanded parent directory after Org-roam has
-assigned capture placeholders and an after-finalize hook to remove only that
-directory if it stayed empty."
+Implementation notes: the command reads a registry record, obtains its
+provider with `org-roam-organize--record-provider', calls the provider to get
+a node creation request, builds a temporary one-entry capture template, and
+delegates the capture call to `org-roam-organize--capture-node'.  That helper
+installs a dynamically scoped preface hook to create the expanded parent
+directory after Org-roam has assigned capture placeholders and an
+after-finalize hook to remove only that directory if it stayed empty."
   (interactive)
   (if org-roam-organize-mode
       (let ((record (org-roam-organize--read-node-record)))
         (if (not record)
             (message "[WARNING] No registry record can create managed nodes.")
-          (let* ((request (org-roam-organize--default-node-request record))
-                 (title (plist-get request :title))
-                 (info (plist-get request :info))
+          (let* ((provider (org-roam-organize--record-provider record))
+                 (request (when (functionp provider)
+                            (funcall provider record)))
                  (template (org-roam-organize--record-node-capture-template record))
                  (key (car-safe template)))
             (cond
+             ((not (functionp provider))
+              (message "[WARNING] Invalid node provider for registry record: %s" record))
              ((null request)
               (message "[INFO] Node creation canceled."))
              ((not (org-roam-organize--node-request-valid-p request))
@@ -1856,7 +1884,12 @@ directory if it stayed empty."
              ((not (and template key))
               (message "[WARNING] Cannot create node for registry record: %s" record))
              (t
-              (org-roam-organize--capture-node title template info nil t))))))
+              (org-roam-organize--capture-node
+               (plist-get request :title)
+               template
+               (plist-get request :info)
+               nil
+               t))))))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 同步 MOC
