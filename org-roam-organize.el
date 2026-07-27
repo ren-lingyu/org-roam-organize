@@ -240,9 +240,6 @@ values and do not perform dynamic value lookup.  Keys not listed here use
 The standard node layout is ${id}/${slug}.org under kind directory,
 where `${id}' and `${slug}' are left for Org-roam capture expansion.")
 
-(defvar org-roam-organize--capture-created-directory nil
-  "Directory created for the active managed node capture.")
-
 ;; ==============================
 ;; 内部函数
 ;; ==============================
@@ -878,15 +875,15 @@ there is no parent directory to prepare."
     (_ nil)))
 
 (defun org-roam-organize--capture-create-parent-directory ()
-  "Create the parent directory for the active Org-roam capture target.
+  "Create and return the parent directory for the active capture target.
 
 Return nil so `org-roam-capture-preface-hook' continues with Org-roam's
-normal target setup.
+normal target setup when no directory is created.
 
 Implementation notes: this hook runs after Org-roam has enough capture state
 to expand `${id}' and `${slug}'.  It creates only the resolved parent
-directory, records it in a dynamically bound variable, and lets the caller
-clean it later if capture leaves it empty."
+directory and returns it so the caller can clean it later if capture leaves it
+empty."
   (let* ((file (org-roam-organize--capture-target-file))
          (directory (and file (file-name-directory file))))
     (when (and directory
@@ -894,8 +891,7 @@ clean it later if capture leaves it empty."
                 (file-relative-name directory org-roam-organize-directory))
                (not (file-directory-p directory)))
       (make-directory directory t)
-      (setq org-roam-organize--capture-created-directory directory)))
-  nil)
+      directory)))
 
 (defun org-roam-organize--capture-node (title template &optional info props manage-directory)
   "Capture an Org-roam node with TITLE and TEMPLATE.
@@ -917,20 +913,24 @@ directory lifecycle under Org-roam Organize control."
       (user-error "Cannot capture node without a valid template"))
     (let ((node (org-roam-node-create :title title)))
       (if manage-directory
-          (let ((org-roam-organize--capture-created-directory nil))
+          (let (created-directory cleanup-hook)
             (cl-labels
                 ((cleanup ()
-                   (when org-roam-organize--capture-created-directory
+                   (remove-hook 'org-capture-after-finalize-hook cleanup-hook)
+                   (when created-directory
                      (run-at-time
                       0 nil
                       #'org-roam-organize--delete-empty-directory
-                      org-roam-organize--capture-created-directory))))
+                      created-directory)))
+                 (create-parent-directory ()
+                   (setq created-directory
+                         (org-roam-organize--capture-create-parent-directory))
+                   nil))
+              (setq cleanup-hook #'cleanup)
+              (add-hook 'org-capture-after-finalize-hook cleanup-hook t)
               (let ((org-roam-capture-preface-hook
-                     (cons #'org-roam-organize--capture-create-parent-directory
-                           org-roam-capture-preface-hook))
-                    (org-capture-after-finalize-hook
-                     (append org-capture-after-finalize-hook
-                             (list #'cleanup))))
+                     (cons #'create-parent-directory
+                           org-roam-capture-preface-hook)))
                 (condition-case err
                     (org-roam-capture- :node node
                                        :keys key
@@ -938,9 +938,10 @@ directory lifecycle under Org-roam Organize control."
                                        :props props
                                        :templates (list template))
                   (error
-                   (when org-roam-organize--capture-created-directory
+                   (remove-hook 'org-capture-after-finalize-hook cleanup-hook)
+                   (when created-directory
                      (org-roam-organize--delete-empty-directory
-                      org-roam-organize--capture-created-directory))
+                      created-directory))
                    (signal (car err) (cdr err)))))))
         (org-roam-capture- :node node
                            :keys key

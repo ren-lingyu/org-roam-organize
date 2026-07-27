@@ -256,6 +256,39 @@
     (should (equal (plist-get captured :templates)
                    (list template)))))
 
+(ert-deftest org-roam-organize-test-capture-node-cleans-empty-directory-after-finalize ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file
+          (expand-file-name
+           "literature/test-id/test-title.org"
+           root))
+         (target-directory (file-name-directory target-file))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t))
+         (org-capture-after-finalize-hook nil))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook)))
+              ((symbol-function 'run-at-time)
+               (lambda (_secs _repeat function &rest args)
+                 (apply function args))))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       t)
+      (should (file-directory-p target-directory))
+      (should org-capture-after-finalize-hook)
+      (run-hooks 'org-capture-after-finalize-hook)
+      (should-not (file-exists-p target-directory))
+      (should-not org-capture-after-finalize-hook))))
+
 (ert-deftest org-roam-organize-test-capture-template-dynamic-fields-expand ()
   (let* ((root (file-name-as-directory
                 (make-temp-file "org-roam-organize-test-" t)))
