@@ -75,12 +75,12 @@ The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
 Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added MOC entries and defaults to =Inbox=.
 
-The optional =:template= value is an ordered alist for Org file keywords written when creating MOC and managed node files. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty keyword line. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= key expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other keys are written directly as strings. When a record declares both =:tag= and a =filetags= entry, =filetags= must include the record tag.
+The optional =:template= value is a structured alist for the generated file head. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
 For a dynamic date, use Org capture's time escape syntax:
 
 #+BEGIN_SRC emacs-lisp
-  (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
+  (keywords . ((date . "%<%Y-%m-%d %A %H:%M:%S %z>")))
 #+END_SRC
 
 The optional =:provider= value customizes data collection for ordinary managed node creation. When =:provider= is missing or nil, =org-roam-organize-node-create= uses the built-in provider, which reads a node title. A non-nil provider must be a function or function symbol. It is called with the full registry record:
@@ -163,55 +163,55 @@ An example of configuration is shown here.
                  :basic t
                  :directory "navigation"
                  :inbox "Inbox"
-                 :template '((author . nil)
-                             (date . nil)
-                             (description . nil)
-                             (filetags . ("map"))))
+                 :template '((keywords . ((author . nil)
+                                           (date . nil)
+                                           (description . nil)
+                                           (filetags . ("map"))))))
            (list :name "fleeting"
                  :tag "idea"
                  :basic t
                  :directory "fleeting"
                  :inbox "Inbox"
-                 :template '((author . nil)
-                             (date . nil)
-                             (description . nil)
-                             (filetags . ("idea"))))
+                 :template '((keywords . ((author . nil)
+                                           (date . nil)
+                                           (description . nil)
+                                           (filetags . ("idea"))))))
            (list :name "literature"
                  :tag "ref"
                  :basic t
                  :directory "literature"
                  :inbox "Inbox"
-                 :template '((author . nil)
-                             (date . nil)
-                             (description . nil)
-                             (filetags . ("ref"))))
+                 :template '((keywords . ((author . nil)
+                                           (date . nil)
+                                           (description . nil)
+                                           (filetags . ("ref"))))))
            (list :name "permanent"
                  :tag "zettel"
                  :basic t
                  :directory "permanent"
                  :inbox "Inbox"
-                 :template '((author . nil)
-                             (date . nil)
-                             (description . nil)
-                             (filetags . ("zettel"))))
+                 :template '((keywords . ((author . nil)
+                                           (date . nil)
+                                           (description . nil)
+                                           (filetags . ("zettel"))))))
            (list :name "note"
                  :tag "note"
                  :basic nil
                  :directory "permanent"
                  :inbox "Inbox"
-                 :template '((author . nil)
-                             (date . nil)
-                             (description . nil)
-                             (filetags . ("zettel" "note"))))
+                 :template '((keywords . ((author . nil)
+                                           (date . nil)
+                                           (description . nil)
+                                           (filetags . ("zettel" "note"))))))
            (list :name "blog"
                  :tag "blog"
                  :basic nil
                  :directory "permanent"
                  :inbox "Inbox"
-                 :template '((author . nil)
-                             (date . nil)
-                             (description . nil)
-                             (filetags . ("zettel" "blog"))))))
+                 :template '((keywords . ((author . nil)
+                                           (date . nil)
+                                           (description . nil)
+                                           (filetags . ("zettel" "blog")))))))
     (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
     (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
     :bind
@@ -242,10 +242,12 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
 #+BEGIN_SRC emacs-lisp
   (defun my-org-roam-organize-literature-provider (_record)
     (let ((title (read-string "Literature title: "))
-          (author (read-string "Author: ")))
+          (author (read-string "Author: "))
+          (citekey (read-string "Citation key: ")))
       (unless (string= title "")
         (list :title title
-              :info (list :author author)))))
+              :info (list :author author
+                          :citar-key citekey)))))
 
   (setq org-roam-organize-registry
         (list (list :name "literature"
@@ -253,10 +255,11 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
                     :basic t
                     :directory "literature"
                     :provider #'my-org-roam-organize-literature-provider
-                    :template '((author . "${author}")
-                                (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
-                                (description . nil)
-                                (filetags . ("ref"))))))
+                    :template '((properties . ((roam_refs . "@${citar-key}")))
+                                (keywords . ((author . "${author}")
+                                             (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
+                                             (description . nil)
+                                             (filetags . ("ref"))))))))
 #+END_SRC
 
 * MOC Entry Format

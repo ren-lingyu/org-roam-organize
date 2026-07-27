@@ -83,55 +83,55 @@
               :basic t
               :directory "navigation"
               :inbox "Inbox"
-              :template '((author . nil)
-                          (date . nil)
-                          (description . nil)
-                          (filetags . ("map"))))
+              :template '((keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("map"))))))
         (list :name "fleeting"
               :tag "idea"
               :basic t
               :directory "fleeting"
               :inbox "Inbox"
-              :template '((author . nil)
-                          (date . nil)
-                          (description . nil)
-                          (filetags . ("idea"))))
+              :template '((keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("idea"))))))
         (list :name "literature"
               :tag "ref"
               :basic t
               :directory "literature"
               :inbox "Inbox"
-              :template '((author . nil)
-                          (date . nil)
-                          (description . nil)
-                          (filetags . ("ref"))))
+              :template '((keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("ref"))))))
         (list :name "permanent"
               :tag "zettel"
               :basic t
               :directory "permanent"
               :inbox "Inbox"
-              :template '((author . nil)
-                          (date . nil)
-                          (description . nil)
-                          (filetags . ("zettel"))))
+              :template '((keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("zettel"))))))
         (list :name "note"
               :tag "note"
               :basic nil
               :directory "permanent"
               :inbox "Inbox"
-              :template '((author . nil)
-                          (date . nil)
-                          (description . nil)
-                          (filetags . ("zettel" "note"))))
+              :template '((keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("zettel" "note"))))))
         (list :name "blog"
               :tag "blog"
               :basic nil
               :directory "permanent"
               :inbox "Inbox"
-              :template '((author . nil)
-                          (date . nil)
-                          (description . nil)
-                          (filetags . ("zettel" "blog")))))
+              :template '((keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("zettel" "blog")))))))
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
@@ -141,16 +141,19 @@ records may also use `:directory' to create managed nodes in an existing
 kind directory.  `:moc-path' and `:moc-title' are optional overrides resolved
 from the record name when absent.  `:inbox' is an optional level-1 headline
 name used for newly added MOC node entries and defaults to \"Inbox\".
-`:template' is an optional ordered alist for file keywords.  String values
-are written into the generated Org-roam capture template, so Org capture
-escapes such as `%<...>' and Org-roam placeholders such as `${field}' may be
-expanded by `org-roam-capture-'.  Repeated keys are emitted repeatedly.  The
-`filetags' key accepts a list of strings and is formatted as Org file tags;
-other keys are written with `identity'.  `:provider' is an optional function
-used when creating ordinary managed nodes.  It is called with the full record
-and should return nil to cancel creation or a request plist containing
-`:title' and optional `:info'.  The provider does not control paths, targets,
-or capture templates."
+`:template' is an optional structured alist for the generated file head.  Its
+`properties' section is an ordered alist emitted inside an Org property
+drawer.  Its `keywords' section is an ordered alist emitted as Org file
+keywords.  String values are written into the generated Org-roam capture
+template, so Org capture escapes such as `%<...>' and Org-roam placeholders
+such as `${field}' may be expanded by `org-roam-capture-'.  Repeated keys are
+emitted repeatedly.  Nil values emit empty property or keyword values.  The
+`filetags' keyword accepts a list of strings and is formatted as Org file
+tags; other values are written with `identity'.  `:provider' is an optional
+function used when creating ordinary managed nodes.  It is called with the
+full record and should return nil to cancel creation or a request plist
+containing `:title' and optional `:info'.  The provider does not control
+paths, targets, or capture templates."
   :type 'sexp
   :group 'org-roam-organize)
 
@@ -215,13 +218,14 @@ The list maps symbols to capability types checked by
 (defconst org-roam-organize--moc-node-keyword "ROAM_NODE"
   "Org keyword used for MOC node entries.")
 
-(defconst org-roam-organize--moc-file-keyword-formatter-alist
-  '((filetags . org-roam-organize--moc-filetags-format))
-  "Special Org file keyword formatter functions.
+(defconst org-roam-organize--file-head-formatter-alist
+  '((filetags . org-roam-organize--file-head-filetags-format))
+  "Special file head formatter functions.
 
 Formatter functions receive the template value and return the string written
-after the Org keyword name.  They only serialize structured values and do not
-perform dynamic value lookup.  Keywords not listed here use `identity'.")
+after the Org property or keyword name.  They only serialize structured
+values and do not perform dynamic value lookup.  Keys not listed here use
+`identity'.")
 
 (defconst org-roam-organize--node-relative-path-template
   "${id}/${slug}.org"
@@ -459,12 +463,25 @@ validation can report it."
      (t org-roam-organize--moc-default-inbox-headline))))
 
 (defun org-roam-organize--record-template (record)
-  "Return RECORD's file keyword template alist.
+  "Return RECORD's structured file head template.
 
-Implementation notes: this accessor returns the raw structured template.
-Formatting, ordering, and warning behavior are handled by the file keyword
-line functions."
+Implementation notes: this accessor returns the raw `:template' plist value.
+Formatting, ordering, and warning behavior are handled by the section-specific
+file head functions."
   (plist-get record :template))
+
+(defun org-roam-organize--record-template-section (record section)
+  "Return RECORD's template SECTION alist, or nil.
+
+Implementation notes: `:template' is a structured alist.  Only proper
+top-level template lists are inspected.  Missing sections and malformed
+section values both return nil here; validation reports malformed values
+separately."
+  (let ((template (org-roam-organize--record-template record)))
+    (when (org-roam-organize--proper-list-p template)
+      (let ((entry (assoc section template)))
+        (when (org-roam-organize--proper-list-p (cdr-safe entry))
+          (cdr entry))))))
 
 (defun org-roam-organize--record-provider (record)
   "Return RECORD's managed node provider.
@@ -478,12 +495,12 @@ reporting non-nil provider values that cannot be called."
 (defun org-roam-organize--record-template-filetags-entry (record)
   "Return RECORD's template filetags entry, or nil.
 
-Implementation notes: registry validation only needs the first `filetags'
-entry to check the core tag/filetags invariant.  Template generation itself
-still iterates the full alist and preserves repeated keys."
-  (let ((template (org-roam-organize--record-template record)))
-    (when (org-roam-organize--proper-list-p template)
-      (assoc 'filetags template))))
+Implementation notes: only the `keywords' section participates in Org
+FILETAGS generation.  Registry validation uses the first `filetags' entry in
+that section to check the core tag/filetags invariant, while template
+generation still preserves repeated keyword entries."
+  (assoc 'filetags
+         (org-roam-organize--record-template-section record 'keywords)))
 
 (defun org-roam-organize--registry-moc-record ()
   "Return the registry record that manages MOC nodes.
@@ -630,15 +647,15 @@ left for Org-roam capture expansion."
        (concat (file-name-as-directory directory) org-roam-organize--node-relative-path-template)
        org-roam-organize-directory))))
 
-(defun org-roam-organize--moc-file-keyword-name (key)
-  "Return Org file keyword name for KEY.
+(defun org-roam-organize--file-head-name (key)
+  "Return Org file head name for KEY.
 
 Implementation notes: registry template keys are symbols, so the function
 uses `symbol-name' and `upcase' to map `author' to AUTHOR-style Org file
-keywords."
+keyword or property names."
   (upcase (symbol-name key)))
 
-(defun org-roam-organize--moc-filetags-format (tags)
+(defun org-roam-organize--file-head-filetags-format (tags)
   "Return Org FILETAGS value from TAGS.
 
 TAGS must be a list of strings.
@@ -650,86 +667,138 @@ returns nil so the caller can warn and skip the line."
              (seq-every-p #'stringp tags))
     (format ":%s:" (mapconcat #'identity tags ":"))))
 
-(defun org-roam-organize--moc-file-keyword-line (entry)
-  "Return Org file keyword line for ENTRY, or nil.
+(defun org-roam-organize--file-head-entry-value (entry)
+  "Return formatted file head value for ENTRY, or nil.
 
 Implementation notes: ENTRY is read as an alist cell.  Special keys use
-`org-roam-organize--moc-file-keyword-formatter-alist'; all other keys use
+`org-roam-organize--file-head-formatter-alist'; all other keys use
 `identity'.  String values are preserved as capture-template text and may
-contain Org capture escapes or Org-roam placeholders.  Nil values
-intentionally emit an empty keyword line, while non-string formatted results
-are ignored with a warning."
+contain Org capture escapes or Org-roam placeholders.  Nil intentionally
+returns the empty string so callers can emit empty property or keyword values,
+while non-string formatted results are ignored with a warning."
   (let* ((key (car-safe entry))
          (value (cdr-safe entry))
          (formatter
-          (or (cdr (assoc key org-roam-organize--moc-file-keyword-formatter-alist))
+          (or (cdr (assoc key org-roam-organize--file-head-formatter-alist))
               #'identity)))
     (cond
      ((not (symbolp key))
-      (message "[WARNING] Ignored invalid MOC file keyword: %s" entry)
+      (message "[WARNING] Ignored invalid file head template entry: %s" entry)
       nil)
      ((null value)
-      (format "#+%s:\n" (org-roam-organize--moc-file-keyword-name key)))
+      "")
      ((functionp formatter)
       (let ((formatted (funcall formatter value)))
-        (if (stringp formatted)
-            (format "#+%s: %s\n"
-                    (org-roam-organize--moc-file-keyword-name key)
-                    formatted)
-          (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
+        (if (stringp formatted) formatted
+          (message "[WARNING] Ignored invalid file head template value: %s" entry)
           nil)))
      (t
-      (message "[WARNING] Ignored invalid MOC file keyword value: %s" entry)
+      (message "[WARNING] Ignored invalid file head template value: %s" entry)
       nil))))
+
+(defun org-roam-organize--file-head-keyword-line (entry)
+  "Return Org file keyword line for ENTRY, or nil.
+
+Implementation notes: this formats one `keywords' section entry by delegating
+value serialization to `org-roam-organize--file-head-entry-value', then adds
+the Org `#+KEYWORD:' syntax."
+  (let ((key (car-safe entry))
+        (value (org-roam-organize--file-head-entry-value entry)))
+    (when (and (symbolp key) (stringp value))
+      (if (string= value "")
+          (format "#+%s:\n" (org-roam-organize--file-head-name key))
+        (format "#+%s: %s\n"
+                (org-roam-organize--file-head-name key)
+                value)))))
+
+(defun org-roam-organize--file-head-property-line (entry)
+  "Return Org property drawer line for ENTRY, or nil.
+
+Implementation notes: this formats one `properties' section entry by
+delegating value serialization to
+`org-roam-organize--file-head-entry-value', then adds Org drawer property
+syntax."
+  (let ((key (car-safe entry))
+        (value (org-roam-organize--file-head-entry-value entry)))
+    (when (and (symbolp key) (stringp value))
+      (if (string= value "")
+          (format ":%s:\n" (org-roam-organize--file-head-name key))
+        (format ":%s: %s\n"
+                (org-roam-organize--file-head-name key)
+                value)))))
 
 (defun org-roam-organize--record-file-keyword-lines (record)
   "Return optional Org file keyword lines for RECORD.
 
-Implementation notes: the record template is treated as an ordered alist.
-Each entry is formatted independently and pushed into a temporary list, then
+Implementation notes: only the `keywords' section is emitted here.  Each
+entry is formatted independently and pushed into a temporary list, then
 reversed so repeated keys and user-specified ordering are preserved."
-  (let ((template (org-roam-organize--record-template record)))
-    (cond
-     ((null template) "")
-     ((org-roam-organize--proper-list-p template)
-      (let (lines)
-        (dolist (entry template)
-          (let ((line (org-roam-organize--moc-file-keyword-line entry)))
-            (when line
-              (push line lines))))
-        (apply #'concat (nreverse lines))))
-     (t
-      (message "[WARNING] Ignored invalid MOC file keyword template: %s" template)
-      ""))))
+  (let ((keywords (org-roam-organize--record-template-section record 'keywords))
+        lines)
+    (dolist (entry keywords)
+      (let ((line (org-roam-organize--file-head-keyword-line entry)))
+        (when line
+          (push line lines))))
+    (apply #'concat (nreverse lines))))
+
+(defun org-roam-organize--record-file-property-lines (record)
+  "Return optional Org property drawer lines for RECORD.
+
+Implementation notes: only the `properties' section is emitted here.  The
+returned string contains property lines without the surrounding drawer markers
+so callers can merge package-managed properties and user-declared properties
+into one drawer."
+  (let ((properties (org-roam-organize--record-template-section record 'properties))
+        lines)
+    (dolist (entry properties)
+      (let ((line (org-roam-organize--file-head-property-line entry)))
+        (when line
+          (push line lines))))
+    (apply #'concat (nreverse lines))))
+
+(defun org-roam-organize--record-file-property-drawer (record)
+  "Return optional Org property drawer for RECORD.
+
+Implementation notes: ordinary managed nodes only get a property drawer when
+the record declares a non-empty `properties' section.  MOC heads use
+`org-roam-organize--record-file-property-lines' directly to merge custom
+properties with package-managed MOC metadata."
+  (let ((properties (org-roam-organize--record-file-property-lines record)))
+    (if (string= properties "")
+        ""
+      (concat ":PROPERTIES:\n" properties ":END:\n"))))
 
 (defun org-roam-organize--record-node-head (record)
   "Return the Org file head for RECORD's managed node file.
 
-Implementation notes: node heads always start with Org-roam's `${title}'
-placeholder.  Additional file keywords are appended from RECORD's structured
-template; ID writing is left to Org-roam capture."
+Implementation notes: node heads include any user-declared property drawer,
+then Org-roam's `${title}' placeholder, followed by user-declared file
+keywords.  ID writing is left to Org-roam capture."
   (let ((tag (org-roam-organize--record-tag record)))
     (when (stringp tag)
       (concat
+       (org-roam-organize--record-file-property-drawer record)
        "#+TITLE: ${title}\n"
        (org-roam-organize--record-file-keyword-lines record)))))
 
 (defun org-roam-organize--record-moc-head (record)
   "Return the Org file head for RECORD's MOC file.
 
-Implementation notes: MOC files get a leading property drawer for managed
-metadata, followed by a title and the same ordered file keyword template used
-for ordinary managed nodes."
+Implementation notes: MOC files get a leading property drawer that merges
+package-managed MOC metadata with user-declared template properties, followed
+by a title and user-declared file keywords."
   (let ((tag (org-roam-organize--record-tag record))
         (title (org-roam-organize--record-moc-title record)))
     (when (and (stringp tag)
                (stringp title))
       (concat
-       (format ":PROPERTIES:\n:%s: %s\n:%s:\n:END:\n#+TITLE: %s\n"
+       (format ":PROPERTIES:\n:%s: %s\n:%s:\n"
                org-roam-organize-moc-managed-tag-property
                tag
-               org-roam-organize-moc-managed-node-count-property
-               title)
+               org-roam-organize-moc-managed-node-count-property)
+       (org-roam-organize--record-file-property-lines record)
+       ":END:\n"
+       (format "#+TITLE: %s\n" title)
        (org-roam-organize--record-file-keyword-lines record)))))
 
 (defun org-roam-organize--empty-directory-p (directory)
@@ -903,10 +972,10 @@ Implementation notes: validation is deliberately report-oriented.  It first
 rejects an improper top-level registry, then walks records once, guarding all
 derived values behind plist checks so malformed records are reported instead
 of crashing.  It also checks uniqueness using normalized absolute paths and
-keeps template validation light except for the tag/filetags invariant.
-Provider validation is intentionally shallow: a non-nil `:provider' must be
-callable, while provider return values are checked when node creation calls
-the provider."
+keeps template validation focused on the structured file head shape and the
+tag/filetags invariant.  Provider validation is intentionally shallow: a
+non-nil `:provider' must be callable, while provider return values are
+checked when node creation calls the provider."
   (let ((result_bool t)
         (result_message "Org-roam Organize registry records are as follow.\n")
         (moc-count 0)
@@ -922,6 +991,7 @@ the provider."
                (directory (when plistp (org-roam-organize--record-directory record)))
                (inbox (when plistp (org-roam-organize--record-inbox record)))
                (provider (when plistp (plist-get record :provider)))
+               (template (when plistp (plist-get record :template)))
                (filetags-entry (when plistp
                                  (org-roam-organize--record-template-filetags-entry record)))
                (filetags (cdr-safe filetags-entry))
@@ -990,10 +1060,26 @@ the provider."
                     (concat result_message "  :provider function? nil (should be t)\n")))
             (when (and (plist-member record :template)
                        (not (org-roam-organize--proper-list-p
-                             (plist-get record :template))))
+                             template)))
               (setq result_bool nil)
               (setq result_message
                     (concat result_message "  :template proper list? nil (should be t)\n")))
+            (when (and (org-roam-organize--proper-list-p template)
+                       (seq-find
+                        (lambda (section)
+                          (not (memq (car-safe section) '(properties keywords))))
+                        template))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :template section keys? nil (should be properties or keywords)\n")))
+            (when (and (org-roam-organize--proper-list-p template)
+                       (seq-find
+                        (lambda (section)
+                          (not (org-roam-organize--proper-list-p (cdr-safe section))))
+                        template))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :template sections proper list? nil (should be t)\n")))
             (when (and filetags-entry
                        (not (and (org-roam-organize--proper-list-p filetags)
                                  (seq-every-p #'stringp filetags))))

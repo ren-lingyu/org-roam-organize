@@ -108,10 +108,10 @@
           '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
             (:name "idea"
              :tag "idea"
-             :template ((author . nil)
-                        (date . nil)
-                        (description . nil)
-                        (filetags . ("idea")))))))
+             :template ((keywords . ((author . nil)
+                                      (date . nil)
+                                      (description . nil)
+                                      (filetags . ("idea")))))))))
     (let* ((record (cadr org-roam-organize-registry))
            (template (org-roam-organize--record-moc-capture-template record))
            (target (plist-get (nthcdr 4 template) :target)))
@@ -127,13 +127,15 @@
           '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
             (:name "idea"
              :tag "idea"
-             :template ((author . "Lingyu Ren")
-                        (email . "lingyu@example.org")
-                        (date . "<%Y>")
-                        (description . nil)
-                        (filetags . ("idea" "note"))
-                        (author . "John Doe")
-                        (language . "en"))))))
+             :template ((properties . ((roam_refs . "@${citar-key}")
+                                        (custom_id . nil)))
+                        (keywords . ((author . "Lingyu Ren")
+                                     (email . "lingyu@example.org")
+                                     (date . "<%Y>")
+                                     (description . nil)
+                                     (filetags . ("idea" "note"))
+                                     (author . "John Doe")
+                                     (language . "en"))))))))
     (should
      (equal (org-roam-organize--record-moc-head
              (cadr org-roam-organize-registry))
@@ -141,6 +143,8 @@
              ":PROPERTIES:\n"
              ":MOC_MANAGED_TAG: idea\n"
              ":MOC_MANAGED_NODE_COUNT:\n"
+             ":ROAM_REFS: @${citar-key}\n"
+             ":CUSTOM_ID:\n"
              ":END:\n"
              "#+TITLE: Idea\n"
              "#+AUTHOR: Lingyu Ren\n"
@@ -150,6 +154,23 @@
              "#+FILETAGS: :idea:note:\n"
              "#+AUTHOR: John Doe\n"
              "#+LANGUAGE: en\n")))))
+
+(ert-deftest org-roam-organize-test-record-node-head-formats-properties-and-keywords ()
+  (let ((record '(:name "literature"
+                  :tag "ref"
+                  :directory "literature"
+                  :template ((properties . ((roam_refs . "@${citar-key}")))
+                             (keywords . ((author . "${citar-author}")
+                                          (filetags . ("ref"))))))))
+    (should
+     (equal (org-roam-organize--record-node-head record)
+            (concat
+             ":PROPERTIES:\n"
+             ":ROAM_REFS: @${citar-key}\n"
+             ":END:\n"
+             "#+TITLE: ${title}\n"
+             "#+AUTHOR: ${citar-author}\n"
+             "#+FILETAGS: :ref:\n")))))
 
 (ert-deftest org-roam-organize-test-record-provider-defaults-when-missing-or-nil ()
   (let ((missing '(:name "idea" :tag "idea" :directory "fleeting"))
@@ -166,6 +187,17 @@
     (let ((result (org-roam-organize--validate-registry)))
       (should-not (car result))
       (should (string-match-p ":provider function" (cdr result))))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-flat-template-sections ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "idea"
+            :tag "idea"
+            :directory "fleeting"
+            :template ((filetags . ("idea")))))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p ":template section keys" (cdr result))))))
 
 (ert-deftest org-roam-organize-test-node-create-uses-default-provider ()
   (let* ((root (org-roam-organize-test--temporary-root))
