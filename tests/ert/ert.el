@@ -807,11 +807,20 @@
                  (push (apply #'format format-string args) messages))))
       (org-roam-organize-moc-sync))
     (should (= (length messages) 1))
-    (should (string-match-p "Cannot sync MOC for registry record"
-                            (car messages)))
     (should (string-match-p
              "Sync MOCs: 0 synced, 1 failed"
-             (car messages)))))
+             (car messages)))
+    (should (string-match-p
+             (regexp-quote org-roam-organize--report-buffer-name)
+             (car messages)))
+    (with-current-buffer org-roam-organize--report-buffer-name
+      (should (eq major-mode 'special-mode))
+      (should buffer-read-only)
+      (should (string-match-p "Cannot sync MOC for registry record"
+                              (buffer-string)))
+      (should (string-match-p
+               "Sync MOCs: 0 synced, 1 failed"
+               (buffer-string))))))
 
 (ert-deftest org-roam-organize-test-cite-citing-node-data-deduplicates-by-reference-and-citing-node ()
   (let ((org-roam-organize-mode t)
@@ -947,14 +956,23 @@
     (should (= (length messages) 1))
     (should (seq-find
              (lambda (message)
-               (string-match-p "External citekey belongs to multiple literature nodes"
+               (string-match-p "Check cite references: 2 checked, 1 missing cite refs, 0 multiple cite refs, 1 duplicate cite keys, status failed"
                                message))
              messages))
     (should (seq-find
              (lambda (message)
-               (string-match-p "Check cite references: 2 checked, 1 missing cite refs, 0 multiple cite refs, 1 duplicate cite keys, status failed"
-                               message))
-             messages))))
+               (string-match-p
+                (regexp-quote org-roam-organize--report-buffer-name)
+                message))
+             messages))
+    (with-current-buffer org-roam-organize--report-buffer-name
+      (should (eq major-mode 'special-mode))
+      (should buffer-read-only)
+      (should (string-match-p "External citekey belongs to multiple literature nodes"
+                              (buffer-string)))
+      (should (string-match-p
+               "Check cite references: 2 checked, 1 missing cite refs"
+               (buffer-string))))))
 
 (ert-deftest org-roam-organize-test-cite-sync-syncs-all-cite-nodes ()
   (let* ((root (org-roam-organize-test--temporary-root))
@@ -1103,14 +1121,22 @@
     (should (= (length messages) 1))
     (should (seq-find
              (lambda (message)
-               (string-match-p "External citekey belongs to multiple literature nodes"
-                               message))
+               (string-match-p
+                (regexp-quote org-roam-organize--report-buffer-name)
+                message))
              messages))
     (should (seq-find
              (lambda (message)
                (string-match-p "Sync citing-node entries: 1 synced, 0 failed"
                                message))
-             messages))))
+             messages))
+    (with-current-buffer org-roam-organize--report-buffer-name
+      (should (eq major-mode 'special-mode))
+      (should buffer-read-only)
+      (should (string-match-p "External citekey belongs to multiple literature nodes"
+                              (buffer-string)))
+      (should (string-match-p "Sync citing-node entries: 1 synced, 0 failed"
+                              (buffer-string))))))
 
 (ert-deftest org-roam-organize-test-cite-export-filter-replaces-managed-uuid-citation-keys ()
   (let ((org-roam-organize-mode t))
@@ -1310,6 +1336,65 @@
                               (cdr result)))
       (should (string-match-p "in org-roam-directory\\? nil"
                               (cdr result))))))
+
+(ert-deftest org-roam-organize-test-check-setup-displays-report-on-failure ()
+  (let* ((roam-root (org-roam-organize-test--temporary-root))
+         (root (org-roam-organize-test--temporary-root))
+         (org-roam-directory roam-root)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "idea" :tag "idea" :basic t :directory "fleeting")))
+         (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
+         (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
+         messages
+         displayed-buffer)
+    (when-let ((buffer (get-buffer org-roam-organize--report-buffer-name)))
+      (kill-buffer buffer))
+    (cl-letf (((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages)))
+              ((symbol-function 'display-buffer)
+               (lambda (buffer &rest _args)
+                 (setq displayed-buffer buffer))))
+      (org-roam-organize-check-setup))
+    (should (get-buffer org-roam-organize--report-buffer-name))
+    (should (eq displayed-buffer
+                (get-buffer org-roam-organize--report-buffer-name)))
+    (should (= (length messages) 1))
+    (should (string-match-p
+             (regexp-quote org-roam-organize--report-buffer-name)
+             (car messages)))
+    (with-current-buffer org-roam-organize--report-buffer-name
+      (should (eq major-mode 'special-mode))
+      (should buffer-read-only)
+      (should (string-match-p "Root directory validation result: failed"
+                              (buffer-string))))))
+
+(ert-deftest org-roam-organize-test-check-setup-does-not-display-report-on-success ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-directory root)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "idea" :tag "idea" :basic t :directory "fleeting")))
+         (org-roam-organize-moc-managed-tag-property "MOC_MANAGED_TAG")
+         (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
+         messages
+         display-called)
+    (when-let ((buffer (get-buffer org-roam-organize--report-buffer-name)))
+      (kill-buffer buffer))
+    (cl-letf (((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages)))
+              ((symbol-function 'display-buffer)
+               (lambda (&rest _args)
+                 (setq display-called t))))
+      (org-roam-organize-check-setup))
+    (should-not display-called)
+    (should-not (get-buffer org-roam-organize--report-buffer-name))
+    (should (= (length messages) 1))
+    (should (string-match-p "setup checks passed" (car messages)))))
 
 (ert-deftest org-roam-organize-test-registry-tag-id-alist-reports-missing-records ()
   (let* ((root (org-roam-organize-test--temporary-root))

@@ -233,6 +233,10 @@ The list maps symbols to capability types checked by
 (defconst org-roam-organize--cite-citing-node-keyword "ROAM_CITING_NODE"
   "Org keyword used for generated citing-node entries.")
 
+(defconst org-roam-organize--report-buffer-name
+  "*Org-roam Organize Report*"
+  "Buffer name used for Org-roam Organize command reports.")
+
 (defconst org-roam-organize--file-head-formatter-alist
   '((filetags . org-roam-organize--file-head-filetags-format))
   "Special file head formatter functions.
@@ -1580,6 +1584,50 @@ only join them at the display boundary.  This keeps newline handling localized
 and makes later report-buffer rendering a small change."
   (mapconcat #'identity (seq-filter #'identity lines) "\n"))
 
+(defun org-roam-organize--report-content (content)
+  "Return report CONTENT as a string.
+
+Implementation notes: callers may already have a full report string, or they
+may have collected report lines.  This helper keeps that conversion in one
+place so command code does not duplicate newline handling."
+  (cond
+   ((stringp content) content)
+   ((listp content) (org-roam-organize--report-lines-message content))
+   (t (format "%s" content))))
+
+(defun org-roam-organize--display-report (title content)
+  "Display a read-only report buffer for TITLE and CONTENT.
+
+Implementation notes: the report buffer is intentionally overwritten on each
+call.  It uses `special-mode' so the buffer behaves like a normal Emacs
+read-only information buffer.  History and append-style logging are left out so
+each interactive command owns one final report."
+  (let ((buffer (get-buffer-create org-roam-organize--report-buffer-name))
+        (body (org-roam-organize--report-content content)))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert title "\n"
+                (make-string (length title) ?=)
+                "\n\n"
+                body)
+        (unless (string-suffix-p "\n" body)
+          (insert "\n"))
+        (goto-char (point-min))
+        (special-mode)))
+    (display-buffer buffer)))
+
+(defun org-roam-organize--report-notice (level summary)
+  "Return a minibuffer notice for report LEVEL and SUMMARY.
+
+LEVEL is a symbol such as `info', `warning', or `error'.  SUMMARY is a short
+one-line string.  The returned text points users to
+`org-roam-organize--report-buffer-name' for details."
+  (format "[%s] %s See %s for details."
+          (upcase (symbol-name level))
+          summary
+          org-roam-organize--report-buffer-name))
+
 (defun org-roam-organize--element-in-comment-subtree-p (element)
   "Return non-nil if ELEMENT belongs to a COMMENT subtree.
 
@@ -2324,12 +2372,34 @@ matches the input order."
 
 Implementation notes: this interactive wrapper delegates to
 `org-roam-organize--check-variables' with the package's declared variable
-type table, then displays the generated report in the echo area."
+type table.  Passing checks produce a short echo-area message.  Failing checks
+display the generated report in the report buffer and leave a short notice in
+the echo area."
   (interactive)
-  (let ((check_result (org-roam-organize--check-variables org-roam-organize-directory org-roam-organize--variable-type-alist)))
-    (message "%s" (if (consp check_result)
-                      (cdr check_result)
-                    check_result))))
+  (let ((check_result
+         (org-roam-organize--check-variables
+          org-roam-organize-directory
+          org-roam-organize--variable-type-alist)))
+    (cond
+     ((and (consp check_result)
+           (car check_result))
+      (message "[INFO] Org-roam Organize variable checks passed."))
+     ((consp check_result)
+      (org-roam-organize--display-report
+       "Org-roam Organize Variable Check"
+       (cdr check_result))
+      (message "%s"
+               (org-roam-organize--report-notice
+                'warning
+                "Org-roam Organize variable checks failed.")))
+     (t
+      (org-roam-organize--display-report
+       "Org-roam Organize Variable Check"
+       check_result)
+      (message "%s"
+               (org-roam-organize--report-notice
+                'warning
+                "Org-roam Organize variable checks failed."))))))
 
 ;;;###autoload
 (defun org-roam-organize-check-setup ()
@@ -2339,19 +2409,31 @@ This command reports both variable validation and runtime capability
 validation.
 
 Implementation notes: the command is a user-facing wrapper around
-`org-roam-organize--check-setup'.  It adds a short success prefix when all
-subchecks pass and otherwise relays the detailed failure report unchanged."
+`org-roam-organize--check-setup'.  It prints a short success message when all
+subchecks pass.  On failure it displays the detailed report in the report buffer
+and leaves only a short notice in the echo area."
   (interactive)
   (let ((check_result (org-roam-organize--check-setup)))
-    (message "%s"
-             (if (and (consp check_result)
-                      (car check_result))
-                 (concat
-                  "Org-roam Organize setup checks passed.\n"
-                  (cdr check_result))
-               (if (consp check_result)
-                   (cdr check_result)
-                 check_result)))))
+    (cond
+     ((and (consp check_result)
+           (car check_result))
+      (message "[INFO] Org-roam Organize setup checks passed."))
+     ((consp check_result)
+      (org-roam-organize--display-report
+       "Org-roam Organize Setup Check"
+       (cdr check_result))
+      (message "%s"
+               (org-roam-organize--report-notice
+                'warning
+                "Org-roam Organize setup checks failed.")))
+     (t
+      (org-roam-organize--display-report
+       "Org-roam Organize Setup Check"
+       check_result)
+      (message "%s"
+               (org-roam-organize--report-notice
+                'warning
+                "Org-roam Organize setup checks failed."))))))
 
 ;; 创建目录
 ;;;###autoload
@@ -2504,7 +2586,9 @@ an after-finalize hook to clean only that bundle root."
 Implementation notes: the command refreshes access to the Org-roam database,
 then walks registry records.  For each tag, matching level-0 nodes are loaded
 from the DB, node entries are synchronized in the corresponding MOC file, and
-derived managed properties are updated only after a successful entry sync."
+derived managed properties are updated only after a successful entry sync.
+Per-record failure diagnostics are collected and displayed in the report buffer;
+clean runs only produce a summary message."
   (interactive)
   (if org-roam-organize-mode
       (let ((synced-count 0)
@@ -2552,9 +2636,16 @@ derived managed properties are updated only after a successful entry sync."
                (format
                 "[INFO] Sync MOCs: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries."
                 synced-count failed-count duplicate-count removed-count malformed-count)))
-          (message "%s"
-                   (org-roam-organize--report-lines-message
-                    (append (nreverse report-lines) (list summary))))))
+          (if report-lines
+              (progn
+                (org-roam-organize--display-report
+                 "Org-roam Organize MOC Sync"
+                 (append (nreverse report-lines) (list summary)))
+                (message "%s"
+                         (org-roam-organize--report-notice
+                          'warning
+                          summary)))
+            (message "%s" summary))))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 文献引用节点条目同步
@@ -2564,11 +2655,12 @@ derived managed properties are updated only after a successful entry sync."
 
 Implementation notes: the command refreshes the Org-roam database, loads the
 single `:cite t' registry record through
-`org-roam-organize--cite-global-reference-map-data', and reports the same
+`org-roam-organize--cite-global-reference-map-data', and collects the same
 blocking and non-blocking diagnostics used by `org-roam-organize-cite-sync'.
-It does not modify Org files.  Missing or multiple cite refs are reported as
-blocking validation failures; duplicate external citekeys are reported as
-non-blocking data quality warnings."
+It does not modify Org files.  Missing or multiple cite refs are blocking
+validation failures; duplicate external citekeys are non-blocking data quality
+warnings.  Detailed diagnostics are displayed in the report buffer when present;
+clean runs only produce a summary message."
   (interactive)
   (if org-roam-organize-mode
       (let ((records (org-roam-organize--registry-cite-records)))
@@ -2595,9 +2687,16 @@ non-blocking data quality warnings."
                    (length (plist-get map-data :multiple))
                    duplicate-citekey-count
                    (if (plist-get report :valid-p) "passed" "failed"))))
-            (message "%s"
-                     (org-roam-organize--report-lines-message
-                      (append (plist-get report :lines) (list summary))))))))
+            (if (plist-get report :lines)
+                (progn
+                  (org-roam-organize--display-report
+                   "Org-roam Organize Cite Check"
+                   (append (plist-get report :lines) (list summary)))
+                  (message "%s"
+                           (org-roam-organize--report-notice
+                            (if (plist-get report :valid-p) 'warning 'error)
+                            summary)))
+              (message "%s" summary))))))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 文献引用节点条目同步
@@ -2613,7 +2712,9 @@ non-blocking data quality warnings through the shared cite reference reporter,
 computes citing-node relationships from `refs' and `citations', and
 synchronizes `#+ROAM_CITING_NODE' keyword entries in each reference node's
 configured Inbox headline.  The sync is intentionally global so stale entries
-can be removed from reference nodes that no longer have incoming citations."
+can be removed from reference nodes that no longer have incoming citations.
+Detailed citation and per-node sync diagnostics are displayed in the report
+buffer when present; clean runs only produce a summary message."
   (interactive)
   (if org-roam-organize-mode
       (let ((records (org-roam-organize--registry-cite-records)))
@@ -2694,11 +2795,18 @@ can be removed from reference nodes that no longer have incoming citations."
                    (format
                     "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s duplicate cite keys."
                     synced-count failed-count duplicate-count removed-count malformed-count duplicate-citekey-count)))
-              (message "%s"
-                       (org-roam-organize--report-lines-message
-                        (append cite-report-lines
-                                (nreverse sync-report-lines)
-                                (list summary)))))))))
+              (if (or cite-report-lines sync-report-lines)
+                  (progn
+                    (org-roam-organize--display-report
+                     "Org-roam Organize Cite Sync"
+                     (append cite-report-lines
+                             (nreverse sync-report-lines)
+                             (list summary)))
+                    (message "%s"
+                             (org-roam-organize--report-notice
+                              (if (> failed-count 0) 'error 'warning)
+                              summary)))
+                (message "%s" summary)))))))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; ==============================
