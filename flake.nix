@@ -41,7 +41,7 @@
       packages = {
         default = emacsPackages.trivialBuild {
           pname = "org-roam-organize";
-          version = "0.4.0";
+          version = "0.5.0";
           src = source;
           packageRequires = [
             emacsPackages.org

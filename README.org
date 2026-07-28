@@ -2,7 +2,7 @@
 #+AUTHOR: aRenCoco
 
 * Overview
-Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating managed nodes, creating missing MOC files, syncing MOC entries from Org-roam node tags, and completing missing backlinks.
+Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating managed nodes, creating missing MOC files, syncing MOC entries from Org-roam node tags, checking managed citation references, and syncing citing-node entries.
 
 * Repository Structure
 #+BEGIN_SRC text
@@ -235,7 +235,8 @@ An example of configuration is shown here.
       ("C-c o m m" . org-roam-organize-moc-open-index)
       ("C-c o m c" . org-roam-organize-moc-create)
       ("C-c o m s" . org-roam-organize-moc-sync)
-      ("C-c o r c" . org-roam-organize-cite-sync))
+      ("C-c o c c" . org-roam-organize-cite-check)
+      ("C-c o c s" . org-roam-organize-cite-sync))
      :hook (after-init-hook . org-roam-organize-mode))
 #+END_SRC
 

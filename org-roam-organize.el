@@ -4,7 +4,7 @@
 
 ;; Author: aRenCoco
 ;; Maintainer: aRenCoco
-;; Version: 0.4.0
+;; Version: 0.5.0
 ;; Package-Requires: ((emacs "30.1") (org "9.5") (org-roam "2.3.1"))
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/ren-lingyu/org-roam-organize
@@ -29,7 +29,8 @@
 
 ;; Org-roam-organize provides tools for organizing Org-roam nodes and their
 ;; references.  It includes commands for maintaining Map of Contents files,
-;; creating managed nodes, completing backlinks, and updating node statistics.
+;; creating managed nodes, syncing citing-node entries, and updating node
+;; statistics.
 ;;
 ;; See README.org for configuration, keybindings, usage examples, and notes
 ;; about supported MOC operations.
