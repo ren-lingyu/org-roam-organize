@@ -67,7 +67,7 @@ This package depends on the following:
 Before using this package, you need to configure the following variables:
 
 - =org-roam-organize-directory=: Root directory for org-roam-organize
-- =org-roam-organize-registry=: Registry of managed records and their tags, paths, directories, inbox headlines, and file keyword templates
+- =org-roam-organize-registry=: Registry of managed records and their tags, paths, directories, inbox headlines, node path templates, and file head templates
 - =org-roam-organize-moc-managed-tag-property=: Property to store managed tag
 - =org-roam-organize-moc-managed-node-count-property=: Property to store node count
 
@@ -75,12 +75,13 @@ The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
 Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citing-node entry synchronization. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
 
-The optional =:template= value is a structured alist for the generated file head. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
+The optional =:template= value is a structured alist for the generated managed capture template. Its optional =path= entry controls the ordinary node file path inside the =${id}/= bundle directory and defaults to =${slug}.org=. The =path= entry may contain bundle-internal subdirectories, is ignored by MOC capture, and cannot be declared by the =:moc t= record. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
 For a dynamic date, use Org capture's time escape syntax:
 
 #+BEGIN_SRC emacs-lisp
-  (keywords . ((date . "%<%Y-%m-%d %A %H:%M:%S %z>")))
+  :template '((path . "${slug}.org")
+              (keywords . ((date . "%<%Y-%m-%d %A %H:%M:%S %z>"))))
 #+END_SRC
 
 The optional =:provider= value customizes data collection for ordinary managed node creation. When =:provider= is missing or nil, =org-roam-organize-node-create= uses the built-in provider, which reads a node title. A non-nil provider must be a function or function symbol. It is called with the full registry record:
@@ -231,10 +232,16 @@ The command =org-roam-organize-node-create= creates ordinary managed Org-roam no
 Managed node files use this target path template under =org-roam-organize-directory=:
 
 #+BEGIN_SRC text
+  <directory>/${id}/${path}
+#+END_SRC
+
+When =path= is omitted from a record's =:template=, it defaults to =${slug}.org=, giving the standard path:
+
+#+BEGIN_SRC text
   <directory>/${id}/${slug}.org
 #+END_SRC
 
-During capture, Org-roam assigns the node ID. Org-roam-organize creates the UUID parent directory in =org-roam-capture-preface-hook= before the target file is opened. If capture fails or is aborted and the directory remains empty, Org-roam-organize removes only that empty directory.
+During capture, Org-roam assigns the node ID. Org-roam-organize computes the expanded bundle root =<directory>/<id>/= in =org-roam-capture-preface-hook=, verifies the target file stays inside that bundle root, and creates the target file's parent directory before the file is opened. After capture, Org-roam-organize cleans only the bundle root: empty bundle roots are removed automatically, while non-empty aborted bundle roots require interactive confirmation before recursive deletion.
 
 A minimal custom provider can supply dynamic fields for placeholders used by the record template:
 

@@ -225,6 +225,21 @@
                         "#+FILETAGS: :ref:"))
       (should (string-match-p (regexp-quote expected) head)))))
 
+(ert-deftest org-roam-organize-test-record-node-capture-template-uses-path-template ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (record '(:name "literature"
+                   :tag "ref"
+                   :directory "literature"
+                   :template ((path . "notes/note-${slug}.org")
+                              (keywords . ((filetags . ("ref")))))))
+         (template (org-roam-organize--record-node-capture-template record))
+         (target (plist-get (nthcdr 4 template) :target)))
+    (should (equal (nth 1 target)
+                   (expand-file-name
+                    "literature/${id}/notes/note-${slug}.org"
+                    root)))))
+
 (ert-deftest org-roam-organize-test-file-head-formatters-preserve-capture-text ()
   (should (equal (org-roam-organize--file-head-entry-value
                   '(author . "${citar-author}"))
@@ -264,6 +279,7 @@
            "literature/test-id/test-title.org"
            root))
          (target-directory (file-name-directory target-file))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
          (template `("n" "test node" plain "%?"
                      :target (file+head ,target-file "#+TITLE: ${title}\n")
                      :unnarrowed t))
@@ -282,12 +298,175 @@
        template
        nil
        nil
-       t)
+       record)
       (should (file-directory-p target-directory))
       (should org-capture-after-finalize-hook)
       (run-hooks 'org-capture-after-finalize-hook)
       (should-not (file-exists-p target-directory))
       (should-not org-capture-after-finalize-hook))))
+
+(ert-deftest org-roam-organize-test-capture-node-rejects-target-outside-bundle ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file (expand-file-name "literature/evil.org" root))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t)))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook))))
+      (should-error
+       (org-roam-organize--capture-node
+        "Dynamic Title"
+        template
+        nil
+        nil
+        record)))))
+
+(ert-deftest org-roam-organize-test-capture-node-rejects-non-org-target ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file (expand-file-name "literature/test-id/readme.txt" root))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t)))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook))))
+      (should-error
+       (org-roam-organize--capture-node
+        "Dynamic Title"
+        template
+        nil
+        nil
+        record)))))
+
+(ert-deftest org-roam-organize-test-capture-node-asks-before-deleting-nonempty-aborted-bundle ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file
+          (expand-file-name
+           "literature/test-id/notes/test-title.org"
+           root))
+         (bundle-directory (expand-file-name "literature/test-id/" root))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t))
+         (org-capture-after-finalize-hook nil)
+         (asked nil))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook)))
+              ((symbol-function 'run-at-time)
+               (lambda (_secs _repeat function &rest args)
+                 (apply function args)))
+              ((symbol-function 'yes-or-no-p)
+               (lambda (&rest _args)
+                 (setq asked t)
+                 t)))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       record)
+      (should (file-directory-p bundle-directory))
+      (let ((org-note-abort t)
+            (noninteractive nil))
+        (run-hooks 'org-capture-after-finalize-hook))
+      (should asked)
+      (should-not (file-exists-p bundle-directory)))))
+
+(ert-deftest org-roam-organize-test-capture-node-keeps-nonempty-aborted-bundle-when-rejected ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file
+          (expand-file-name
+           "literature/test-id/notes/test-title.org"
+           root))
+         (bundle-directory (expand-file-name "literature/test-id/" root))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t))
+         (org-capture-after-finalize-hook nil)
+         (asked nil))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook)))
+              ((symbol-function 'run-at-time)
+               (lambda (_secs _repeat function &rest args)
+                 (apply function args)))
+              ((symbol-function 'yes-or-no-p)
+               (lambda (&rest _args)
+                 (setq asked t)
+                 nil)))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       record)
+      (should (file-directory-p bundle-directory))
+      (let ((org-note-abort t)
+            (noninteractive nil))
+        (run-hooks 'org-capture-after-finalize-hook))
+      (should asked)
+      (should (file-directory-p bundle-directory)))))
+
+(ert-deftest org-roam-organize-test-capture-node-does-not-ask-after-successful-finalize ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file
+          (expand-file-name
+           "literature/test-id/notes/test-title.org"
+           root))
+         (bundle-directory (expand-file-name "literature/test-id/" root))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t))
+         (org-capture-after-finalize-hook nil)
+         (asked nil))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook)))
+              ((symbol-function 'run-at-time)
+               (lambda (_secs _repeat function &rest args)
+                 (apply function args)))
+              ((symbol-function 'yes-or-no-p)
+               (lambda (&rest _args)
+                 (setq asked t)
+                 t)))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       record)
+      (should (file-directory-p bundle-directory))
+      (let ((noninteractive nil))
+        (run-hooks 'org-capture-after-finalize-hook))
+      (should-not asked)
+      (should (file-directory-p bundle-directory)))))
 
 (ert-deftest org-roam-organize-test-capture-template-dynamic-fields-expand ()
   (let* ((root (file-name-as-directory
@@ -300,7 +479,8 @@
          (record '(:name "literature"
                    :tag "ref"
                    :directory "literature"
-                   :template ((properties . ((roam_refs . "@${citar-key}")))
+                   :template ((path . "${citar-key}/${slug}.org")
+                              (properties . ((roam_refs . "@${citar-key}")))
                               (keywords . ((author . "${citar-author}")
                                            (date . "%<%Y>")
                                            (filetags . ("ref")))))))
@@ -310,7 +490,7 @@
      template
      '(:citar-author "Jane Doe" :citar-key "doe2026")
      '(:immediate-finish t)
-     t)
+     record)
     (let* ((files (directory-files-recursively root "\\.org\\'"))
            (node-file (car files))
            (relative (and node-file (file-relative-name node-file root)))
@@ -320,7 +500,7 @@
                            (buffer-string)))))
       (should (= (length files) 1))
       (should (string-match-p
-               "\\`literature/[[:alnum:]-]+/dynamic_capture\\.org\\'"
+               "\\`literature/[[:alnum:]-]+/doe2026/dynamic_capture\\.org\\'"
                relative))
       (dolist (expected (list ":ROAM_REFS: @doe2026"
                               "#+TITLE: Dynamic Capture"
@@ -358,6 +538,45 @@
       (should-not (car result))
       (should (string-match-p ":template section keys" (cdr result))))))
 
+(ert-deftest org-roam-organize-test-registry-rejects-invalid-path-template ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "idea"
+            :tag "idea"
+            :directory "fleeting"
+            :template ((path . "/tmp/${slug}.org")
+                       (keywords . ((filetags . ("idea")))))))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p ":template path" (cdr result))))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-moc-path-template ()
+  (let ((org-roam-organize-registry
+         '((:name "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template ((path . "${slug}.org"))))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p ":moc t cannot use :template path" (cdr result))))))
+
+(ert-deftest org-roam-organize-test-moc-capture-template-ignores-path-template ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "literature" :tag "ref")))
+         (record '(:name "literature"
+                   :tag "ref"
+                   :template ((path . "ignored-${slug}.org")
+                              (keywords . ((filetags . ("ref")))))))
+         (template (org-roam-organize--record-moc-capture-template record))
+         (target (plist-get (nthcdr 4 template) :target)))
+    (should (equal (nth 1 target)
+                   (expand-file-name "moc/literature.org" root)))))
+
 (ert-deftest org-roam-organize-test-node-create-uses-default-provider ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-mode t)
@@ -375,7 +594,7 @@
       (org-roam-organize-node-create))
     (should (equal (nth 0 captured) "Default Title"))
     (should (equal (nth 2 captured) '(:author "John Doe")))
-    (should (eq (nth 4 captured) t))))
+    (should (eq (nth 4 captured) record))))
 
 (ert-deftest org-roam-organize-test-node-create-uses-custom-provider-request ()
   (let* ((root (org-roam-organize-test--temporary-root))
@@ -401,6 +620,7 @@
            (target (plist-get (nthcdr 4 template) :target)))
       (should (equal (nth 0 captured) "Custom Title"))
       (should (equal (nth 2 captured) '(:author "Jane Doe" :date "2026")))
+      (should (eq (nth 4 captured) record))
       (should (equal target
                      `(file+head
                        ,(expand-file-name "fleeting/${id}/${slug}.org" root)

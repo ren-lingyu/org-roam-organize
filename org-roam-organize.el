@@ -144,19 +144,22 @@ record must have a relative `:directory'; non-basic records may also use
 `:moc-path' and `:moc-title' are optional overrides resolved from the record
 name when absent.  `:inbox' is an optional level-1 headline name used for
 newly added generated entries and defaults to \"Inbox\".
-`:template' is an optional structured alist for the generated file head.  Its
-`properties' section is an ordered alist emitted inside an Org property
-drawer.  Its `keywords' section is an ordered alist emitted as Org file
-keywords.  String values are written into the generated Org-roam capture
-template, so Org capture escapes such as `%<...>' and Org-roam placeholders
-such as `${field}' may be expanded by `org-roam-capture-'.  Repeated keys are
-emitted repeatedly.  Nil values emit empty property or keyword values.  The
-`filetags' keyword accepts a list of strings and is formatted as Org file
-tags; other values are written with `identity'.  `:provider' is an optional
-function used when creating ordinary managed nodes.  It is called with the
-full record and should return nil to cancel creation or a request plist
-containing `:title' and optional `:info'.  The provider does not control
-paths, targets, or capture templates."
+`:template' is an optional structured alist for the generated capture
+template.  Its `path' entry controls the ordinary managed node file path
+inside the `${id}/' bundle directory and defaults to \"${slug}.org\".  `path'
+is ignored by MOC capture and must not be declared by a `:moc t' record.  The
+`properties' section is an ordered alist emitted
+inside an Org property drawer.  The `keywords' section is an ordered alist
+emitted as Org file keywords.  String values are written into the generated
+Org-roam capture template, so Org capture escapes such as `%<...>' and
+Org-roam placeholders such as `${field}' may be expanded by
+`org-roam-capture-'.  Repeated keys are emitted repeatedly.  Nil values emit
+empty property or keyword values.  The `filetags' keyword accepts a list of
+strings and is formatted as Org file tags; other values are written with
+`identity'.  `:provider' is an optional function used when creating ordinary
+managed nodes.  It is called with the full record and should return nil to
+cancel creation or a request plist containing `:title' and optional `:info'.
+The provider does not control paths, targets, or capture templates."
   :type 'sexp
   :group 'org-roam-organize)
 
@@ -165,6 +168,7 @@ paths, targets, or capture templates."
 ;; ==============================
 
 (defvar org-roam-organize-mode)
+(defvar org-note-abort)
 
 ;; ==============================
 ;; 常量定义
@@ -234,11 +238,15 @@ values and do not perform dynamic value lookup.  Keys not listed here use
 `identity'.")
 
 (defconst org-roam-organize--node-relative-path-template
-  "${id}/${slug}.org"
-  "Relative path template inside a managed node kind directory.
+  "${id}/"
+  "Relative directory template inside a managed node kind directory.
 
-The standard node layout is ${id}/${slug}.org under kind directory,
-where `${id}' and `${slug}' are left for Org-roam capture expansion.")
+The standard node layout is `${id}/' plus a registry-derived path under a kind
+directory.  `${id}' is left for Org-roam capture expansion.")
+
+(defconst org-roam-organize--node-default-path-template
+  "${slug}.org"
+  "Default managed node path template inside the `${id}/' directory.")
 
 ;; ==============================
 ;; 内部函数
@@ -475,11 +483,11 @@ validation can report it."
      (t org-roam-organize--moc-default-inbox-headline))))
 
 (defun org-roam-organize--record-template (record)
-  "Return RECORD's structured file head template.
+  "Return RECORD's structured capture template spec.
 
 Implementation notes: this accessor returns the raw `:template' plist value.
 Formatting, ordering, and warning behavior are handled by the section-specific
-file head functions."
+file head and path helper functions."
   (plist-get record :template))
 
 (defun org-roam-organize--record-template-section (record section)
@@ -494,6 +502,36 @@ separately."
       (let ((entry (assoc section template)))
         (when (org-roam-organize--proper-list-p (cdr-safe entry))
           (cdr entry))))))
+
+(defun org-roam-organize--node-path-template-p (path)
+  "Return non-nil when PATH is a safe managed node path template.
+
+Implementation notes: ordinary managed nodes live at
+`<directory>/${id}/<path>'.  This static check rejects only obviously unsafe
+or non-Org paths before Org-roam placeholder expansion.  Runtime capture
+checks validate the expanded target against the concrete bundle root."
+  (and (stringp path)
+       (not (org-roam-organize--blank-string-p path))
+       (not (file-name-absolute-p path))
+       (not (member path '("." "..")))
+       (string-suffix-p ".org" path)))
+
+(defun org-roam-organize--record-node-path-template-in-bundle (record)
+  "Return RECORD's ordinary managed node path template inside `${id}/'.
+
+Implementation notes: the optional `(path . VALUE)' entry in `:template' only
+affects ordinary managed node capture.  MOC capture continues to use the
+record's MOC path.  Missing path entries fall back to
+`org-roam-organize--node-default-path-template'; invalid explicit values
+return nil so callers can decline to build a target."
+  (let* ((template (org-roam-organize--record-template record))
+         (entry (when (org-roam-organize--proper-list-p template)
+                  (assoc 'path template)))
+         (path (if entry
+                   (cdr entry)
+                 org-roam-organize--node-default-path-template)))
+    (when (org-roam-organize--node-path-template-p path)
+      path)))
 
 (defun org-roam-organize--record-provider (record)
   "Return RECORD's managed node provider.
@@ -644,6 +682,21 @@ accepts PATH."
   (when (org-roam-organize--path-inside-root-p path)
     (expand-file-name path org-roam-organize-directory)))
 
+(defun org-roam-organize--absolute-path-inside-directory-p (path directory)
+  "Return non-nil if absolute PATH is lexically inside DIRECTORY.
+
+Implementation notes: unlike `file-in-directory-p', this predicate does not
+require DIRECTORY to already exist.  It is used while preparing capture
+targets whose UUID bundle directory may need to be created after validation."
+  (when (and (stringp path)
+             (stringp directory)
+             (file-name-absolute-p path)
+             (file-name-absolute-p directory))
+    (let ((target (expand-file-name path))
+          (base (file-name-as-directory
+                 (expand-file-name directory))))
+      (string-prefix-p base target))))
+
 (defun org-roam-organize--record-absolute-directory (record)
   "Return RECORD's absolute node directory.
 
@@ -665,18 +718,24 @@ the shared root-safe path helper before any file operation sees it."
   "Return RECORD's managed node path template.
 
 The standard node layout uses `org-roam-organize--node-relative-path-template'
-under RECORD's directory inside `org-roam-organize-directory'.
+and RECORD's bundle-relative path template under RECORD's directory inside
+`org-roam-organize-directory'.
 This function only provides the target path template; UUID parent directory
 creation is left to the Org-roam capture and Emacs save workflow.
 
 Implementation notes: the template is generated only when RECORD has a
-string directory that resolves inside the root.  `${id}' and `${slug}' are
-left for Org-roam capture expansion."
-  (let ((directory (org-roam-organize--record-directory record)))
+string directory that resolves inside the root and a safe path template.
+`${id}', `${slug}', and provider `:info' placeholders are left for Org-roam
+capture expansion."
+  (let ((directory (org-roam-organize--record-directory record))
+        (path (org-roam-organize--record-node-path-template-in-bundle record)))
     (when (and (stringp directory)
+               (stringp path)
                (org-roam-organize--path-inside-root-p directory))
       (expand-file-name
-       (concat (file-name-as-directory directory) org-roam-organize--node-relative-path-template)
+       (concat (file-name-as-directory directory)
+               org-roam-organize--node-relative-path-template
+               path)
        org-roam-organize-directory))))
 
 (defun org-roam-organize--file-head-name (key)
@@ -842,17 +901,28 @@ Implementation notes: the check delegates existence/type handling to
   (and (file-directory-p directory)
        (null (directory-files directory nil directory-files-no-dot-files-regexp))))
 
-(defun org-roam-organize--delete-empty-directory (directory)
-  "Delete DIRECTORY when it is empty and inside `org-roam-organize-directory'.
+(defun org-roam-organize--capture-delete-directory (directory aborted)
+  "Clean capture-created DIRECTORY.
 
-Implementation notes: deletion is intentionally narrow: DIRECTORY must be a
-string, resolve inside the organize root, and still be empty.  This is used
-only to clean a capture-created UUID directory that was not populated."
+If DIRECTORY is empty, delete it automatically.  If ABORTED is non-nil and
+DIRECTORY is non-empty, ask before deleting it recursively in interactive
+sessions.
+
+Implementation notes: DIRECTORY is always expected to be the managed node
+bundle root, not the final target file's parent.  Recursive deletion is
+guarded by `yes-or-no-p' and is never attempted in noninteractive sessions."
   (when (and (stringp directory)
              (org-roam-organize--path-inside-root-p
               (file-relative-name directory org-roam-organize-directory))
-             (org-roam-organize--empty-directory-p directory))
-    (delete-directory directory)))
+             (file-directory-p directory))
+    (cond
+     ((org-roam-organize--empty-directory-p directory)
+      (delete-directory directory))
+     ((and aborted
+           (not noninteractive)
+           (yes-or-no-p
+            (format "Delete non-empty aborted capture bundle %s? " directory)))
+      (delete-directory directory t)))))
 
 (defun org-roam-organize--capture-target-file ()
   "Return the active Org-roam capture file target, or nil.
@@ -874,37 +944,87 @@ there is no parent directory to prepare."
      (org-roam-capture--target-truepath path))
     (_ nil)))
 
-(defun org-roam-organize--capture-create-parent-directory ()
-  "Create and return the parent directory for the active capture target.
+(defun org-roam-organize--capture-target-bundle-directory (record target-file)
+  "Return RECORD's expanded bundle directory for TARGET-FILE.
+
+Implementation notes: TARGET-FILE must be an expanded Org file target inside
+RECORD's absolute directory with at least one bundle-id component below that
+directory.  The returned directory is `<directory>/<id>/'.  This function
+does not require the path inside the bundle to be flat."
+  (let* ((base-directory (org-roam-organize--record-absolute-directory record))
+         (target (and (stringp target-file)
+                      (expand-file-name target-file)))
+         (base (and base-directory
+                    (file-name-as-directory
+                     (expand-file-name base-directory)))))
+    (when (and target
+               base
+               (string-suffix-p ".org" target)
+               (org-roam-organize--absolute-path-inside-directory-p
+                target
+                base))
+      (let* ((relative (file-relative-name target base))
+             (components (split-string relative "/" t))
+             (bundle-id (car components))
+             (bundle-directory
+              (and bundle-id
+                   (expand-file-name
+                    (file-name-as-directory bundle-id)
+                    base))))
+        (when (and (>= (length components) 2)
+                   (not (org-roam-organize--blank-string-p bundle-id))
+                   (not (member bundle-id '("." "..")))
+                   bundle-directory
+                   (not (file-symlink-p bundle-directory))
+                   (org-roam-organize--absolute-path-inside-directory-p
+                    target
+                    bundle-directory))
+          bundle-directory)))))
+
+(defun org-roam-organize--capture-create-target-directory (record)
+  "Create target parent directory for active managed node capture RECORD.
 
 Return nil so `org-roam-capture-preface-hook' continues with Org-roam's
 normal target setup when no directory is created.
 
 Implementation notes: this hook runs after Org-roam has enough capture state
-to expand `${id}' and `${slug}'.  It creates only the resolved parent
-directory and returns it so the caller can clean it later if capture leaves it
-empty."
+to expand `${id}', `${slug}', and provider `:info' placeholders.  It returns
+the managed bundle root so the caller can clean that root later."
   (let* ((file (org-roam-organize--capture-target-file))
-         (directory (and file (file-name-directory file))))
-    (when (and directory
-               (org-roam-organize--path-inside-root-p
-                (file-relative-name directory org-roam-organize-directory))
-               (not (file-directory-p directory)))
-      (make-directory directory t)
-      directory)))
+         (bundle-directory
+          (org-roam-organize--capture-target-bundle-directory record file))
+         (target-directory (and file (file-name-directory file))))
+    (unless bundle-directory
+      (user-error "Managed node capture target escaped its bundle: %s" file))
+    (unless (file-directory-p bundle-directory)
+      (make-directory bundle-directory t))
+    (when (and target-directory
+               (org-roam-organize--absolute-path-inside-directory-p
+                target-directory
+                bundle-directory)
+               (not (file-directory-p target-directory)))
+      (make-directory target-directory t))
+    bundle-directory))
 
-(defun org-roam-organize--capture-node (title template &optional info props manage-directory)
+(defun org-roam-organize--capture-aborted-p ()
+  "Return non-nil when the current Org capture is being aborted.
+
+Implementation notes: Org binds `org-note-abort' while running capture
+finalization hooks.  `bound-and-true-p' keeps this helper safe outside that
+dynamic context."
+  (bound-and-true-p org-note-abort))
+
+(defun org-roam-organize--capture-node (title template &optional info props managed-record)
   "Capture an Org-roam node with TITLE and TEMPLATE.
 
-INFO and PROPS are passed through to `org-roam-capture-'.  When
-MANAGE-DIRECTORY is non-nil, create the expanded capture target's parent
-directory during Org-roam's capture preface phase and remove that directory
-after capture only if it remains empty.
+INFO and PROPS are passed through to `org-roam-capture-'.  When MANAGED-RECORD
+is non-nil, create the expanded target's parent directory during Org-roam's
+capture preface phase and clean the managed bundle root after capture.
 
 Implementation notes: this helper centralizes the capture call boundary used
-by managed ordinary nodes and MOC nodes.  Future provider support can prepare
-TITLE and INFO before this function while keeping path, target, template, and
-directory lifecycle under Org-roam Organize control."
+by managed ordinary nodes and MOC nodes.  Ordinary nodes pass their registry
+record so the bundle root can be computed after Org-roam expands capture
+placeholders.  MOC nodes pass nil and keep their flat MOC path behavior."
   (let ((key (car-safe template)))
     (unless (and (stringp title)
                  (not (org-roam-organize--blank-string-p title)))
@@ -912,7 +1032,7 @@ directory lifecycle under Org-roam Organize control."
     (unless (and template key)
       (user-error "Cannot capture node without a valid template"))
     (let ((node (org-roam-node-create :title title)))
-      (if manage-directory
+      (if managed-record
           (let (created-directory cleanup-hook)
             (cl-labels
                 ((cleanup ()
@@ -920,11 +1040,13 @@ directory lifecycle under Org-roam Organize control."
                    (when created-directory
                      (run-at-time
                       0 nil
-                      #'org-roam-organize--delete-empty-directory
-                      created-directory)))
+                      #'org-roam-organize--capture-delete-directory
+                      created-directory
+                      (org-roam-organize--capture-aborted-p))))
                  (create-parent-directory ()
                    (setq created-directory
-                         (org-roam-organize--capture-create-parent-directory))
+                         (org-roam-organize--capture-create-target-directory
+                          managed-record))
                    nil))
               (setq cleanup-hook #'cleanup)
               (add-hook 'org-capture-after-finalize-hook cleanup-hook t)
@@ -940,8 +1062,9 @@ directory lifecycle under Org-roam Organize control."
                   (error
                    (remove-hook 'org-capture-after-finalize-hook cleanup-hook)
                    (when created-directory
-                     (org-roam-organize--delete-empty-directory
-                      created-directory))
+                     (org-roam-organize--capture-delete-directory
+                      created-directory
+                      t))
                    (signal (car err) (cdr err)))))))
         (org-roam-capture- :node node
                            :keys key
@@ -1129,15 +1252,29 @@ checked when node creation calls the provider."
             (when (and (org-roam-organize--proper-list-p template)
                        (seq-find
                         (lambda (section)
-                          (not (memq (car-safe section) '(properties keywords))))
+                          (not (memq (car-safe section) '(path properties keywords))))
                         template))
               (setq result_bool nil)
               (setq result_message
-                    (concat result_message "  :template section keys? nil (should be properties or keywords)\n")))
+                    (concat result_message "  :template section keys? nil (should be path, properties, or keywords)\n")))
+            (when (and (org-roam-organize--proper-list-p template)
+                       (org-roam-organize--record-moc-p record)
+                       (assoc 'path template))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :moc t cannot use :template path\n")))
+            (when (and (org-roam-organize--proper-list-p template)
+                       (assoc 'path template)
+                       (not (org-roam-organize--node-path-template-p
+                             (cdr (assoc 'path template)))))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message "  :template path safe org file? nil (should be relative .org path)\n")))
             (when (and (org-roam-organize--proper-list-p template)
                        (seq-find
                         (lambda (section)
-                          (not (org-roam-organize--proper-list-p (cdr-safe section))))
+                          (and (memq (car-safe section) '(properties keywords))
+                               (not (org-roam-organize--proper-list-p (cdr-safe section)))))
                         template))
               (setq result_bool nil)
               (setq result_message
@@ -2131,19 +2268,20 @@ single immediate-finish template generated from the registry."
 
 The selected registry record must define a relative `:directory'.  The
 created node uses the standard path layout
-<directory>/${id}/${slug}.org under `org-roam-organize-directory'.
+<directory>/${id}/${path} under `org-roam-organize-directory'.
 If the record declares `:provider', that provider supplies the node title and
 optional capture info; otherwise the built-in default provider reads a title.
-Org-roam Organize creates the UUID parent directory during Org-roam's capture
-preface phase and removes it after capture only when it remains empty.
+Org-roam Organize creates the expanded target parent directory during
+Org-roam's capture preface phase and cleans the managed bundle root after
+capture.
 
 Implementation notes: the command reads a registry record, obtains its
 provider with `org-roam-organize--record-provider', calls the provider to get
 a node creation request, builds a temporary one-entry capture template, and
 delegates the capture call to `org-roam-organize--capture-node'.  That helper
-installs a dynamically scoped preface hook to create the expanded parent
-directory after Org-roam has assigned capture placeholders and an
-after-finalize hook to remove only that directory if it stayed empty."
+installs a preface hook to compute the expanded bundle root and create the
+target parent directory after Org-roam has assigned capture placeholders, plus
+an after-finalize hook to clean only that bundle root."
   (interactive)
   (if org-roam-organize-mode
       (let ((record (org-roam-organize--read-node-record)))
@@ -2169,7 +2307,7 @@ after-finalize hook to remove only that directory if it stayed empty."
                template
                (plist-get request :info)
                nil
-               t))))))
+               record))))))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 同步 MOC
