@@ -233,7 +233,6 @@ An example of configuration is shown here.
      (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
      :bind
      (("C-c o o" . org-roam-organize-mode)
-      ("C-c o c" . org-roam-organize-check-setup)
       ("C-c o n c" . org-roam-organize-node-create)
       ("C-c o m m" . org-roam-organize-moc-open-index)
       ("C-c o m c" . org-roam-organize-moc-create)
