@@ -788,7 +788,7 @@
                "#+ROAM_NODE: [[id:node-a][Updated Title]] :delete t"
                nil t)))))
 
-(ert-deftest org-roam-organize-test-cite-citing-node-data-deduplicates-and-reports-conflicts ()
+(ert-deftest org-roam-organize-test-cite-citing-node-data-deduplicates-by-reference-and-citing-node ()
   (let ((org-roam-organize-mode t)
         captured-query
         captured-args)
@@ -796,27 +796,26 @@
                (lambda (query &rest args)
                  (setq captured-query query)
                  (setq captured-args args)
-                 '(("key-a" "ref-a" "citing-a" "Citing A")
-                   ("key-a" "ref-a" "citing-a" "Citing A")
-                   ("key-a" "ref-a" "citing-b" "Citing B")
-                   ("key-conflict" "ref-b" "citing-c" "Citing C")
-                   ("key-conflict" "ref-c" "citing-d" "Citing D")))))
+                 '(("ref-a" "key-a" "citing-a" "Citing A")
+                   ("ref-a" "key-a" "citing-a" "Citing A")
+                   ("ref-a" "key-a" "citing-b" "Citing B")
+                   ("ref-b" "key-b" "citing-c" "Citing C")))))
       (let* ((result
               (org-roam-organize--cite-citing-node-data
-               '("ref-a" "ref-b" "ref-c")))
+               '("ref-a" "ref-b")))
              (alist (plist-get result :alist)))
         (should (vectorp captured-query))
+        (should (equal (aref captured-query 7)
+                       '(= r:node_id c:cite_key)))
         (should (equal captured-args
-                       (list (vconcat '("ref-a" "ref-b" "ref-c")))))
-        (should (equal (plist-get result :conflicts)
-                       '("key-conflict")))
+                       (list (vconcat '("ref-a" "ref-b")))))
         (should (equal (cdr (assoc "ref-a" alist))
                        '((:id "citing-a" :title "Citing A")
                          (:id "citing-b" :title "Citing B"))))
-        (should-not (assoc "ref-b" alist))
-        (should-not (assoc "ref-c" alist))))))
+        (should (equal (cdr (assoc "ref-b" alist))
+                       '((:id "citing-c" :title "Citing C"))))))))
 
-(ert-deftest org-roam-organize-test-cite-reference-ref-validation-reports-missing-and-multiple ()
+(ert-deftest org-roam-organize-test-cite-reference-map-data-reports-missing-multiple-and-duplicate-citekeys ()
   (let (captured-query
         captured-args)
     (cl-letf (((symbol-function 'org-roam-db-query)
@@ -824,22 +823,33 @@
                  (setq captured-query query)
                  (setq captured-args args)
                  '(("ref-a" "key-a")
+                   ("ref-b" "key-a")
                    ("ref-c" "key-c-1")
                    ("ref-c" "key-c-2")))))
       (let ((result
-             (org-roam-organize--cite-reference-ref-validation
+             (org-roam-organize--cite-reference-map-data
               '((:id "ref-a" :title "Ref A")
                 (:id "ref-b" :title "Ref B")
-                (:id "ref-c" :title "Ref C")))))
+                (:id "ref-c" :title "Ref C")
+                (:id "ref-d" :title "Ref D")))))
         (should (vectorp captured-query))
         (should (equal captured-args
-                       (list (vconcat '("ref-a" "ref-b" "ref-c")))))
+                       (list (vconcat '("ref-a" "ref-b" "ref-c" "ref-d")))))
+        (should (equal (gethash "ref-a"
+                                (plist-get result :uuid-to-citekey))
+                       "key-a"))
+        (should (equal (gethash "key-a"
+                                (plist-get result :citekey-to-uuids))
+                       '("ref-b" "ref-a")))
         (should (equal (plist-get result :missing)
-                       '((:id "ref-b" :title "Ref B"))))
+                       '((:id "ref-d" :title "Ref D"))))
         (should (equal (plist-get result :multiple)
                        '((:id "ref-c"
                           :title "Ref C"
                           :refs ("key-c-1" "key-c-2")))))
+        (should (equal (plist-get result :duplicate-citekeys)
+                       '((:citekey "key-a"
+                          :uuids ("ref-a" "ref-b")))))
         (should-not
          (org-roam-organize--cite-reference-refs-valid-p result))))))
 
@@ -905,18 +915,19 @@
                  (should (equal tag "ref"))
                  `((:id "ref-a" :title "Ref A" :file ,ref-a-file)
                    (:id "ref-b" :title "Ref B" :file ,ref-b-file))))
-              ((symbol-function 'org-roam-organize--cite-reference-ref-validation)
+              ((symbol-function 'org-roam-organize--cite-reference-map-data)
                (lambda (nodes)
                  (should (equal (mapcar (lambda (node)
                                           (plist-get node :id))
                                         nodes)
                                 '("ref-a" "ref-b")))
-                 '(:missing nil :multiple nil)))
+                 '(:missing nil
+                   :multiple nil
+                   :duplicate-citekeys nil)))
               ((symbol-function 'org-roam-organize--cite-citing-node-data)
                (lambda (ids)
                  (should (equal ids '("ref-a" "ref-b")))
-                 '(:alist (("ref-a" . ((:id "citing-a" :title "Citing A"))))
-                          :conflicts nil)))
+                 '(:alist (("ref-a" . ((:id "citing-a" :title "Citing A")))))))
               ((symbol-function 'message)
                (lambda (&rest _args) nil)))
       (org-roam-organize-cite-sync))
@@ -950,10 +961,11 @@
               ((symbol-function 'org-roam-organize--nodes-with-tag-and-file)
                (lambda (_tag)
                  `((:id "ref-a" :title "Ref A" :file ,ref-a-file))))
-              ((symbol-function 'org-roam-organize--cite-reference-ref-validation)
+              ((symbol-function 'org-roam-organize--cite-reference-map-data)
                (lambda (_nodes)
                  '(:missing ((:id "ref-a" :title "Ref A"))
-                   :multiple nil)))
+                   :multiple nil
+                   :duplicate-citekeys nil)))
               ((symbol-function 'org-roam-organize--cite-citing-node-data)
                (lambda (&rest _args)
                  (setq cite-data-called t)
@@ -971,6 +983,91 @@
       (insert-file-contents ref-a-file)
       (should-not (search-forward org-roam-organize--cite-citing-node-keyword
                                   nil t)))))
+
+(ert-deftest org-roam-organize-test-cite-sync-reports-duplicate-citekeys-without-blocking ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (ref-a-file (expand-file-name "literature/ref-a.org" root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "literature"
+             :tag "ref"
+             :cite t
+             :basic t
+             :directory "literature"
+             :inbox "Inbox")))
+         synced
+         messages)
+    (write-region "#+TITLE: Ref A\n" nil ref-a-file)
+    (cl-letf (((symbol-function 'org-roam-db)
+               (lambda () t))
+              ((symbol-function 'org-roam-organize--nodes-with-tag-and-file)
+               (lambda (_tag)
+                 `((:id "ref-a" :title "Ref A" :file ,ref-a-file))))
+              ((symbol-function 'org-roam-organize--cite-reference-map-data)
+               (lambda (_nodes)
+                 '(:missing nil
+                   :multiple nil
+                   :duplicate-citekeys ((:citekey "key-a"
+                                         :uuids ("ref-a" "ref-b"))))))
+              ((symbol-function 'org-roam-organize--cite-citing-node-data)
+               (lambda (_ids)
+                 '(:alist (("ref-a" . ((:id "citing-a"
+                                        :title "Citing A")))))))
+              ((symbol-function 'org-roam-organize--cite-sync-citing-node-entries)
+               (lambda (_record _path nodes)
+                 (setq synced nodes)
+                 '(:status ok
+                   :duplicates nil
+                   :removed nil
+                   :malformed nil)))
+              ((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages))))
+      (org-roam-organize-cite-sync))
+    (should (equal synced '((:id "citing-a" :title "Citing A"))))
+    (should (seq-find
+             (lambda (message)
+               (string-match-p "External citekey belongs to multiple literature nodes"
+                               message))
+             messages))))
+
+(ert-deftest org-roam-organize-test-cite-export-filter-replaces-managed-uuid-citation-keys ()
+  (let ((org-roam-organize-mode t))
+    (cl-letf (((symbol-function
+                'org-roam-organize--cite-reference-map-data-or-error)
+               (lambda ()
+                 (let ((uuid-to-citekey (make-hash-table :test 'equal)))
+                   (puthash "ref-a" "key-a" uuid-to-citekey)
+                   (list :uuid-to-citekey uuid-to-citekey)))))
+      (with-temp-buffer
+        (insert "[cite:@ref-a;@plain-key]")
+        (org-mode)
+        (let ((parse-tree (org-element-parse-buffer))
+              keys)
+          (org-roam-organize--cite-export-filter parse-tree nil nil)
+          (org-element-map parse-tree 'citation-reference
+            (lambda (reference)
+              (push (org-element-property :key reference) keys)))
+          (should (equal (nreverse keys)
+                         '("key-a" "plain-key"))))))))
+
+(ert-deftest org-roam-organize-test-cite-export-filter-errors-on-invalid-managed-map ()
+  (let ((org-roam-organize-mode t))
+    (cl-letf (((symbol-function
+                'org-roam-organize--cite-reference-map-data-or-error)
+               (lambda ()
+                 (user-error "Cite reference validation failed"))))
+      (with-temp-buffer
+        (insert "[cite:@ref-a]")
+        (org-mode)
+        (should-error
+         (org-roam-organize--cite-export-filter
+          (org-element-parse-buffer)
+          nil
+          nil)
+         :type 'user-error)))))
 
 (ert-deftest org-roam-organize-test-count-nodes-with-given-tag-list-returns-ordered-alist ()
   (let ((org-roam-organize-mode t)
@@ -1007,6 +1104,26 @@
           (org-roam-organize-mode 1)
           (should org-roam-organize-mode)
           (should-not org-roam-capture-templates))
+      (org-roam-organize-mode -1))))
+
+(ert-deftest org-roam-organize-test-mode-registers-and-removes-cite-export-filter ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (default-directory temporary-file-directory)
+         (org-roam-directory root)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "idea" :tag "idea")))
+         (org-export-filter-parse-tree-functions nil)
+         (org-roam-organize-mode nil))
+    (unwind-protect
+        (progn
+          (org-roam-organize-mode 1)
+          (should (memq #'org-roam-organize--cite-export-filter
+                        org-export-filter-parse-tree-functions))
+          (org-roam-organize-mode -1)
+          (should-not (memq #'org-roam-organize--cite-export-filter
+                            org-export-filter-parse-tree-functions)))
       (org-roam-organize-mode -1))))
 
 (ert-deftest org-roam-organize-test-check-setup-combines-variable-registry-and-capability-checks ()

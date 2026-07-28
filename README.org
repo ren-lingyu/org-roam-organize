@@ -189,7 +189,7 @@ An example of configuration is shown here.
                  :directory "literature"
                  :inbox "Inbox"
                  :provider #'example-org-roam-organize-literature-provider
-                 :template '((path . "${citar-key}.org")
+                 :template '((path . "ref.org")
                              (properties . ((roam_refs . "@${citar-key}")))
                              (keywords . ((author . "${author}")
                                           (date . nil)
@@ -271,7 +271,7 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
                     :cite t
                     :directory "literature"
                     :provider #'my-org-roam-organize-literature-provider
-                    :template '((path . "${citar-key}.org")
+                    :template '((path . "ref.org")
                                 (properties . ((roam_refs . "@${citar-key}")))
                                 (keywords . ((author . "${author}")
                                              (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
@@ -301,10 +301,24 @@ Generated citing-node entries for literature nodes are stored as Org keywords un
   #+ROAM_CITING_NODE: [[id:node-id][Node title]]
 #+END_SRC
 
-The command =org-roam-organize-cite-sync= performs a global sync for the single =:cite t= registry record. Before writing generated entries, it checks that every managed literature node has exactly one =refs.type = "cite"= =ROAM_REFS= entry in Org-roam's database. It then computes citation relationships from Org-roam's =refs= and =citations= tables, uses naked cite keys in the database query, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them.
+Managed citation references use the literature node UUID in the source Org text:
+
+#+BEGIN_SRC org
+  [cite:@literature-node-uuid]
+#+END_SRC
+
+The corresponding literature node keeps its current external bibliography citekey in exactly one =refs.type = "cite"= =ROAM_REFS= entry:
+
+#+BEGIN_SRC org
+  :ROAM_REFS: @external-citekey
+#+END_SRC
+
+The command =org-roam-organize-cite-sync= performs a global sync for the single =:cite t= registry record. Before writing generated entries, it checks that every managed literature node has exactly one cite-type ref in Org-roam's database. It then computes citation relationships from Org-roam's =refs= and =citations= tables using =refs.node_id = citations.cite_key=, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them. If the same external citekey is attached to multiple managed literature nodes, it is reported as a non-blocking data quality warning.
+
+When =org-roam-organize-mode= is enabled, export-time citation conversion is registered through Org export's parse-tree filter. During export, citation keys that match managed literature node UUIDs are replaced with the current external citekey from =refs.ref=. Citation keys that do not match managed literature nodes are left unchanged, and the source Org buffer is not modified.
 
 * Implementation Details
-The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, and compute citing-node relationships. MOC and citation entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing functions, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
+The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, map managed literature node UUIDs to external citekeys, and compute citing-node relationships. MOC and citation entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. Export-time citation conversion uses Org export's parse-tree filter and only rewrites citation-reference keys in the exported tree. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing and mutation functions, Org export filter hook, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
 

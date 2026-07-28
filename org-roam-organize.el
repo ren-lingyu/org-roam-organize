@@ -45,6 +45,7 @@
 (require 'rx)
 (require 'org)
 (require 'org-element)
+(require 'ox)
 (require 'org-roam)
 
 ;; ==============================
@@ -102,10 +103,11 @@
               :cite t
               :directory "literature"
               :inbox "Inbox"
-              :template '((keywords . ((author . nil)
-                                       (date . nil)
-                                       (description . nil)
-                                       (filetags . ("ref"))))))
+              :template '((path . "ref.org")
+                           (keywords . ((author . nil)
+                                        (date . nil)
+                                        (description . nil)
+                                        (filetags . ("ref"))))))
         (list :name "permanent"
               :tag "zettel"
               :basic t
@@ -200,6 +202,8 @@ The provider does not control paths, targets, or capture templates."
     (org-element-at-point . function)
     (org-element-type . function)
     (org-element-property . function)
+    (org-element-put-property . function)
+    (org-export-filter-parse-tree-functions . variable)
     (org-link-make-string . function)
     (seq-every-p . function)
     (seq-filter . function)
@@ -1926,85 +1930,74 @@ headline name, and MOC suffix handlers that preserve the existing
 (defun org-roam-organize--cite-citing-node-data (ref-node-ids)
   "Return citing-node data for citation reference node ids REF-NODE-IDS.
 
-The return value is a plist with `:alist' and `:conflicts'.  `:alist' maps a
-reference node id to a list of citing node plists containing `:id' and
-`:title'.  `:conflicts' contains cite keys that are attached to more than one
-reference node.
+The return value is a plist with `:alist'.  `:alist' maps a reference node id
+to a list of citing node plists containing `:id' and `:title'.
 
-Implementation notes: the query joins Org-roam `refs' and `citations' on
-the naked cite key while requiring `refs.type = \"cite\"'.  Only level-0
-citing nodes are selected.  Duplicate citation occurrences from the same
-citing node are collapsed by a per-reference hash table.  When a cite key is
-associated with multiple reference nodes, that key is reported as a conflict
-and its citation rows are skipped rather than merged into an arbitrary node."
+Implementation notes: UUID citation mode treats `citations.cite_key' as the
+managed literature node UUID, so the query joins Org-roam `refs' and
+`citations' on `refs.node_id = citations.cite_key' while requiring
+`refs.type = \"cite\"'.  Only level-0 citing nodes are selected.  Duplicate
+citation occurrences from the same citing node are collapsed by a
+per-reference hash table."
   (let* ((rows
           (when ref-node-ids
             (org-roam-db-query
-             (vector :select (vector 'r:ref 'r:node_id 'c:node_id 'n:title)
+             (vector :select (vector 'r:node_id 'r:ref 'c:node_id 'n:title)
                      :from '(as refs r)
                      :join '(as citations c)
-                     :on '(= r:ref c:cite_key)
+                     :on '(= r:node_id c:cite_key)
                      :join '(as nodes n)
                      :on '(and (= n:level 0) (= n:id c:node_id))
                      :where '(and (= r:type "cite")
                                   (in r:node_id $v1)))
              (vconcat ref-node-ids))))
-         (key-to-ref-ids (make-hash-table :test 'equal))
          (ref-to-citing-table (make-hash-table :test 'equal))
          (ref-to-citing-list (make-hash-table :test 'equal))
-         conflicts alist)
+         alist)
     (dolist (row rows)
-      (let ((cite-key (nth 0 row))
-            (ref-id (nth 1 row)))
-        (unless (member ref-id (gethash cite-key key-to-ref-ids))
-          (puthash cite-key
-                   (cons ref-id (gethash cite-key key-to-ref-ids))
-                   key-to-ref-ids))))
-    (maphash
-     (lambda (cite-key ref-ids)
-       (when (> (length ref-ids) 1)
-         (push cite-key conflicts)))
-     key-to-ref-ids)
-    (dolist (row rows)
-      (let ((cite-key (nth 0 row))
-            (ref-id (nth 1 row))
+      (let ((ref-id (nth 0 row))
             (citing-id (nth 2 row))
             (citing-title (nth 3 row)))
-        (unless (member cite-key conflicts)
-          (let ((citing-table
-                 (or (gethash ref-id ref-to-citing-table)
-                     (let ((table (make-hash-table :test 'equal)))
-                       (puthash ref-id table ref-to-citing-table)
-                       table))))
-            (unless (gethash citing-id citing-table)
-              (puthash citing-id
-                       (list :id citing-id
-                             :title citing-title)
-                       citing-table)
-              (puthash ref-id
-                       (cons (list :id citing-id
-                                   :title citing-title)
-                             (gethash ref-id ref-to-citing-list))
-                       ref-to-citing-list))))))
+        (let ((citing-table
+               (or (gethash ref-id ref-to-citing-table)
+                   (let ((table (make-hash-table :test 'equal)))
+                     (puthash ref-id table ref-to-citing-table)
+                     table))))
+          (unless (gethash citing-id citing-table)
+            (puthash citing-id
+                     (list :id citing-id
+                           :title citing-title)
+                     citing-table)
+            (puthash ref-id
+                     (cons (list :id citing-id
+                                 :title citing-title)
+                           (gethash ref-id ref-to-citing-list))
+                     ref-to-citing-list)))))
     (maphash
      (lambda (ref-id citing-list)
        (push (cons ref-id (nreverse citing-list)) alist))
      ref-to-citing-list)
-    (list :alist (nreverse alist)
-          :conflicts (nreverse conflicts))))
+    (list :alist (nreverse alist))))
 
-(defun org-roam-organize--cite-reference-ref-validation (ref-nodes)
-  "Validate that each REF-NODES entry has exactly one cite ref.
+(defun org-roam-organize--cite-reference-map-data (ref-nodes)
+  "Return cite reference mapping data for REF-NODES.
 
-Return a plist containing `:missing' and `:multiple'.  `:missing' contains
-reference node plists that have no `refs.type = \"cite\"' row.  `:multiple'
-contains reference node plists extended with a `:refs' list when more than one
-cite ref row is attached to that node.
+The return value is a plist containing `:uuid-to-citekey',
+`:citekey-to-uuids', `:missing', `:multiple', and `:duplicate-citekeys'.
+`:uuid-to-citekey' maps managed literature node UUIDs to their external
+bibliography citekeys.  `:citekey-to-uuids' maps each external citekey to the
+managed UUID list that declares it.  `:missing' contains reference nodes with
+no `refs.type = \"cite\"' row.  `:multiple' contains reference nodes extended
+with a `:refs' list when more than one cite ref row is attached to that node.
+`:duplicate-citekeys' reports external citekeys used by more than one managed
+node; this is a non-blocking data quality result.
 
-Implementation notes: `org-roam-organize-cite-sync' depends on a one-to-one
-relationship between each managed literature node and its naked cite key.
-This helper checks that invariant directly against Org-roam's `refs' table
-before citation-derived entries are synchronized."
+Implementation notes: the function queries Org-roam's `refs' table once for
+all managed reference node ids and then builds hash tables in memory.  Missing
+and multiple cite refs are blocking because they make UUID citation mapping
+ambiguous.  Duplicate external citekeys are reported separately because they
+do not prevent UUID-based citation sync from resolving the cited literature
+node."
   (let* ((ref-node-ids (mapcar (lambda (node)
                                  (plist-get node :id))
                                ref-nodes))
@@ -2017,8 +2010,11 @@ before citation-derived entries are synchronized."
                                   (in r:node_id $v1)))
              (vconcat ref-node-ids))))
          (node-ref-table (make-hash-table :test 'equal))
+         (uuid-to-citekey (make-hash-table :test 'equal))
+         (citekey-to-uuids (make-hash-table :test 'equal))
          missing
-         multiple)
+         multiple
+         duplicate-citekeys)
     (dolist (row rows)
       (let ((node-id (nth 0 row))
             (ref (nth 1 row)))
@@ -2032,19 +2028,94 @@ before citation-derived entries are synchronized."
          ((null refs)
           (push node missing))
          ((> (length refs) 1)
-          (push (append node (list :refs refs)) multiple)))))
+          (push (append node (list :refs refs)) multiple))
+         (t
+          (let ((citekey (car refs)))
+            (puthash node-id citekey uuid-to-citekey)
+            (puthash citekey
+                     (cons node-id (gethash citekey citekey-to-uuids))
+                     citekey-to-uuids))))))
+    (maphash
+     (lambda (citekey uuids)
+       (when (> (length uuids) 1)
+         (push (list :citekey citekey
+                     :uuids (reverse uuids))
+               duplicate-citekeys)))
+     citekey-to-uuids)
     (list :missing (nreverse missing)
-          :multiple (nreverse multiple))))
+          :multiple (nreverse multiple)
+          :duplicate-citekeys (nreverse duplicate-citekeys)
+          :uuid-to-citekey uuid-to-citekey
+          :citekey-to-uuids citekey-to-uuids)))
 
 (defun org-roam-organize--cite-reference-refs-valid-p (result)
   "Return non-nil when cite reference refs in RESULT are valid.
 
 Implementation notes: RESULT is the plist returned by
-`org-roam-organize--cite-reference-ref-validation'.  Valid means that no
+`org-roam-organize--cite-reference-map-data'.  Valid means that no
 managed reference node is missing a `refs.type = \"cite\"' row and none has
 more than one such row."
   (and (null (plist-get result :missing))
        (null (plist-get result :multiple))))
+
+(defun org-roam-organize--cite-reference-map-data-or-error ()
+  "Return valid cite reference mapping data, or signal a user error.
+
+Implementation notes: this shared loader is used by export-time UUID citation
+conversion.  It intentionally reuses the same registry record lookup, tag
+membership query, and cite-ref validation as `org-roam-organize-cite-sync' so
+export conversion and citing-node entry sync do not drift into separate
+database semantics.  Duplicate external citekeys remain non-blocking because
+UUID citations resolve through literature node ids."
+  (let ((records (org-roam-organize--registry-cite-records)))
+    (cond
+     ((not records)
+      nil)
+     ((> (length records) 1)
+      (user-error "Multiple :cite t registry records are configured"))
+     (t
+      (let* ((record (car records))
+             (tag (org-roam-organize--record-tag record))
+             (ref-nodes
+              (and (stringp tag)
+                   (org-roam-organize--nodes-with-tag tag)))
+             (map-data
+              (org-roam-organize--cite-reference-map-data
+               ref-nodes)))
+        (unless (org-roam-organize--cite-reference-refs-valid-p map-data)
+          (user-error
+           "Cite reference validation failed: %s missing cite refs, %s multiple cite refs"
+           (length (plist-get map-data :missing))
+           (length (plist-get map-data :multiple))))
+        map-data)))))
+
+(defun org-roam-organize--cite-export-filter (parse-tree _backend _info)
+  "Replace managed UUID citation keys in PARSE-TREE before export.
+
+Return the modified PARSE-TREE.  Only citation references whose `:key'
+matches a managed literature node UUID are rewritten; other citation keys are
+left unchanged.
+
+Implementation notes: Org export parse-tree filters receive the complete Org
+Element tree before backend rendering.  This function loads the UUID-to-citekey
+hash table once, then walks `citation-reference' elements and mutates only the
+`:key' property with `org-element-put-property'.  The source buffer is not
+edited.  The function keeps an explicit `org-roam-organize-mode' guard because
+export hook variables are global."
+  (when org-roam-organize-mode
+    (let* ((map-data
+            (org-roam-organize--cite-reference-map-data-or-error))
+           (uuid-to-citekey
+            (plist-get map-data :uuid-to-citekey)))
+      (when uuid-to-citekey
+        (org-element-map parse-tree 'citation-reference
+          (lambda (reference)
+            (let* ((key (org-element-property :key reference))
+                   (citekey (and (stringp key)
+                                 (gethash key uuid-to-citekey))))
+              (when citekey
+                (org-element-put-property reference :key citekey))))))))
+  parse-tree)
 
 (defun org-roam-organize--cite-sync-citing-node-entries (record path nodes)
   "Sync citing-node entries for citation RECORD at PATH from NODES.
@@ -2341,9 +2412,10 @@ derived managed properties are updated only after a successful entry sync."
 Implementation notes: the command requires exactly one registry record marked
 with `:cite t'.  It refreshes the Org-roam database, reads every level-0 node
 with that record's tag, validates that each reference node has exactly one
-`refs.type = \"cite\"' row, computes citing-node relationships from `refs'
-and `citations', and synchronizes `#+ROAM_CITING_NODE' keyword entries in
-each reference node's configured Inbox headline.  The sync is intentionally
+`refs.type = \"cite\"' row, reports duplicate external citekeys as
+non-blocking data quality warnings, computes citing-node relationships from
+`refs' and `citations', and synchronizes `#+ROAM_CITING_NODE' keyword entries
+in each reference node's configured Inbox headline.  The sync is intentionally
 global so stale entries can be removed from reference nodes that no longer
 have incoming citations."
   (interactive)
@@ -2361,7 +2433,7 @@ have incoming citations."
                 (duplicate-count 0)
                 (removed-count 0)
                 (malformed-count 0)
-                (conflict-count 0))
+                (duplicate-citekey-count 0))
             (org-roam-db)
             (let* ((tag (org-roam-organize--record-tag record))
                    (ref-nodes
@@ -2370,32 +2442,39 @@ have incoming citations."
                    (ref-node-ids (mapcar (lambda (node)
                                            (plist-get node :id))
                                          ref-nodes))
-                   (ref-validation
-                    (org-roam-organize--cite-reference-ref-validation
+                   (map-data
+                    (org-roam-organize--cite-reference-map-data
                      ref-nodes))
                    (cite-data
                     (when (org-roam-organize--cite-reference-refs-valid-p
-                           ref-validation)
+                           map-data)
                       (org-roam-organize--cite-citing-node-data ref-node-ids)))
-                   (citing-alist (plist-get cite-data :alist))
-                   (conflicts (plist-get cite-data :conflicts)))
-              (setq conflict-count (length conflicts))
+                   (citing-alist (plist-get cite-data :alist)))
+              (setq duplicate-citekey-count
+                    (length (plist-get map-data :duplicate-citekeys)))
+              (dolist (entry (plist-get map-data :duplicate-citekeys))
+                (message
+                 "[WARNING] External citekey belongs to multiple literature nodes: %s (%s)"
+                 (plist-get entry :citekey)
+                 (mapconcat #'identity
+                            (plist-get entry :uuids)
+                            ", ")))
               (if (not (org-roam-organize--cite-reference-refs-valid-p
-                        ref-validation))
+                        map-data))
                   (progn
                     (setq failed-count
-                          (+ (length (plist-get ref-validation :missing))
-                             (length (plist-get ref-validation :multiple))))
+                          (+ (length (plist-get map-data :missing))
+                             (length (plist-get map-data :multiple))))
                     (message
                      "[WARNING] Cite reference validation failed: %s missing cite refs, %s multiple cite refs."
-                     (length (plist-get ref-validation :missing))
-                     (length (plist-get ref-validation :multiple)))
-                    (dolist (node (plist-get ref-validation :missing))
+                     (length (plist-get map-data :missing))
+                     (length (plist-get map-data :multiple)))
+                    (dolist (node (plist-get map-data :missing))
                       (message
                        "[WARNING] Cite reference node has no cite ref: %s (%s)"
                        (plist-get node :title)
                        (plist-get node :id)))
-                    (dolist (node (plist-get ref-validation :multiple))
+                    (dolist (node (plist-get map-data :multiple))
                       (message
                        "[WARNING] Cite reference node has multiple cite refs: %s (%s): %s"
                        (plist-get node :title)
@@ -2433,8 +2512,8 @@ have incoming citations."
                             (+ malformed-count
                                (length (plist-get result :malformed))))))))))
             (message
-             "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s conflicted cite keys."
-             synced-count failed-count duplicate-count removed-count malformed-count conflict-count)))))
+             "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s duplicate cite keys."
+             synced-count failed-count duplicate-count removed-count malformed-count duplicate-citekey-count)))))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; ==============================
@@ -2453,24 +2532,34 @@ have incoming citations."
 ;; Hook.
 (add-hook 'org-roam-organize-mode-hook
           (lambda ()
-            (when org-roam-organize-mode
-              (let* ((check_result
-                      (when (and (boundp 'org-roam-organize--variable-type-alist)
-                                 (boundp 'org-roam-organize--capability-alist))
-                        (org-roam-organize--check-setup))))
-                (cond
-                 ((not (car check_result))
-                  (setq org-roam-organize-mode nil)
-                  (message "%s" (concat
-                                 "[WARNING] Org Roam Organize setup checks failed. "
-                                 "Org Roam Organize Mode setup failed.\n"
-                                 (format "%s\n" (car check_result))
-                                 (cdr check_result))))
-                 (t
-                  (unless (featurep 'org) (require 'org))
-                  (unless (featurep 'org-element) (require 'org-element))
-                  (unless (featurep 'org-roam) (require 'org-roam))
-                  (unless (featurep 'cl-lib) (require 'cl-lib))))))))
+            (if org-roam-organize-mode
+                (let* ((check_result
+                        (when (and (boundp 'org-roam-organize--variable-type-alist)
+                                   (boundp 'org-roam-organize--capability-alist))
+                          (org-roam-organize--check-setup))))
+                  (cond
+                   ((not (car check_result))
+                    (setq org-roam-organize-mode nil)
+                    (remove-hook
+                     'org-export-filter-parse-tree-functions
+                     #'org-roam-organize--cite-export-filter)
+                    (message "%s" (concat
+                                   "[WARNING] Org Roam Organize setup checks failed. "
+                                   "Org Roam Organize Mode setup failed.\n"
+                                   (format "%s\n" (car check_result))
+                                   (cdr check_result))))
+                   (t
+                    (unless (featurep 'org) (require 'org))
+                    (unless (featurep 'org-element) (require 'org-element))
+                    (unless (featurep 'ox) (require 'ox))
+                    (unless (featurep 'org-roam) (require 'org-roam))
+                    (unless (featurep 'cl-lib) (require 'cl-lib))
+                    (add-hook
+                     'org-export-filter-parse-tree-functions
+                     #'org-roam-organize--cite-export-filter))))
+              (remove-hook
+               'org-export-filter-parse-tree-functions
+               #'org-roam-organize--cite-export-filter))))
 
 (provide 'org-roam-organize)
 ;;; org-roam-organize.el ends here
