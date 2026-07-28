@@ -13,12 +13,12 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
   ├── flake.nix
   ├── flake.lock
   └── tests/
-  ├── default.nix
-  ├── ert/
-  │   ├── default.nix
-  │   └── ert.el
-  └── package-lint/
-  └── default.nix
+      ├── default.nix
+      ├── ert/
+      │   ├── default.nix
+      │   └── ert.el
+      └── package-lint/
+          └── default.nix
 #+END_SRC
 
 Key conventions:
@@ -92,8 +92,8 @@ The optional =:provider= value customizes data collection for ordinary managed n
 The provider should return nil to cancel creation, or a request plist with a non-empty =:title= string and an optional =:info= plist:
 
 #+BEGIN_SRC emacs-lisp
-  (:title TITLE
-          :info INFO)
+  ( :title TITLE
+    :info INFO)
 #+END_SRC
 
 The =:info= plist is passed to =org-roam-capture-= so placeholders such as =${author}= in =:template= values can be expanded. Providers only supply title and capture info; Org-roam-organize still controls paths, targets, and capture templates.
