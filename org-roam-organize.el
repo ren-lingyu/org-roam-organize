@@ -1572,6 +1572,14 @@ before the first Org link is required."
               (memq char '(?\s ?\t ?\n ?\r)))
             string))
 
+(defun org-roam-organize--report-lines-message (lines)
+  "Return a message string built from report LINES.
+
+Implementation notes: commands collect diagnostics as plain line strings and
+only join them at the display boundary.  This keeps newline handling localized
+and makes later report-buffer rendering a small change."
+  (mapconcat #'identity (seq-filter #'identity lines) "\n"))
+
 (defun org-roam-organize--element-in-comment-subtree-p (element)
   "Return non-nil if ELEMENT belongs to a COMMENT subtree.
 
@@ -2164,47 +2172,59 @@ UUIDs are ignored so ordinary external citekeys remain exportable."
             map-data)))))))
 
 (defun org-roam-organize--cite-report-reference-map-data (map-data)
-  "Report cite reference diagnostics from MAP-DATA.
+  "Return cite reference diagnostics for MAP-DATA.
 
-Return non-nil when blocking validation passed.
+Return a plist with `:valid-p' and `:lines'.  `:valid-p' is non-nil when
+blocking validation passed.  `:lines' contains human-readable diagnostics.
 
 Implementation notes: MAP-DATA is produced by
 `org-roam-organize--cite-reference-map-data' or
 `org-roam-organize--cite-global-reference-map-data'.  The reporting policy is
 shared by `org-roam-organize-cite-check' and `org-roam-organize-cite-sync':
 missing and multiple cite refs are blocking diagnostics, while duplicate
-external citekeys are non-blocking data quality warnings."
+external citekeys are non-blocking data quality warnings.  The function builds
+report lines instead of calling `message' so callers can display a single final
+report."
   (let ((missing (plist-get map-data :missing))
         (multiple (plist-get map-data :multiple))
-        (duplicate-citekeys (plist-get map-data :duplicate-citekeys)))
+        (duplicate-citekeys (plist-get map-data :duplicate-citekeys))
+        lines)
     (dolist (entry duplicate-citekeys)
-      (message
-       "[WARNING] External citekey belongs to multiple literature nodes: %s (%s)"
-       (plist-get entry :citekey)
-       (mapconcat #'identity
-                  (plist-get entry :uuids)
-                  ", ")))
+      (push
+       (format
+        "[WARNING] External citekey belongs to multiple literature nodes: %s (%s)"
+        (plist-get entry :citekey)
+        (mapconcat #'identity
+                   (plist-get entry :uuids)
+                   ", "))
+       lines))
     (if (not (org-roam-organize--cite-reference-refs-valid-p map-data))
         (progn
-          (message
-           "[WARNING] Cite reference validation failed: %s missing cite refs, %s multiple cite refs."
-           (length missing)
-           (length multiple))
+          (push
+           (format
+            "[WARNING] Cite reference validation failed: %s missing cite refs, %s multiple cite refs."
+            (length missing)
+            (length multiple))
+           lines)
           (dolist (node missing)
-            (message
-             "[WARNING] Cite reference node has no cite ref: %s (%s)"
-             (plist-get node :title)
-             (plist-get node :id)))
+            (push
+             (format
+              "[WARNING] Cite reference node has no cite ref: %s (%s)"
+              (plist-get node :title)
+              (plist-get node :id))
+             lines))
           (dolist (node multiple)
-            (message
-             "[WARNING] Cite reference node has multiple cite refs: %s (%s): %s"
-             (plist-get node :title)
-             (plist-get node :id)
-             (mapconcat #'identity
-                        (plist-get node :refs)
-                        ", ")))
-          nil)
-      t)))
+            (push
+             (format
+              "[WARNING] Cite reference node has multiple cite refs: %s (%s): %s"
+              (plist-get node :title)
+              (plist-get node :id)
+              (mapconcat #'identity
+                         (plist-get node :refs)
+                         ", "))
+             lines))
+          (list :valid-p nil :lines (nreverse lines)))
+      (list :valid-p t :lines (nreverse lines)))))
 
 (defun org-roam-organize--cite-export-filter (parse-tree _backend _info)
   "Replace managed UUID citation keys in PARSE-TREE before export.
@@ -2491,7 +2511,8 @@ derived managed properties are updated only after a successful entry sync."
             (failed-count 0)
             (duplicate-count 0)
             (removed-count 0)
-            (malformed-count 0))
+            (malformed-count 0)
+            report-lines)
         (org-roam-db)
         (dolist (record org-roam-organize-registry)
           (let* ((tag (org-roam-organize--record-tag record))
@@ -2504,12 +2525,17 @@ derived managed properties are updated only after a successful entry sync."
             (cond
              ((not (and (stringp tag) result))
               (setq failed-count (1+ failed-count))
-              (message "[WARNING] Cannot sync MOC for registry record: %s" record))
+              (push
+               (format "[WARNING] Cannot sync MOC for registry record: %s"
+                       record)
+               report-lines))
              ((eq (plist-get result :status) 'failed)
               (setq failed-count (1+ failed-count))
-              (message "[WARNING] Cannot sync MOC for registry record: %s (%s)"
+              (push
+               (format "[WARNING] Cannot sync MOC for registry record: %s (%s)"
                        record
-                       (plist-get result :reason)))
+                       (plist-get result :reason))
+               report-lines))
              (t
               (org-roam-organize--moc-update-managed-information record nodes)
               (setq synced-count (1+ synced-count))
@@ -2522,9 +2548,13 @@ derived managed properties are updated only after a successful entry sync."
               (setq malformed-count
                     (+ malformed-count
                        (length (plist-get result :malformed))))))))
-        (message
-         "[INFO] Sync MOCs: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries."
-         synced-count failed-count duplicate-count removed-count malformed-count))
+        (let ((summary
+               (format
+                "[INFO] Sync MOCs: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries."
+                synced-count failed-count duplicate-count removed-count malformed-count)))
+          (message "%s"
+                   (org-roam-organize--report-lines-message
+                    (append (nreverse report-lines) (list summary))))))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; 文献引用节点条目同步
@@ -2554,16 +2584,20 @@ non-blocking data quality warnings."
                  (node-count (length (plist-get map-data :nodes)))
                  (duplicate-citekey-count
                   (length (plist-get map-data :duplicate-citekeys)))
-                 (valid-p
+                 (report
                   (org-roam-organize--cite-report-reference-map-data
-                   map-data)))
-            (message
-             "[INFO] Check cite references: %s checked, %s missing cite refs, %s multiple cite refs, %s duplicate cite keys, status %s."
-             node-count
-             (length (plist-get map-data :missing))
-             (length (plist-get map-data :multiple))
-             duplicate-citekey-count
-             (if valid-p "passed" "failed"))))))
+                   map-data))
+                 (summary
+                  (format
+                   "[INFO] Check cite references: %s checked, %s missing cite refs, %s multiple cite refs, %s duplicate cite keys, status %s."
+                   node-count
+                   (length (plist-get map-data :missing))
+                   (length (plist-get map-data :multiple))
+                   duplicate-citekey-count
+                   (if (plist-get report :valid-p) "passed" "failed"))))
+            (message "%s"
+                     (org-roam-organize--report-lines-message
+                      (append (plist-get report :lines) (list summary))))))))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
 
 ;; 文献引用节点条目同步
@@ -2595,7 +2629,9 @@ can be removed from reference nodes that no longer have incoming citations."
                 (duplicate-count 0)
                 (removed-count 0)
                 (malformed-count 0)
-                (duplicate-citekey-count 0))
+                (duplicate-citekey-count 0)
+                cite-report-lines
+                sync-report-lines)
             (org-roam-db)
             (let* ((tag (org-roam-organize--record-tag record))
                    (ref-nodes
@@ -2607,15 +2643,17 @@ can be removed from reference nodes that no longer have incoming citations."
                    (map-data
                     (org-roam-organize--cite-reference-map-data
                      ref-nodes))
+                   (report
+                    (org-roam-organize--cite-report-reference-map-data
+                     map-data))
                    (cite-data
-                    (when (org-roam-organize--cite-reference-refs-valid-p
-                           map-data)
+                    (when (plist-get report :valid-p)
                       (org-roam-organize--cite-citing-node-data ref-node-ids)))
                    (citing-alist (plist-get cite-data :alist)))
+              (setq cite-report-lines (plist-get report :lines))
               (setq duplicate-citekey-count
                     (length (plist-get map-data :duplicate-citekeys)))
-              (if (not (org-roam-organize--cite-report-reference-map-data
-                        map-data))
+              (if (not (plist-get report :valid-p))
                   (progn
                     (setq failed-count
                           (+ (length (plist-get map-data :missing))
@@ -2635,9 +2673,12 @@ can be removed from reference nodes that no longer have incoming citations."
                      ((or (not result)
                           (eq (plist-get result :status) 'failed))
                       (setq failed-count (1+ failed-count))
-                      (message "[WARNING] Cannot sync citing-node entries for node: %s (%s)"
-                               ref-node
-                               (plist-get result :reason)))
+                      (push
+                       (format
+                        "[WARNING] Cannot sync citing-node entries for node: %s (%s)"
+                        ref-node
+                        (plist-get result :reason))
+                       sync-report-lines))
                      (t
                       (setq synced-count (1+ synced-count))
                       (setq duplicate-count
@@ -2649,9 +2690,15 @@ can be removed from reference nodes that no longer have incoming citations."
                       (setq malformed-count
                             (+ malformed-count
                                (length (plist-get result :malformed))))))))))
-            (message
-             "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s duplicate cite keys."
-             synced-count failed-count duplicate-count removed-count malformed-count duplicate-citekey-count)))))
+            (let ((summary
+                   (format
+                    "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s duplicate cite keys."
+                    synced-count failed-count duplicate-count removed-count malformed-count duplicate-citekey-count)))
+              (message "%s"
+                       (org-roam-organize--report-lines-message
+                        (append cite-report-lines
+                                (nreverse sync-report-lines)
+                                (list summary)))))))))
     (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
 
 ;; ==============================

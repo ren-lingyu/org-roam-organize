@@ -790,6 +790,29 @@
                "#+ROAM_NODE: [[id:node-a][Updated Title]] :delete t"
                nil t)))))
 
+(ert-deftest org-roam-organize-test-moc-sync-collects-failure-messages ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "idea" :tag "idea" :inbox "Inbox")))
+        messages)
+    (cl-letf (((symbol-function 'org-roam-db)
+               (lambda () t))
+              ((symbol-function 'org-roam-organize--nodes-with-tag)
+               (lambda (_tag) nil))
+              ((symbol-function 'org-roam-organize--moc-sync-node-entries)
+               (lambda (&rest _args)
+                 '(:status failed :reason "Missing MOC file")))
+              ((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages))))
+      (org-roam-organize-moc-sync))
+    (should (= (length messages) 1))
+    (should (string-match-p "Cannot sync MOC for registry record"
+                            (car messages)))
+    (should (string-match-p
+             "Sync MOCs: 0 synced, 1 failed"
+             (car messages)))))
+
 (ert-deftest org-roam-organize-test-cite-citing-node-data-deduplicates-by-reference-and-citing-node ()
   (let ((org-roam-organize-mode t)
         captured-query
@@ -921,6 +944,7 @@
                (lambda (format-string &rest args)
                  (push (apply #'format format-string args) messages))))
       (org-roam-organize-cite-check))
+    (should (= (length messages) 1))
     (should (seq-find
              (lambda (message)
                (string-match-p "External citekey belongs to multiple literature nodes"
@@ -976,7 +1000,7 @@
               ((symbol-function 'org-roam-organize--cite-report-reference-map-data)
                (lambda (map-data)
                  (should (equal (plist-get map-data :missing) nil))
-                 t))
+                 '(:valid-p t :lines nil)))
               ((symbol-function 'message)
                (lambda (&rest _args) nil)))
       (org-roam-organize-cite-sync))
@@ -1076,9 +1100,15 @@
                  (push (apply #'format format-string args) messages))))
       (org-roam-organize-cite-sync))
     (should (equal synced '((:id "citing-a" :title "Citing A"))))
+    (should (= (length messages) 1))
     (should (seq-find
              (lambda (message)
                (string-match-p "External citekey belongs to multiple literature nodes"
+                               message))
+             messages))
+    (should (seq-find
+             (lambda (message)
+               (string-match-p "Sync citing-node entries: 1 synced, 0 failed"
                                message))
              messages))))
 
