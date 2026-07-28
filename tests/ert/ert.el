@@ -8,6 +8,8 @@
 
 (require 'ert)
 (require 'cl-lib)
+(require 'ox)
+(require 'ox-ascii)
 (require 'org-roam)
 (require 'org-roam-organize)
 
@@ -1099,6 +1101,33 @@
             (lambda (reference)
               (push (org-element-property :key reference) keys)))
           (should (equal (nreverse keys)
+                         '("key-a" "plain-key"))))))))
+
+(ert-deftest org-roam-organize-test-cite-export-filter-runs-in-org-export-pipeline ()
+  (let ((org-roam-organize-mode t)
+        captured-keys)
+    (cl-letf (((symbol-function
+                'org-roam-organize--cite-export-reference-map-data-or-error)
+               (lambda (keys)
+                 (should (equal keys '("ref-a" "plain-key")))
+                 (let ((uuid-to-citekey (make-hash-table :test 'equal)))
+                   (puthash "ref-a" "key-a" uuid-to-citekey)
+                   (list :uuid-to-citekey uuid-to-citekey)))))
+      (with-temp-buffer
+        (insert "[cite:@ref-a;@plain-key]")
+        (org-mode)
+        (let ((org-export-filter-parse-tree-functions
+               (list
+                #'org-roam-organize--cite-export-filter
+                (lambda (parse-tree _backend _info)
+                  (setq captured-keys nil)
+                  (org-element-map parse-tree 'citation-reference
+                    (lambda (reference)
+                      (push (org-element-property :key reference)
+                            captured-keys)))
+                  parse-tree))))
+          (org-export-as 'ascii nil nil t)
+          (should (equal (nreverse captured-keys)
                          '("key-a" "plain-key"))))))))
 
 (ert-deftest org-roam-organize-test-cite-export-filter-errors-on-invalid-managed-map ()
