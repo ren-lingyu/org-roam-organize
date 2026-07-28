@@ -2816,7 +2816,13 @@ buffer when present; clean runs only produce a summary message."
 ;; Definition.
 ;;;###autoload
 (define-minor-mode org-roam-organize-mode
-  "org-roam-organize mode"
+  "Toggle Org-roam Organize mode.
+
+When enabled, the mode validates setup, registers the export-time citation
+filter, and keeps command behavior available globally.  Setup failure disables
+the mode again and reports the failure through the echo area.  User-facing check
+and sync commands display detailed diagnostics in
+`org-roam-organize--report-buffer-name' when needed."
   :lighter " Organize"
   ;; :group nil
   :global t

@@ -33,6 +33,7 @@ The package includes the following main features:
 
 ** 1. Node Management
 - Check package configuration and runtime capabilities
+- Display detailed check and sync diagnostics in a temporary report buffer
 - Create directories declared by basic registry records
 - Create managed nodes from registry-derived capture templates
 
@@ -153,6 +154,8 @@ The following aliases are optional user configuration examples:
 7. Use =org-roam-organize-moc-sync= to sync MOC entries and managed information
 8. Use =org-roam-organize-cite-check= to check managed citation reference consistency
 9. Use =org-roam-organize-cite-sync= to sync citing-node entries
+
+Commands that produce detailed diagnostics use the =*Org-roam Organize Report*= buffer for the full report. Successful commands without warnings keep the interface quiet and only show a short minibuffer summary. Failed checks and sync commands with warnings display the report buffer and leave a short minibuffer notice pointing to it.
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -324,8 +327,13 @@ The command =org-roam-organize-cite-sync= performs a global sync for the same re
 
 When =org-roam-organize-mode= is enabled, export-time citation conversion is registered through Org export's parse-tree filter. During export, citation keys that match managed literature node UUIDs are replaced with the current external citekey from =refs.ref=. Export validation is limited to managed literature UUIDs that appear in the current export tree; unrelated literature node metadata does not block export. Citation keys that do not match managed literature nodes are left unchanged, and the source Org buffer is not modified.
 
+* Reports
+Detailed command diagnostics are written to the temporary buffer =*Org-roam Organize Report*=. The buffer is overwritten for each displayed report, uses =special-mode=, and is read-only. Report history is not retained.
+
+The commands =org-roam-organize-check-variables=, =org-roam-organize-check-setup=, =org-roam-organize-moc-sync=, =org-roam-organize-cite-check=, and =org-roam-organize-cite-sync= use this buffer when they have detailed failures or warnings to show. Clean successful runs only print a short summary in the minibuffer.
+
 * Implementation Details
-The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, map managed literature node UUIDs to external citekeys, and compute citing-node relationships. MOC and citation entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. Export-time citation conversion uses Org export's parse-tree filter and only rewrites citation-reference keys in the exported tree. It includes configuration validation, root directory validation, runtime capability validation, and warning messages for common setup problems. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing and mutation functions, Org export filter hook, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
+The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, map managed literature node UUIDs to external citekeys, and compute citing-node relationships. MOC and citation entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. Export-time citation conversion uses Org export's parse-tree filter and only rewrites citation-reference keys in the exported tree. It includes configuration validation, root directory validation, runtime capability validation, report-buffer display for detailed diagnostics, and short minibuffer notices for report-producing commands. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing and mutation functions, Org export filter hook, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
 
