@@ -4,8 +4,8 @@
 
   inputs = {
     nixpkgs = {
-      # url = "git+https://github.com/NixOS/nixpkgs.git?ref=refs/heads/nixpkgs-unstable&shallow=1";
-      url = "github:NixOS/nixpkgs/94a9730314351929f8e4ca5dd28d461f87e7ba76";
+      url = "git+https://github.com/NixOS/nixpkgs.git?ref=refs/heads/nixpkgs-unstable&shallow=1";
+      # url = "github:NixOS/nixpkgs/94a9730314351929f8e4ca5dd28d461f87e7ba76";
     };
     flake-parts = {
       url = "git+https://github.com/hercules-ci/flake-parts.git?ref=refs/heads/main&shallow=1";
