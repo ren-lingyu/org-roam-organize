@@ -887,6 +887,49 @@
       (org-roam-organize-cite-sync))
     (should-not synced)))
 
+(ert-deftest org-roam-organize-test-cite-check-requires-cite-record ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature" :tag "ref" :basic t :directory "literature")))
+        checked)
+    (cl-letf (((symbol-function 'org-roam-organize--cite-global-reference-map-data)
+               (lambda ()
+                 (setq checked t))))
+      (org-roam-organize-cite-check))
+    (should-not checked)))
+
+(ert-deftest org-roam-organize-test-cite-check-reports-global-validation-result ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature" :tag "ref" :cite t :basic t :directory "literature")))
+        messages)
+    (cl-letf (((symbol-function 'org-roam-db)
+               (lambda () t))
+              ((symbol-function 'org-roam-organize--cite-global-reference-map-data)
+               (lambda ()
+                 '(:nodes ((:id "ref-a" :title "Ref A")
+                           (:id "ref-b" :title "Ref B"))
+                   :missing ((:id "ref-a" :title "Ref A"))
+                   :multiple nil
+                   :duplicate-citekeys ((:citekey "key-a"
+                                         :uuids ("ref-a" "ref-b"))))))
+              ((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages))))
+      (org-roam-organize-cite-check))
+    (should (seq-find
+             (lambda (message)
+               (string-match-p "External citekey belongs to multiple literature nodes"
+                               message))
+             messages))
+    (should (seq-find
+             (lambda (message)
+               (string-match-p "Check cite references: 2 checked, 1 missing cite refs, 0 multiple cite refs, 1 duplicate cite keys, status failed"
+                               message))
+             messages))))
+
 (ert-deftest org-roam-organize-test-cite-sync-syncs-all-cite-nodes ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (ref-a-file (expand-file-name "literature/ref-a.org" root))
@@ -928,6 +971,10 @@
                (lambda (ids)
                  (should (equal ids '("ref-a" "ref-b")))
                  '(:alist (("ref-a" . ((:id "citing-a" :title "Citing A")))))))
+              ((symbol-function 'org-roam-organize--cite-report-reference-map-data)
+               (lambda (map-data)
+                 (should (equal (plist-get map-data :missing) nil))
+                 t))
               ((symbol-function 'message)
                (lambda (&rest _args) nil)))
       (org-roam-organize-cite-sync))

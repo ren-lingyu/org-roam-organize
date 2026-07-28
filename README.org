@@ -114,6 +114,7 @@ The following =C-c o= keybindings are optional user configuration examples:
   (global-set-key (kbd "C-c o m m") #'org-roam-organize-moc-open-index)
   (global-set-key (kbd "C-c o m c") #'org-roam-organize-moc-create)
   (global-set-key (kbd "C-c o m s") #'org-roam-organize-moc-sync)
+  (global-set-key (kbd "C-c o r k") #'org-roam-organize-cite-check)
   (global-set-key (kbd "C-c o r c") #'org-roam-organize-cite-sync)
 #+END_SRC
 
@@ -124,6 +125,7 @@ The following =C-c o= keybindings are optional user configuration examples:
   (keymap-global-set "C-c o m m" #'org-roam-organize-moc-open-index)
   (keymap-global-set "C-c o m c" #'org-roam-organize-moc-create)
   (keymap-global-set "C-c o m s" #'org-roam-organize-moc-sync)
+  (keymap-global-set "C-c o r k" #'org-roam-organize-cite-check)
   (keymap-global-set "C-c o r c" #'org-roam-organize-cite-sync)
 #+END_SRC
 
@@ -137,6 +139,7 @@ The following aliases are optional user configuration examples:
   (defalias 'oro-map #'org-roam-organize-moc-open-index)
   (defalias 'oro-create-mocs #'org-roam-organize-moc-create)
   (defalias 'oro-sync-mocs #'org-roam-organize-moc-sync)
+  (defalias 'oro-check-cites #'org-roam-organize-cite-check)
   (defalias 'oro-cite-sync #'org-roam-organize-cite-sync)
 #+END_SRC
 
@@ -148,7 +151,8 @@ The following aliases are optional user configuration examples:
 5. Use =org-roam-organize-node-create= to create managed non-MOC nodes from registry records with =:directory=
 6. After adding new registry records, run =org-roam-organize-moc-create= to create missing MOC files
 7. Use =org-roam-organize-moc-sync= to sync MOC entries and managed information
-8. Use =org-roam-organize-cite-sync= to sync citing-node entries
+8. Use =org-roam-organize-cite-check= to check managed citation reference consistency
+9. Use =org-roam-organize-cite-sync= to sync citing-node entries
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
@@ -313,7 +317,9 @@ The corresponding literature node keeps its current external bibliography citeke
   :ROAM_REFS: @external-citekey
 #+END_SRC
 
-The command =org-roam-organize-cite-sync= performs a global sync for the single =:cite t= registry record. Before writing generated entries, it checks that every managed literature node has exactly one cite-type ref in Org-roam's database. It then computes citation relationships from Org-roam's =refs= and =citations= tables using =refs.node_id = citations.cite_key=, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them. If the same external citekey is attached to multiple managed literature nodes, it is reported as a non-blocking data quality warning.
+The command =org-roam-organize-cite-check= performs a global read-only check for the single =:cite t= registry record. It reports managed literature nodes that lack a cite-type ref, nodes that have more than one cite-type ref, and external citekeys attached to multiple managed literature nodes.
+
+The command =org-roam-organize-cite-sync= performs a global sync for the same record. Before writing generated entries, it uses the same cite reference validation as =org-roam-organize-cite-check=. It then computes citation relationships from Org-roam's =refs= and =citations= tables using =refs.node_id = citations.cite_key=, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them. If the same external citekey is attached to multiple managed literature nodes, it is reported as a non-blocking data quality warning.
 
 When =org-roam-organize-mode= is enabled, export-time citation conversion is registered through Org export's parse-tree filter. During export, citation keys that match managed literature node UUIDs are replaced with the current external citekey from =refs.ref=. Citation keys that do not match managed literature nodes are left unchanged, and the source Org buffer is not modified.
 

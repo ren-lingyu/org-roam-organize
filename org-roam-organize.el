@@ -2058,15 +2058,16 @@ more than one such row."
   (and (null (plist-get result :missing))
        (null (plist-get result :multiple))))
 
-(defun org-roam-organize--cite-reference-map-data-or-error ()
-  "Return valid cite reference mapping data, or signal a user error.
+(defun org-roam-organize--cite-global-reference-map-data ()
+  "Return global cite reference mapping data, or nil when cite is unconfigured.
 
-Implementation notes: this shared loader is used by export-time UUID citation
-conversion.  It intentionally reuses the same registry record lookup, tag
-membership query, and cite-ref validation as `org-roam-organize-cite-sync' so
-export conversion and citing-node entry sync do not drift into separate
-database semantics.  Duplicate external citekeys remain non-blocking because
-UUID citations resolve through literature node ids."
+Implementation notes: the function requires at most one `:cite t' registry
+record, loads all level-0 nodes for that record's tag, and delegates ref table
+loading to `org-roam-organize--cite-reference-map-data'.  The returned plist
+therefore contains both the managed literature node list and the mapping
+diagnostics derived from Org-roam's DB tables.  Citation sync, global cite
+checks, and export conversion can share this loader while keeping their own
+policy decisions."
   (let ((records (org-roam-organize--registry-cite-records)))
     (cond
      ((not records)
@@ -2082,12 +2083,70 @@ UUID citations resolve through literature node ids."
              (map-data
               (org-roam-organize--cite-reference-map-data
                ref-nodes)))
-        (unless (org-roam-organize--cite-reference-refs-valid-p map-data)
-          (user-error
-           "Cite reference validation failed: %s missing cite refs, %s multiple cite refs"
-           (length (plist-get map-data :missing))
-           (length (plist-get map-data :multiple))))
-        map-data)))))
+        (plist-put map-data :nodes ref-nodes))))))
+
+(defun org-roam-organize--cite-reference-map-data-or-error ()
+  "Return valid global cite reference mapping data, or signal a user error.
+
+Implementation notes: this policy wrapper is used by export-time UUID
+citation conversion for now.  It reuses
+`org-roam-organize--cite-global-reference-map-data' and only adds the current
+global blocking rule: missing or multiple cite refs make UUID citation mapping
+ambiguous and therefore signal `user-error'.  Duplicate external citekeys
+remain non-blocking because UUID citations resolve through literature node
+ids."
+  (let ((map-data (org-roam-organize--cite-global-reference-map-data)))
+    (when (and map-data
+               (not (org-roam-organize--cite-reference-refs-valid-p
+                     map-data)))
+      (user-error
+       "Cite reference validation failed: %s missing cite refs, %s multiple cite refs"
+       (length (plist-get map-data :missing))
+       (length (plist-get map-data :multiple))))
+    map-data))
+
+(defun org-roam-organize--cite-report-reference-map-data (map-data)
+  "Report cite reference diagnostics from MAP-DATA.
+
+Return non-nil when blocking validation passed.
+
+Implementation notes: MAP-DATA is produced by
+`org-roam-organize--cite-reference-map-data' or
+`org-roam-organize--cite-global-reference-map-data'.  The reporting policy is
+shared by `org-roam-organize-cite-check' and `org-roam-organize-cite-sync':
+missing and multiple cite refs are blocking diagnostics, while duplicate
+external citekeys are non-blocking data quality warnings."
+  (let ((missing (plist-get map-data :missing))
+        (multiple (plist-get map-data :multiple))
+        (duplicate-citekeys (plist-get map-data :duplicate-citekeys)))
+    (dolist (entry duplicate-citekeys)
+      (message
+       "[WARNING] External citekey belongs to multiple literature nodes: %s (%s)"
+       (plist-get entry :citekey)
+       (mapconcat #'identity
+                  (plist-get entry :uuids)
+                  ", ")))
+    (if (not (org-roam-organize--cite-reference-refs-valid-p map-data))
+        (progn
+          (message
+           "[WARNING] Cite reference validation failed: %s missing cite refs, %s multiple cite refs."
+           (length missing)
+           (length multiple))
+          (dolist (node missing)
+            (message
+             "[WARNING] Cite reference node has no cite ref: %s (%s)"
+             (plist-get node :title)
+             (plist-get node :id)))
+          (dolist (node multiple)
+            (message
+             "[WARNING] Cite reference node has multiple cite refs: %s (%s): %s"
+             (plist-get node :title)
+             (plist-get node :id)
+             (mapconcat #'identity
+                        (plist-get node :refs)
+                        ", ")))
+          nil)
+      t)))
 
 (defun org-roam-organize--cite-export-filter (parse-tree _backend _info)
   "Replace managed UUID citation keys in PARSE-TREE before export.
@@ -2406,6 +2465,45 @@ derived managed properties are updated only after a successful entry sync."
 
 ;; 文献引用节点条目同步
 ;;;###autoload
+(defun org-roam-organize-cite-check ()
+  "Check global managed citation reference consistency.
+
+Implementation notes: the command refreshes the Org-roam database, loads the
+single `:cite t' registry record through
+`org-roam-organize--cite-global-reference-map-data', and reports the same
+blocking and non-blocking diagnostics used by `org-roam-organize-cite-sync'.
+It does not modify Org files.  Missing or multiple cite refs are reported as
+blocking validation failures; duplicate external citekeys are reported as
+non-blocking data quality warnings."
+  (interactive)
+  (if org-roam-organize-mode
+      (let ((records (org-roam-organize--registry-cite-records)))
+        (cond
+         ((not records)
+          (message "[WARNING] No :cite t registry record is configured."))
+         ((> (length records) 1)
+          (message "[WARNING] Multiple :cite t registry records are configured."))
+         (t
+          (org-roam-db)
+          (let* ((map-data
+                  (org-roam-organize--cite-global-reference-map-data))
+                 (node-count (length (plist-get map-data :nodes)))
+                 (duplicate-citekey-count
+                  (length (plist-get map-data :duplicate-citekeys)))
+                 (valid-p
+                  (org-roam-organize--cite-report-reference-map-data
+                   map-data)))
+            (message
+             "[INFO] Check cite references: %s checked, %s missing cite refs, %s multiple cite refs, %s duplicate cite keys, status %s."
+             node-count
+             (length (plist-get map-data :missing))
+             (length (plist-get map-data :multiple))
+             duplicate-citekey-count
+             (if valid-p "passed" "failed"))))))
+    (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
+
+;; 文献引用节点条目同步
+;;;###autoload
 (defun org-roam-organize-cite-sync ()
   "Sync citing-node entries for managed citation reference nodes.
 
@@ -2413,11 +2511,11 @@ Implementation notes: the command requires exactly one registry record marked
 with `:cite t'.  It refreshes the Org-roam database, reads every level-0 node
 with that record's tag, validates that each reference node has exactly one
 `refs.type = \"cite\"' row, reports duplicate external citekeys as
-non-blocking data quality warnings, computes citing-node relationships from
-`refs' and `citations', and synchronizes `#+ROAM_CITING_NODE' keyword entries
-in each reference node's configured Inbox headline.  The sync is intentionally
-global so stale entries can be removed from reference nodes that no longer
-have incoming citations."
+non-blocking data quality warnings through the shared cite reference reporter,
+computes citing-node relationships from `refs' and `citations', and
+synchronizes `#+ROAM_CITING_NODE' keyword entries in each reference node's
+configured Inbox headline.  The sync is intentionally global so stale entries
+can be removed from reference nodes that no longer have incoming citations."
   (interactive)
   (if org-roam-organize-mode
       (let ((records (org-roam-organize--registry-cite-records)))
@@ -2452,36 +2550,12 @@ have incoming citations."
                    (citing-alist (plist-get cite-data :alist)))
               (setq duplicate-citekey-count
                     (length (plist-get map-data :duplicate-citekeys)))
-              (dolist (entry (plist-get map-data :duplicate-citekeys))
-                (message
-                 "[WARNING] External citekey belongs to multiple literature nodes: %s (%s)"
-                 (plist-get entry :citekey)
-                 (mapconcat #'identity
-                            (plist-get entry :uuids)
-                            ", ")))
-              (if (not (org-roam-organize--cite-reference-refs-valid-p
+              (if (not (org-roam-organize--cite-report-reference-map-data
                         map-data))
                   (progn
                     (setq failed-count
                           (+ (length (plist-get map-data :missing))
-                             (length (plist-get map-data :multiple))))
-                    (message
-                     "[WARNING] Cite reference validation failed: %s missing cite refs, %s multiple cite refs."
-                     (length (plist-get map-data :missing))
-                     (length (plist-get map-data :multiple)))
-                    (dolist (node (plist-get map-data :missing))
-                      (message
-                       "[WARNING] Cite reference node has no cite ref: %s (%s)"
-                       (plist-get node :title)
-                       (plist-get node :id)))
-                    (dolist (node (plist-get map-data :multiple))
-                      (message
-                       "[WARNING] Cite reference node has multiple cite refs: %s (%s): %s"
-                       (plist-get node :title)
-                       (plist-get node :id)
-                       (mapconcat #'identity
-                                  (plist-get node :refs)
-                                  ", "))))
+                             (length (plist-get map-data :multiple)))))
                 (dolist (ref-node ref-nodes)
                   (let* ((path (plist-get ref-node :file))
                          (citing-nodes
