@@ -2085,25 +2085,82 @@ policy decisions."
                ref-nodes)))
         (plist-put map-data :nodes ref-nodes))))))
 
-(defun org-roam-organize--cite-reference-map-data-or-error ()
-  "Return valid global cite reference mapping data, or signal a user error.
+(defun org-roam-organize--cite-reference-keys-in-parse-tree (parse-tree)
+  "Return unique citation reference keys from PARSE-TREE.
 
-Implementation notes: this policy wrapper is used by export-time UUID
-citation conversion for now.  It reuses
-`org-roam-organize--cite-global-reference-map-data' and only adds the current
-global blocking rule: missing or multiple cite refs make UUID citation mapping
-ambiguous and therefore signal `user-error'.  Duplicate external citekeys
-remain non-blocking because UUID citations resolve through literature node
-ids."
-  (let ((map-data (org-roam-organize--cite-global-reference-map-data)))
-    (when (and map-data
-               (not (org-roam-organize--cite-reference-refs-valid-p
-                     map-data)))
-      (user-error
-       "Cite reference validation failed: %s missing cite refs, %s multiple cite refs"
-       (length (plist-get map-data :missing))
-       (length (plist-get map-data :multiple))))
-    map-data))
+Implementation notes: the function walks Org Element `citation-reference'
+nodes and collects their `:key' properties in parse order.  A hash table is
+used to avoid duplicate DB work when the same key appears more than once in
+the exported document."
+  (let ((seen (make-hash-table :test 'equal))
+        keys)
+    (org-element-map parse-tree 'citation-reference
+      (lambda (reference)
+        (let ((key (org-element-property :key reference)))
+          (when (and (stringp key)
+                     (not (gethash key seen)))
+            (puthash key t seen)
+            (push key keys)))))
+    (nreverse keys)))
+
+(defun org-roam-organize--cite-empty-reference-map-data ()
+  "Return an empty cite reference mapping data plist.
+
+Implementation notes: export conversion uses this value when the current
+parse tree does not reference any managed literature node.  Keeping the same
+plist shape as `org-roam-organize--cite-reference-map-data' lets callers use
+the same hash-table lookup path without special branching."
+  (list :missing nil
+        :multiple nil
+        :duplicate-citekeys nil
+        :uuid-to-citekey (make-hash-table :test 'equal)
+        :citekey-to-uuids (make-hash-table :test 'equal)
+        :nodes nil))
+
+(defun org-roam-organize--cite-export-reference-map-data-or-error (keys)
+  "Return valid cite reference mapping data for managed citation KEYS.
+
+Signal a user error when any managed literature node referenced by KEYS has
+missing or multiple cite refs.  Return nil when no `:cite t' record is
+configured.
+
+Implementation notes: this export-specific policy intentionally validates
+only the intersection of the current export's citation keys and the managed
+literature node UUID set.  It still reuses
+`org-roam-organize--cite-reference-map-data' and
+`org-roam-organize--cite-reference-refs-valid-p' for table loading and
+blocking validation.  Citation keys that do not match managed literature node
+UUIDs are ignored so ordinary external citekeys remain exportable."
+  (if (not keys)
+      (org-roam-organize--cite-empty-reference-map-data)
+    (let ((records (org-roam-organize--registry-cite-records)))
+      (cond
+       ((not records)
+        nil)
+       ((> (length records) 1)
+        (user-error "Multiple :cite t registry records are configured"))
+       (t
+        (let* ((record (car records))
+               (tag (org-roam-organize--record-tag record))
+               (key-table (make-hash-table :test 'equal))
+               selected-nodes)
+          (dolist (key keys)
+            (puthash key t key-table))
+          (dolist (node (and (stringp tag)
+                             (org-roam-organize--nodes-with-tag tag)))
+            (when (gethash (plist-get node :id) key-table)
+              (push node selected-nodes)))
+          (let ((map-data
+                 (if selected-nodes
+                     (org-roam-organize--cite-reference-map-data
+                      (nreverse selected-nodes))
+                   (org-roam-organize--cite-empty-reference-map-data))))
+            (unless (org-roam-organize--cite-reference-refs-valid-p map-data)
+              (user-error
+               "Cite reference validation failed for exported citations: %s missing cite refs, %s multiple cite refs"
+               (length (plist-get map-data :missing))
+               (length (plist-get map-data :multiple))))
+            map-data)))))))
 
 (defun org-roam-organize--cite-report-reference-map-data (map-data)
   "Report cite reference diagnostics from MAP-DATA.
@@ -2156,14 +2213,20 @@ matches a managed literature node UUID are rewritten; other citation keys are
 left unchanged.
 
 Implementation notes: Org export parse-tree filters receive the complete Org
-Element tree before backend rendering.  This function loads the UUID-to-citekey
-hash table once, then walks `citation-reference' elements and mutates only the
-`:key' property with `org-element-put-property'.  The source buffer is not
-edited.  The function keeps an explicit `org-roam-organize-mode' guard because
-export hook variables are global."
+Element tree before backend rendering.  This function first collects citation
+keys from the current parse tree, validates and loads cite refs only for
+managed literature UUIDs that appear in that key set, then walks
+`citation-reference' elements and mutates only the `:key' property with
+`org-element-put-property'.  The source buffer is not edited.  The function
+keeps an explicit `org-roam-organize-mode' guard because export hook variables
+are global."
   (when org-roam-organize-mode
-    (let* ((map-data
-            (org-roam-organize--cite-reference-map-data-or-error))
+    (let* ((keys
+            (org-roam-organize--cite-reference-keys-in-parse-tree
+             parse-tree))
+           (map-data
+            (org-roam-organize--cite-export-reference-map-data-or-error
+             keys))
            (uuid-to-citekey
             (plist-get map-data :uuid-to-citekey)))
       (when uuid-to-citekey

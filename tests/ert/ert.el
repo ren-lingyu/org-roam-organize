@@ -1083,8 +1083,9 @@
 (ert-deftest org-roam-organize-test-cite-export-filter-replaces-managed-uuid-citation-keys ()
   (let ((org-roam-organize-mode t))
     (cl-letf (((symbol-function
-                'org-roam-organize--cite-reference-map-data-or-error)
-               (lambda ()
+                'org-roam-organize--cite-export-reference-map-data-or-error)
+               (lambda (keys)
+                 (should (equal keys '("ref-a" "plain-key")))
                  (let ((uuid-to-citekey (make-hash-table :test 'equal)))
                    (puthash "ref-a" "key-a" uuid-to-citekey)
                    (list :uuid-to-citekey uuid-to-citekey)))))
@@ -1103,8 +1104,8 @@
 (ert-deftest org-roam-organize-test-cite-export-filter-errors-on-invalid-managed-map ()
   (let ((org-roam-organize-mode t))
     (cl-letf (((symbol-function
-                'org-roam-organize--cite-reference-map-data-or-error)
-               (lambda ()
+                'org-roam-organize--cite-export-reference-map-data-or-error)
+               (lambda (_keys)
                  (user-error "Cite reference validation failed"))))
       (with-temp-buffer
         (insert "[cite:@ref-a]")
@@ -1115,6 +1116,47 @@
           nil
           nil)
          :type 'user-error)))))
+
+(ert-deftest org-roam-organize-test-cite-export-reference-map-data-validates-only-exported-managed-uuids ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature" :tag "ref" :cite t :basic t :directory "literature")))
+        selected-nodes)
+    (cl-letf (((symbol-function 'org-roam-organize--nodes-with-tag)
+               (lambda (tag)
+                 (should (equal tag "ref"))
+                 '((:id "ref-a" :title "Ref A")
+                   (:id "ref-b" :title "Ref B"))))
+              ((symbol-function 'org-roam-organize--cite-reference-map-data)
+               (lambda (nodes)
+                 (setq selected-nodes nodes)
+                 (let ((uuid-to-citekey (make-hash-table :test 'equal)))
+                   (puthash "ref-a" "key-a" uuid-to-citekey)
+                   (list :missing nil
+                         :multiple nil
+                         :duplicate-citekeys nil
+                         :uuid-to-citekey uuid-to-citekey)))))
+      (let ((result
+             (org-roam-organize--cite-export-reference-map-data-or-error
+              '("ref-a" "plain-key"))))
+        (should (equal selected-nodes
+                       '((:id "ref-a" :title "Ref A"))))
+        (should (equal (gethash "ref-a"
+                                (plist-get result :uuid-to-citekey))
+                       "key-a"))))))
+
+(ert-deftest org-roam-organize-test-cite-export-reference-map-data-skips-registry-without-keys ()
+  (let (registry-called)
+    (cl-letf (((symbol-function 'org-roam-organize--registry-cite-records)
+               (lambda ()
+                 (setq registry-called t)
+                 nil)))
+      (let ((result
+             (org-roam-organize--cite-export-reference-map-data-or-error
+              nil)))
+        (should-not registry-called)
+        (should (hash-table-p (plist-get result :uuid-to-citekey)))))))
 
 (ert-deftest org-roam-organize-test-count-nodes-with-given-tag-list-returns-ordered-alist ()
   (let ((org-roam-organize-mode t)
