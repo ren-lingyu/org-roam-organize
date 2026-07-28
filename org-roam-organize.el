@@ -720,8 +720,9 @@ the shared root-safe path helper before any file operation sees it."
 The standard node layout uses `org-roam-organize--node-relative-path-template'
 and RECORD's bundle-relative path template under RECORD's directory inside
 `org-roam-organize-directory'.
-This function only provides the target path template; UUID parent directory
-creation is left to the Org-roam capture and Emacs save workflow.
+This function only builds the target path template.  Directory creation happens
+later in the Org-roam capture preface hook after `${id}', `${slug}', and
+provider `:info' placeholders have been expanded.
 
 Implementation notes: the template is generated only when RECORD has a
 string directory that resolves inside the root and a safe path template.

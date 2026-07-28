@@ -152,6 +152,11 @@ The following aliases are optional user configuration examples:
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
+  (defun example-org-roam-organize-literature-provider (_record)
+    (list :title "Example Literature Note"
+          :info (list :author "John Doe"
+                      :citar-key "doe2026")))
+
   (use-package org-roam-organize
     :straight (:host github :repo "ren-lingyu/org-roam-organize")
     :after org-roam
@@ -180,9 +185,13 @@ An example of configuration is shown here.
            (list :name "literature"
                  :tag "ref"
                  :basic t
+                 :cite t
                  :directory "literature"
                  :inbox "Inbox"
-                 :template '((keywords . ((author . nil)
+                 :provider #'example-org-roam-organize-literature-provider
+                 :template '((path . "${citar-key}.org")
+                             (properties . ((roam_refs . "@${citar-key}")))
+                             (keywords . ((author . "${author}")
                                           (date . nil)
                                           (description . nil)
                                           (filetags . ("ref"))))))
@@ -262,7 +271,8 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
                     :cite t
                     :directory "literature"
                     :provider #'my-org-roam-organize-literature-provider
-                    :template '((properties . ((roam_refs . "@${citar-key}")))
+                    :template '((path . "${citar-key}.org")
+                                (properties . ((roam_refs . "@${citar-key}")))
                                 (keywords . ((author . "${author}")
                                              (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
                                              (description . nil)
