@@ -1993,6 +1993,59 @@ and its citation rows are skipped rather than merged into an arbitrary node."
     (list :alist (nreverse alist)
           :conflicts (nreverse conflicts))))
 
+(defun org-roam-organize--cite-reference-ref-validation (ref-nodes)
+  "Validate that each REF-NODES entry has exactly one cite ref.
+
+Return a plist containing `:missing' and `:multiple'.  `:missing' contains
+reference node plists that have no `refs.type = \"cite\"' row.  `:multiple'
+contains reference node plists extended with a `:refs' list when more than one
+cite ref row is attached to that node.
+
+Implementation notes: `org-roam-organize-cite-sync' depends on a one-to-one
+relationship between each managed literature node and its naked cite key.
+This helper checks that invariant directly against Org-roam's `refs' table
+before citation-derived entries are synchronized."
+  (let* ((ref-node-ids (mapcar (lambda (node)
+                                 (plist-get node :id))
+                               ref-nodes))
+         (rows
+          (when ref-node-ids
+            (org-roam-db-query
+             (vector :select (vector 'r:node_id 'r:ref)
+                     :from '(as refs r)
+                     :where '(and (= r:type "cite")
+                                  (in r:node_id $v1)))
+             (vconcat ref-node-ids))))
+         (node-ref-table (make-hash-table :test 'equal))
+         missing
+         multiple)
+    (dolist (row rows)
+      (let ((node-id (nth 0 row))
+            (ref (nth 1 row)))
+        (puthash node-id
+                 (cons ref (gethash node-id node-ref-table))
+                 node-ref-table)))
+    (dolist (node ref-nodes)
+      (let* ((node-id (plist-get node :id))
+             (refs (nreverse (gethash node-id node-ref-table))))
+        (cond
+         ((null refs)
+          (push node missing))
+         ((> (length refs) 1)
+          (push (append node (list :refs refs)) multiple)))))
+    (list :missing (nreverse missing)
+          :multiple (nreverse multiple))))
+
+(defun org-roam-organize--cite-reference-refs-valid-p (result)
+  "Return non-nil when cite reference refs in RESULT are valid.
+
+Implementation notes: RESULT is the plist returned by
+`org-roam-organize--cite-reference-ref-validation'.  Valid means that no
+managed reference node is missing a `refs.type = \"cite\"' row and none has
+more than one such row."
+  (and (null (plist-get result :missing))
+       (null (plist-get result :multiple))))
+
 (defun org-roam-organize--cite-sync-citing-node-entries (record path nodes)
   "Sync citing-node entries for citation RECORD at PATH from NODES.
 
@@ -2369,11 +2422,12 @@ derived managed properties are updated only after a successful entry sync."
 
 Implementation notes: the command requires exactly one registry record marked
 with `:cite t'.  It refreshes the Org-roam database, reads every level-0 node
-with that record's tag, computes citing-node relationships from `refs' and
-`citations', and synchronizes `#+ROAM_CITING_NODE' keyword entries in each
-reference node's configured Inbox headline.  The sync is intentionally global
-so stale entries can be removed from reference nodes that no longer have
-incoming citations."
+with that record's tag, validates that each reference node has exactly one
+`refs.type = \"cite\"' row, computes citing-node relationships from `refs'
+and `citations', and synchronizes `#+ROAM_CITING_NODE' keyword entries in
+each reference node's configured Inbox headline.  The sync is intentionally
+global so stale entries can be removed from reference nodes that no longer
+have incoming citations."
   (interactive)
   (if org-roam-organize-mode
       (let ((records (org-roam-organize--registry-cite-records)))
@@ -2398,40 +2452,68 @@ incoming citations."
                    (ref-node-ids (mapcar (lambda (node)
                                            (plist-get node :id))
                                          ref-nodes))
+                   (ref-validation
+                    (org-roam-organize--cite-reference-ref-validation
+                     ref-nodes))
                    (cite-data
-                    (org-roam-organize--cite-citing-node-data ref-node-ids))
+                    (when (org-roam-organize--cite-reference-refs-valid-p
+                           ref-validation)
+                      (org-roam-organize--cite-citing-node-data ref-node-ids)))
                    (citing-alist (plist-get cite-data :alist))
                    (conflicts (plist-get cite-data :conflicts)))
               (setq conflict-count (length conflicts))
-              (dolist (ref-node ref-nodes)
-                (let* ((path (plist-get ref-node :file))
-                       (citing-nodes
-                        (or (cdr (assoc (plist-get ref-node :id)
-                                        citing-alist))
-                            nil))
-                       (result
-                        (org-roam-organize--cite-sync-citing-node-entries
-                         record
-                         path
-                         citing-nodes)))
-                  (cond
-                   ((or (not result)
-                        (eq (plist-get result :status) 'failed))
-                    (setq failed-count (1+ failed-count))
-                    (message "[WARNING] Cannot sync citing-node entries for node: %s (%s)"
-                             ref-node
-                             (plist-get result :reason)))
-                   (t
-                    (setq synced-count (1+ synced-count))
-                    (setq duplicate-count
-                          (+ duplicate-count
-                             (length (plist-get result :duplicates))))
-                    (setq removed-count
-                          (+ removed-count
-                             (length (plist-get result :removed))))
-                    (setq malformed-count
-                          (+ malformed-count
-                             (length (plist-get result :malformed)))))))))
+              (if (not (org-roam-organize--cite-reference-refs-valid-p
+                        ref-validation))
+                  (progn
+                    (setq failed-count
+                          (+ (length (plist-get ref-validation :missing))
+                             (length (plist-get ref-validation :multiple))))
+                    (message
+                     "[WARNING] Cite reference validation failed: %s missing cite refs, %s multiple cite refs."
+                     (length (plist-get ref-validation :missing))
+                     (length (plist-get ref-validation :multiple)))
+                    (dolist (node (plist-get ref-validation :missing))
+                      (message
+                       "[WARNING] Cite reference node has no cite ref: %s (%s)"
+                       (plist-get node :title)
+                       (plist-get node :id)))
+                    (dolist (node (plist-get ref-validation :multiple))
+                      (message
+                       "[WARNING] Cite reference node has multiple cite refs: %s (%s): %s"
+                       (plist-get node :title)
+                       (plist-get node :id)
+                       (mapconcat #'identity
+                                  (plist-get node :refs)
+                                  ", "))))
+                (dolist (ref-node ref-nodes)
+                  (let* ((path (plist-get ref-node :file))
+                         (citing-nodes
+                          (or (cdr (assoc (plist-get ref-node :id)
+                                          citing-alist))
+                              nil))
+                         (result
+                          (org-roam-organize--cite-sync-citing-node-entries
+                           record
+                           path
+                           citing-nodes)))
+                    (cond
+                     ((or (not result)
+                          (eq (plist-get result :status) 'failed))
+                      (setq failed-count (1+ failed-count))
+                      (message "[WARNING] Cannot sync citing-node entries for node: %s (%s)"
+                               ref-node
+                               (plist-get result :reason)))
+                     (t
+                      (setq synced-count (1+ synced-count))
+                      (setq duplicate-count
+                            (+ duplicate-count
+                               (length (plist-get result :duplicates))))
+                      (setq removed-count
+                            (+ removed-count
+                               (length (plist-get result :removed))))
+                      (setq malformed-count
+                            (+ malformed-count
+                               (length (plist-get result :malformed))))))))))
             (message
              "[INFO] Sync citing-node entries: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries, %s conflicted cite keys."
              synced-count failed-count duplicate-count removed-count malformed-count conflict-count)))))

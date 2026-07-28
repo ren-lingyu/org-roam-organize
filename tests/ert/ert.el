@@ -816,6 +816,33 @@
         (should-not (assoc "ref-b" alist))
         (should-not (assoc "ref-c" alist))))))
 
+(ert-deftest org-roam-organize-test-cite-reference-ref-validation-reports-missing-and-multiple ()
+  (let (captured-query
+        captured-args)
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (query &rest args)
+                 (setq captured-query query)
+                 (setq captured-args args)
+                 '(("ref-a" "key-a")
+                   ("ref-c" "key-c-1")
+                   ("ref-c" "key-c-2")))))
+      (let ((result
+             (org-roam-organize--cite-reference-ref-validation
+              '((:id "ref-a" :title "Ref A")
+                (:id "ref-b" :title "Ref B")
+                (:id "ref-c" :title "Ref C")))))
+        (should (vectorp captured-query))
+        (should (equal captured-args
+                       (list (vconcat '("ref-a" "ref-b" "ref-c")))))
+        (should (equal (plist-get result :missing)
+                       '((:id "ref-b" :title "Ref B"))))
+        (should (equal (plist-get result :multiple)
+                       '((:id "ref-c"
+                          :title "Ref C"
+                          :refs ("key-c-1" "key-c-2")))))
+        (should-not
+         (org-roam-organize--cite-reference-refs-valid-p result))))))
+
 (ert-deftest org-roam-organize-test-cite-sync-wrapper-uses-citing-node-keyword ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (path (expand-file-name "literature/ref.org" root))
@@ -878,6 +905,13 @@
                  (should (equal tag "ref"))
                  `((:id "ref-a" :title "Ref A" :file ,ref-a-file)
                    (:id "ref-b" :title "Ref B" :file ,ref-b-file))))
+              ((symbol-function 'org-roam-organize--cite-reference-ref-validation)
+               (lambda (nodes)
+                 (should (equal (mapcar (lambda (node)
+                                          (plist-get node :id))
+                                        nodes)
+                                '("ref-a" "ref-b")))
+                 '(:missing nil :multiple nil)))
               ((symbol-function 'org-roam-organize--cite-citing-node-data)
                (lambda (ids)
                  (should (equal ids '("ref-a" "ref-b")))
@@ -894,6 +928,49 @@
     (with-temp-buffer
       (insert-file-contents ref-b-file)
       (should-not (search-forward "Stale" nil t)))))
+
+(ert-deftest org-roam-organize-test-cite-sync-stops-when-reference-ref-validation-fails ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (ref-a-file (expand-file-name "literature/ref-a.org" root))
+         (org-roam-organize-mode t)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "literature"
+             :tag "ref"
+             :cite t
+             :basic t
+             :directory "literature"
+             :inbox "Inbox")))
+         cite-data-called
+         synced)
+    (write-region "#+TITLE: Ref A\n" nil ref-a-file)
+    (cl-letf (((symbol-function 'org-roam-db)
+               (lambda () t))
+              ((symbol-function 'org-roam-organize--nodes-with-tag-and-file)
+               (lambda (_tag)
+                 `((:id "ref-a" :title "Ref A" :file ,ref-a-file))))
+              ((symbol-function 'org-roam-organize--cite-reference-ref-validation)
+               (lambda (_nodes)
+                 '(:missing ((:id "ref-a" :title "Ref A"))
+                   :multiple nil)))
+              ((symbol-function 'org-roam-organize--cite-citing-node-data)
+               (lambda (&rest _args)
+                 (setq cite-data-called t)
+                 nil))
+              ((symbol-function 'org-roam-organize--cite-sync-citing-node-entries)
+               (lambda (&rest _args)
+                 (setq synced t)
+                 nil))
+              ((symbol-function 'message)
+               (lambda (&rest _args) nil)))
+      (org-roam-organize-cite-sync))
+    (should-not cite-data-called)
+    (should-not synced)
+    (with-temp-buffer
+      (insert-file-contents ref-a-file)
+      (should-not (search-forward org-roam-organize--cite-citing-node-keyword
+                                  nil t)))))
 
 (ert-deftest org-roam-organize-test-mode-does-not-register-raw-capture-template ()
   (let* ((root (org-roam-organize-test--temporary-root))
