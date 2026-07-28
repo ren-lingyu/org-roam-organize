@@ -2064,92 +2064,6 @@ entries do not currently use suffix metadata."
    record
    "Reference file does not exist"))
 
-;; hash 表转换为 alist
-(defun org-roam-organize--hash-table-to-alist (hash_table)
-  "Return HASH_TABLE as an alist when organize mode is enabled.
-
-Implementation notes: the function walks HASH_TABLE with `maphash', pushes
-each key/value cons to a list, and reverses the result to compensate for push
-order.  It is kept small because callers decide whether alist ordering
-matters."
-  (when org-roam-organize-mode
-    (let (result)
-      (maphash
-       (lambda
-         (key value)
-         (push (cons key value) result))
-       hash_table)
-      (nreverse result))))  ;; Reverse the list back to original order.
-
-;; alist 转换为 hash 表
-(defun org-roam-organize--alist-to-hash-table (alist)
-  "Return ALIST grouped into a hash table when organize mode is enabled.
-
-Implementation notes: duplicate keys are preserved by appending each cdr to
-the existing value list.  This is used for database rows where one source key
-can refer to many destination node ids."
-  (when org-roam-organize-mode
-    (let ((ht (make-hash-table :test 'equal)))
-      (dolist (row alist)
-        (puthash
-         (car row)
-         (append (gethash (car row) ht) (list (cdr row)))
-         ht))
-      ht)))
-
-;; 替换 tag
-(defun org-roam-organize--update-filetag (file source_tag target_tag)
-  "In FILE, replace SOURCE_TAG with TARGET_TAG in #+FILETAGS.
-
-If no #+FILETAGS line exists, do nothing.
-
-Implementation notes: this legacy helper opens FILE without selecting it,
-searches for the first FILETAGS line, and performs a narrow textual
-replacement of `:SOURCE_TAG:' with `:TARGET_TAG:'.  It intentionally does not
-create FILETAGS or reinterpret unrelated tag text."
-  (when org-roam-organize-mode
-    (with-current-buffer (find-file-noselect file)
-      (goto-char (point-min))
-      (if (re-search-forward "^#\\+FILETAGS:[ \t]*\\(.*\\)$" nil t)
-          (let* ((old (match-string 1))
-                 ;; 保留所有原有 tag, 只替换 source_tag.
-                 (new (replace-regexp-in-string (concat ":" source_tag ":") (concat ":" target_tag ":") old)))
-            (unless (string= old new)
-              ;; 用 new 覆盖 old.
-              (replace-match new nil nil nil 1)
-              (save-buffer)
-              (message "Updated FILETAGS in %s: %s → %s" file source_tag target_tag)))
-        (message "No #+FILETAGS: found in %s; skipping tag update" file)))))
-
-;; 从光标获取 headline 中通过 id 引用指向的 node 信息
-(defun org-roam-organize--get-node-info-from-cite-in-headline (&optional pos)
-  "Return id and Org-roam node referenced by the headline at POS.
-
-Implementation notes: the function inspects the Org element at POS, requires
-it to be a headline, extracts the first `[[id:...]]' link from the raw
-headline title with a simple compatibility regexp, and resolves that id with
-`org-roam-node-from-id'."
-  (when org-roam-organize-mode
-    (let* ((pos (or pos (point)))
-           (el (save-excursion (goto-char pos) (org-element-at-point)))
-           (title (org-element-property :raw-value el))
-           id node)
-      ;; 检查 headline 类型.
-      (unless (eq (org-element-type el) 'headline)
-        (user-error "Not on a headline"))
-      ;; 提取 id.
-      (setq id
-            (if (string-match "\\[\\[id:\\([^]]+\\)\\]\\[" title)
-                (match-string 1 title)
-              (user-error "No [[id:...]] link found in this headline")))
-      ;; 获取 org-roam node.
-      (setq node
-            (or
-             (org-roam-node-from-id id)
-             (user-error "No org-roam node with id %s" id)))
-      ;; 返回 plist.
-      (list :id id :node node))))
-
 ;; 对给定 tag 列表, 查出数据库中 nodes 表内 level=0 的 node 数量
 (defun org-roam-organize--count-nodes-with-given-tag-list (tag_list &optional hash_to_alist)
   "Return tag counts for level-0 nodes in TAG_LIST.
@@ -2159,7 +2073,9 @@ table.  Tags not present in the Org-roam database are assigned zero.
 
 Implementation notes: the result hash is prefilled with zero for every input
 tag, then updated from a grouped Org-roam DB query.  The query joins `tags'
-to level-0 `nodes' so headline tags do not affect file-node counts."
+to level-0 `nodes' so headline tags do not affect file-node counts.  When an
+alist is requested, it is derived directly from TAG_LIST so the return order
+matches the input order."
   (when org-roam-organize-mode
     (let* ((tag_count (make-hash-table :test 'equal))
            (result
@@ -2178,7 +2094,9 @@ to level-0 `nodes' so headline tags do not affect file-node counts."
               (count (nth 1 item)))
           (puthash tag count tag_count)))
       (if hash_to_alist
-          (org-roam-organize--hash-table-to-alist tag_count)
+          (mapcar (lambda (tag)
+                    (cons tag (gethash tag tag_count)))
+                  tag_list)
         tag_count))))
 
 ;; ==============================

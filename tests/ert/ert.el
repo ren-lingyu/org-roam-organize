@@ -972,6 +972,26 @@
       (should-not (search-forward org-roam-organize--cite-citing-node-keyword
                                   nil t)))))
 
+(ert-deftest org-roam-organize-test-count-nodes-with-given-tag-list-returns-ordered-alist ()
+  (let ((org-roam-organize-mode t)
+        captured-query
+        captured-args)
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (query &rest args)
+                 (setq captured-query query)
+                 (setq captured-args args)
+                 '(("idea" 2)))))
+      (let ((result
+             (org-roam-organize--count-nodes-with-given-tag-list
+              '("idea" "ref")
+              t)))
+        (should (vectorp captured-query))
+        (should (equal captured-args
+                       (list (vconcat '("idea" "ref")))))
+        (should (equal result
+                       '(("idea" . 2)
+                         ("ref" . 0))))))))
+
 (ert-deftest org-roam-organize-test-mode-does-not-register-raw-capture-template ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (default-directory temporary-file-directory)
