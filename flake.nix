@@ -1,6 +1,6 @@
 {
 
-  description = "Organize Org-roam node references";
+  description = "Emacs package: org-roam-organize";
 
   inputs = {
     nixpkgs = {
