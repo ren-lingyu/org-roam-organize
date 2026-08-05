@@ -78,6 +78,27 @@
   :type 'string
   :group 'org-roam-organize)
 
+(defcustom org-roam-organize-cite-backend nil
+  "Select the backend used for interactive citation operations.
+
+Set this to nil to disable interactive backend integration.  Set this to
+`citar' to use the optional Citar adapter.  The value is read when
+`org-roam-organize-mode' is enabled; disable and re-enable the mode after
+changing it.  It does not affect UUID citation storage, citation
+synchronization, or export conversion.
+
+Implementation notes: Mode setup loads and installs the selected adapter, and
+mode teardown removes it.  The Citar adapter changes Citar's Org insertion and
+follow boundaries while leaving Citar's user-facing commands intact.
+
+Rationale: Interactive citation managers are optional frontends around the
+Org-roam Organize UUID data model, so selecting one must not make it a core
+package dependency."
+  :type '(choice
+          (const :tag "None" nil)
+          (const :tag "Citar" citar))
+  :group 'org-roam-organize)
+
 (defcustom org-roam-organize-registry
   (list (list :name "navigation"
               :tag "map"
@@ -172,6 +193,11 @@ The provider does not control paths, targets, or capture templates."
 
 (defvar org-roam-organize-mode)
 (defvar org-note-abort)
+(defvar org-roam-organize--active-cite-backend nil
+  "Citation backend installed by the current mode lifecycle.")
+
+(declare-function org-roam-organize-citar-setup "org-roam-organize-citar")
+(declare-function org-roam-organize-citar-teardown "org-roam-organize-citar")
 
 ;; ==============================
 ;; 常量定义
@@ -2361,6 +2387,54 @@ matches the input order."
                   tag_list)
         tag_count))))
 
+(defun org-roam-organize--setup-cite-backend (backend)
+  "Install the optional citation adapter selected by BACKEND.
+
+BACKEND currently accepts only `citar'.  Signal `user-error' when
+`org-roam-organize-mode' is disabled, when BACKEND is unsupported, or when its
+adapter cannot be loaded.  A nil BACKEND disables interactive citation
+integration.  Return the installed backend symbol, or nil when no adapter is
+selected.
+
+Implementation notes: Each supported backend maps to a separate adapter
+feature and setup function.  The active backend is recorded only after setup
+succeeds so mode teardown does not claim ownership of a partial installation.
+
+Rationale: Adapter installation belongs to the mode lifecycle because advice
+and third-party customization changes must have a matching teardown boundary."
+  (unless org-roam-organize-mode
+    (user-error "Org-roam Organize mode must be enabled"))
+  (pcase backend
+    ('nil
+     (setq org-roam-organize--active-cite-backend nil))
+    ('citar
+     (unless (require 'org-roam-organize-citar nil t)
+       (user-error
+        "Citar backend is configured, but its adapter or Citar is unavailable"))
+     (org-roam-organize-citar-setup)
+     (setq org-roam-organize--active-cite-backend 'citar))
+    (_
+     (user-error "Unsupported citation backend: %S" backend))))
+
+(defun org-roam-organize--teardown-cite-backend ()
+  "Remove the citation adapter installed by Org-roam Organize mode.
+
+Return nil after clearing `org-roam-organize--active-cite-backend'.  This
+function is valid while the mode is being disabled and therefore does not
+require `org-roam-organize-mode' to be non-nil.
+
+Implementation notes: Teardown dispatches on the recorded active backend
+rather than the current customization value, which may have changed since mode
+setup.
+
+Rationale: Advice and third-party variable changes must be removed by the
+component that installed them, including during failed or partial mode setup."
+  (pcase org-roam-organize--active-cite-backend
+    ('citar
+     (when (featurep 'org-roam-organize-citar)
+       (org-roam-organize-citar-teardown))))
+  (setq org-roam-organize--active-cite-backend nil))
+
 ;; ==============================
 ;; 可调用结构函数
 ;; ==============================
@@ -2819,10 +2893,11 @@ buffer when present; clean runs only produce a summary message."
   "Toggle Org-roam Organize mode.
 
 When enabled, the mode validates setup, registers the export-time citation
-filter, and keeps command behavior available globally.  Setup failure disables
-the mode again and reports the failure through the echo area.  User-facing check
-and sync commands display detailed diagnostics in
-`org-roam-organize--report-buffer-name' when needed."
+filter, installs the configured interactive citation adapter, and keeps command
+behavior available globally.  Disabling the mode removes the filter and
+adapter.  Setup failure disables the mode again and reports the failure through
+the echo area.  User-facing check and sync commands display detailed
+diagnostics in `org-roam-organize--report-buffer-name' when needed."
   :lighter " Organize"
   ;; :group nil
   :global t
@@ -2839,6 +2914,7 @@ and sync commands display detailed diagnostics in
                   (cond
                    ((not (car check_result))
                     (setq org-roam-organize-mode nil)
+                    (org-roam-organize--teardown-cite-backend)
                     (remove-hook
                      'org-export-filter-parse-tree-functions
                      #'org-roam-organize--cite-export-filter)
@@ -2848,14 +2924,28 @@ and sync commands display detailed diagnostics in
                                    (format "%s\n" (car check_result))
                                    (cdr check_result))))
                    (t
-                    (unless (featurep 'org) (require 'org))
-                    (unless (featurep 'org-element) (require 'org-element))
-                    (unless (featurep 'ox) (require 'ox))
-                    (unless (featurep 'org-roam) (require 'org-roam))
-                    (unless (featurep 'cl-lib) (require 'cl-lib))
-                    (add-hook
-                     'org-export-filter-parse-tree-functions
-                     #'org-roam-organize--cite-export-filter))))
+                    (condition-case err
+                        (progn
+                          (unless (featurep 'org) (require 'org))
+                          (unless (featurep 'org-element) (require 'org-element))
+                          (unless (featurep 'ox) (require 'ox))
+                          (unless (featurep 'org-roam) (require 'org-roam))
+                          (unless (featurep 'cl-lib) (require 'cl-lib))
+                          (org-roam-organize--setup-cite-backend
+                           org-roam-organize-cite-backend)
+                          (add-hook
+                           'org-export-filter-parse-tree-functions
+                           #'org-roam-organize--cite-export-filter))
+                      (error
+                       (org-roam-organize--teardown-cite-backend)
+                       (setq org-roam-organize-mode nil)
+                       (remove-hook
+                        'org-export-filter-parse-tree-functions
+                        #'org-roam-organize--cite-export-filter)
+                       (message
+                        "[WARNING] Org Roam Organize Mode setup failed: %s"
+                        (error-message-string err)))))))
+              (org-roam-organize--teardown-cite-backend)
               (remove-hook
                'org-export-filter-parse-tree-functions
                #'org-roam-organize--cite-export-filter))))
