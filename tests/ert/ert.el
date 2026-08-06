@@ -887,6 +887,27 @@
         (should-not
          (org-roam-organize--cite-reference-refs-valid-p result))))))
 
+(ert-deftest org-roam-organize-test-cite-reference-map-bijective-p ()
+  (should
+   (org-roam-organize--cite-reference-map-bijective-p
+    '(:missing nil :multiple nil :duplicate-citekeys nil)))
+  (should-not
+   (org-roam-organize--cite-reference-map-bijective-p
+    '(:missing ((:id "ref-a"))
+      :multiple nil
+      :duplicate-citekeys nil)))
+  (should-not
+   (org-roam-organize--cite-reference-map-bijective-p
+    '(:missing nil
+      :multiple ((:id "ref-a" :refs ("key-a" "key-b")))
+      :duplicate-citekeys nil)))
+  (should-not
+   (org-roam-organize--cite-reference-map-bijective-p
+    '(:missing nil
+      :multiple nil
+      :duplicate-citekeys ((:citekey "key-a"
+                            :uuids ("ref-a" "ref-b")))))))
+
 (ert-deftest org-roam-organize-test-cite-sync-wrapper-uses-citing-node-keyword ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (path (expand-file-name "literature/ref.org" root))
@@ -945,7 +966,7 @@
                (lambda ()
                  '(:nodes ((:id "ref-a" :title "Ref A")
                            (:id "ref-b" :title "Ref B"))
-                   :missing ((:id "ref-a" :title "Ref A"))
+                   :missing nil
                    :multiple nil
                    :duplicate-citekeys ((:citekey "key-a"
                                          :uuids ("ref-a" "ref-b"))))))
@@ -956,7 +977,10 @@
     (should (= (length messages) 1))
     (should (seq-find
              (lambda (message)
-               (string-match-p "Check cite references: 2 checked, 1 missing cite refs, 0 multiple cite refs, 1 duplicate cite keys, status failed"
+               (string-match-p (rx "Check cite references: 2 checked, "
+                                   "0 missing cite refs, "
+                                   "0 multiple cite refs, "
+                                   "1 duplicate cite keys, status failed")
                                message))
              messages))
     (should (seq-find
@@ -971,7 +995,7 @@
       (should (string-match-p "External citekey belongs to multiple literature nodes"
                               (buffer-string)))
       (should (string-match-p
-               "Check cite references: 2 checked, 1 missing cite refs"
+               (rx "Check cite references: 2 checked, 0 missing cite refs")
                (buffer-string))))))
 
 (ert-deftest org-roam-organize-test-cite-sync-syncs-all-cite-nodes ()

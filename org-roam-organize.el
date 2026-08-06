@@ -2077,14 +2077,14 @@ managed UUID list that declares it.  `:missing' contains reference nodes with
 no `refs.type = \"cite\"' row.  `:multiple' contains reference nodes extended
 with a `:refs' list when more than one cite ref row is attached to that node.
 `:duplicate-citekeys' reports external citekeys used by more than one managed
-node; this is a non-blocking data quality result.
+node.  Callers decide whether that diagnostic is blocking for their operation.
 
 Implementation notes: the function queries Org-roam's `refs' table once for
 all managed reference node ids and then builds hash tables in memory.  Missing
 and multiple cite refs are blocking because they make UUID citation mapping
-ambiguous.  Duplicate external citekeys are reported separately because they
-do not prevent UUID-based citation sync from resolving the cited literature
-node."
+ambiguous.  Duplicate external citekeys are reported separately so global
+consistency checks can require a bijection without preventing UUID-based
+citation operations from applying a narrower policy."
   (let* ((ref-node-ids (mapcar (lambda (node)
                                  (plist-get node :id))
                                ref-nodes))
@@ -2144,6 +2144,26 @@ managed reference node is missing a `refs.type = \"cite\"' row and none has
 more than one such row."
   (and (null (plist-get result :missing))
        (null (plist-get result :multiple))))
+
+(defun org-roam-organize--cite-reference-map-bijective-p (map-data)
+  "Return non-nil when MAP-DATA describes a bijective citation mapping.
+
+MAP-DATA must be a plist returned by
+`org-roam-organize--cite-reference-map-data' or
+`org-roam-organize--cite-global-reference-map-data'.  Return non-nil when
+every managed reference node has exactly one citekey and every declared
+citekey belongs to exactly one managed node.  This function does not access
+the database or modify MAP-DATA.
+
+Implementation notes: UUID-to-citekey totality and uniqueness are delegated
+to `org-roam-organize--cite-reference-refs-valid-p'.  Citekey-to-UUID
+uniqueness is represented by an empty `:duplicate-citekeys' diagnostic list.
+
+Rationale: Global consistency checks require a true bijection, while export
+and citation synchronization can continue using the weaker UUID-to-citekey
+validation appropriate to their direction of lookup."
+  (and (org-roam-organize--cite-reference-refs-valid-p map-data)
+       (null (plist-get map-data :duplicate-citekeys))))
 
 (defun org-roam-organize--cite-global-reference-map-data ()
   "Return global cite reference mapping data, or nil when cite is unconfigured.
@@ -2258,11 +2278,11 @@ blocking validation passed.  `:lines' contains human-readable diagnostics.
 Implementation notes: MAP-DATA is produced by
 `org-roam-organize--cite-reference-map-data' or
 `org-roam-organize--cite-global-reference-map-data'.  The reporting policy is
-shared by `org-roam-organize-cite-check' and `org-roam-organize-cite-sync':
-missing and multiple cite refs are blocking diagnostics, while duplicate
-external citekeys are non-blocking data quality warnings.  The function builds
-report lines instead of calling `message' so callers can display a single final
-report."
+shared by `org-roam-organize-cite-check' and `org-roam-organize-cite-sync' for
+missing and multiple cite refs.  Duplicate external citekeys are emitted as
+separate diagnostic lines so each caller can decide whether they are blocking.
+The function builds report lines instead of calling `message' so callers can
+display a single final report."
   (let ((missing (plist-get map-data :missing))
         (multiple (plist-get map-data :multiple))
         (duplicate-citekeys (plist-get map-data :duplicate-citekeys))
@@ -2737,11 +2757,11 @@ clean runs only produce a summary message."
 Implementation notes: the command refreshes the Org-roam database, loads the
 single `:cite t' registry record through
 `org-roam-organize--cite-global-reference-map-data', and collects the same
-blocking and non-blocking diagnostics used by `org-roam-organize-cite-sync'.
-It does not modify Org files.  Missing or multiple cite refs are blocking
-validation failures; duplicate external citekeys are non-blocking data quality
-warnings.  Detailed diagnostics are displayed in the report buffer when present;
-clean runs only produce a summary message."
+mapping diagnostics used by `org-roam-organize-cite-sync'.  It does not modify
+Org files.  Missing or multiple cite refs and duplicate external citekeys are
+all blocking validation failures because this command requires a bijection.
+Detailed diagnostics are displayed in the report buffer when present; clean
+runs only produce a summary message."
   (interactive)
   (if org-roam-organize-mode
       (let ((records (org-roam-organize--registry-cite-records)))
@@ -2760,6 +2780,9 @@ clean runs only produce a summary message."
                  (report
                   (org-roam-organize--cite-report-reference-map-data
                    map-data))
+                 (bijective-p
+                  (org-roam-organize--cite-reference-map-bijective-p
+                   map-data))
                  (summary
                   (format
                    "[INFO] Check cite references: %s checked, %s missing cite refs, %s multiple cite refs, %s duplicate cite keys, status %s."
@@ -2767,7 +2790,7 @@ clean runs only produce a summary message."
                    (length (plist-get map-data :missing))
                    (length (plist-get map-data :multiple))
                    duplicate-citekey-count
-                   (if (plist-get report :valid-p) "passed" "failed"))))
+                   (if bijective-p "passed" "failed"))))
             (if (plist-get report :lines)
                 (progn
                   (org-roam-organize--display-report
@@ -2775,7 +2798,7 @@ clean runs only produce a summary message."
                    (append (plist-get report :lines) (list summary)))
                   (message "%s"
                            (org-roam-organize--report-notice
-                            (if (plist-get report :valid-p) 'warning 'error)
+                            (if bijective-p 'warning 'error)
                             summary)))
               (message "%s" summary))))))
     (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
