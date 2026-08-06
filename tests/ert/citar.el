@@ -524,7 +524,8 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                        org-roam-organize-citar-test--uuid-b)
                  notes)
         (org-roam-organize-citar-test--should-user-error
-            (rx "Multiple managed literature nodes already exist"
+            (rx "Multiple managed nodes for citation record \"literature\""
+                " already exist"
                 (* anychar)
                 "key-a")
           (org-roam-organize-citar--create-note "key-a" nil))
@@ -635,11 +636,14 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             (kill-buffer buffer)))))))
 
 (ert-deftest org-roam-organize-citar-test-rejects-missing-citekey-mapping ()
-  (org-roam-organize-citar-test--with-adapter-context
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "references" :tag "ref" :cite t :backend citar))))
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments) nil)))
       (org-roam-organize-citar-test--should-user-error
-          (rx "No managed literature node for citekey")
+          (rx "No managed node for citation record \"references\""
+              " and citekey")
         (org-roam-organize-citar--citekeys-to-uuids '("missing"))))))
 
 (ert-deftest org-roam-organize-citar-test-rejects-ambiguous-citekey-mapping ()

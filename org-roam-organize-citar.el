@@ -431,6 +431,7 @@ managed node layout and the cite ref needed by its UUID citation model."
                (not (org-roam-organize--blank-string-p citekey)))
     (user-error "Citar citekey cannot be empty"))
   (let* ((record (org-roam-organize-citar--cite-record))
+         (record-name (org-roam-organize--record-name record))
          (matches
           (gethash citekey
                    (org-roam-organize-citar--get-notes (list citekey)))))
@@ -455,12 +456,16 @@ managed node layout and the cite ref needed by its UUID citation model."
            (org-roam-organize-citar--store-cite-ref citekey)))))
      ((cdr matches)
       (user-error
-       "Multiple managed literature nodes already exist for citekey %s: %s"
+       (concat "Multiple managed nodes for citation record %S already exist "
+               "for citekey %s: %s")
+       record-name
        citekey
        (mapconcat #'identity matches ", ")))
      (t
       (user-error
-       "A managed literature node already exists for citekey %s: %s"
+       (concat "A managed node for citation record %S already exists "
+               "for citekey %s: %s")
+       record-name
        citekey
        (car matches))))))
 
@@ -481,7 +486,9 @@ Rationale: Citar selects external citekeys, but Org-roam Organize stores UUIDs
 in Org citations.  Reverse mapping must reject duplicate citekeys because
 silently choosing a node would make insertion nondeterministic."
   (org-roam-organize-citar--ensure-mode)
-  (let* ((tag (org-roam-organize-citar--cite-record-tag))
+  (let* ((record (org-roam-organize-citar--cite-record))
+         (record-name (org-roam-organize--record-name record))
+         (tag (org-roam-organize-citar--cite-record-tag))
          (rows
           (when citekeys
             (org-roam-db-query
@@ -519,7 +526,8 @@ silently choosing a node would make insertion nondeterministic."
           (push (car matches) uuids)))))
     (when missing
       (user-error
-       "No managed literature node for citekey%s: %s"
+       "No managed node for citation record %S and citekey%s: %s"
+       record-name
        (if (cdr missing) "s" "")
        (mapconcat #'identity (nreverse missing) ", ")))
     (when ambiguous
