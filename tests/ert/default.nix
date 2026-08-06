@@ -1,15 +1,11 @@
-{ pkgs, mkEmacs } :
-
-let
+{ pkgs, mkEmacs } : let
 
   mkErtCheck = {
     name,
     testFile,
     extraPackages ? (_ : [ ]),
   } : let
-
     emacs = mkEmacs extraPackages;
-
   in pkgs.runCommand name {
     nativeBuildInputs = [
       emacs
