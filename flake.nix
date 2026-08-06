@@ -30,10 +30,8 @@
 
       emacsPackages = pkgs.emacsPackagesFor pkgs.emacs31;
 
-      emacs = emacsPackages.emacsWithPackages (ps_ : (builtins.concatLists [
-        (with ps_; [
-          package-lint
-        ])
+      mkEmacs = selectPackages : emacsPackages.emacsWithPackages (ps_ : (builtins.concatLists [
+        (selectPackages ps_)
         [ config.packages.default ]
       ]));
 
@@ -53,13 +51,15 @@
       };
 
       checks = import ./tests {
-        inherit pkgs source emacs;
+        inherit pkgs source mkEmacs;
       };
 
       devShells = {
         default = pkgs.mkShell {
           packages = [
-            emacs
+            (mkEmacs (ps_ : [
+              ps_.package-lint
+            ]))
           ];
         };
       };

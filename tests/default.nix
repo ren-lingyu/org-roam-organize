@@ -1,11 +1,12 @@
-{ pkgs, source, emacs } : {
+{ pkgs, source, mkEmacs } :
 
-  ert = import ./ert {
-    inherit pkgs emacs;
-  };
+(import ./ert {
+  inherit pkgs mkEmacs;
+}) // {
 
   package-lint = import ./package-lint {
-    inherit pkgs source emacs;
+    inherit pkgs source mkEmacs;
+    packageMainFile = "${source}/org-roam-organize.el";
   };
 
 }

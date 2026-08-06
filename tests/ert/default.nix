@@ -1,14 +1,31 @@
-{ pkgs, emacs } : (
+{ pkgs, mkEmacs } :
 
-  pkgs.runCommand "org-roam-organize-ert" {
+let
+
+  mkErtCheck = {
+    name,
+    testFile,
+    extraPackages ? (_ : [ ]),
+  } : let
+
+    emacs = mkEmacs extraPackages;
+
+  in pkgs.runCommand name {
     nativeBuildInputs = [
       emacs
     ];
   } (builtins.concatStringsSep "\n" [
     "export HOME=\"$TMPDIR/home\""
     "mkdir -p \"$HOME\""
-    "${pkgs.lib.getExe' emacs "emacs"} -Q --batch --load ${./ert.el} --funcall ert-run-tests-batch-and-exit"
+    "${pkgs.lib.getExe' emacs "emacs"} -Q --batch --load ${testFile} --funcall ert-run-tests-batch-and-exit"
     "touch \"$out\""
-  ])
+  ]);
 
-)
+in {
+
+  ert = mkErtCheck {
+    name = "org-roam-organize-ert";
+    testFile = ./ert.el;
+  };
+
+}
