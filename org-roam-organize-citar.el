@@ -17,7 +17,12 @@
 (declare-function citar-run-default-action "citar" (citekeys))
 
 (defconst org-roam-organize-citar--minimum-tested-version "1.4.0"
-  "Minimum Citar version against which this adapter is tested.")
+  "The value records the minimum tested Citar version.
+
+This value documents the compatibility baseline used by maintainers.  Setup
+does not compare installed package versions because Citar does not expose a
+portable runtime version API; actual compatibility is validated through
+`org-roam-organize-citar--capability-alist'.")
 
 (defconst org-roam-organize-citar--capability-alist
   '((citar-at-point-function . variable)
@@ -29,7 +34,13 @@
     (citar-org-insert-citation . function)
     (citar-org-select-key . function)
     (citar-org-follow . function))
-  "Runtime capabilities required or expected by the Citar adapter.")
+  "The alist describes runtime capabilities expected by the Citar adapter.
+
+Each entry maps a Citar symbol to the capability type accepted by
+`org-roam-organize--check-capabilities'.  Setup checks the table only after
+loading `citar' and `citar-org'.  It includes the functions called or advised
+by the adapter and the public Citar boundaries whose behavior the adapter is
+intended to preserve.")
 
 (defconst org-roam-organize-citar--uuid-regexp
   (rx string-start
@@ -46,10 +57,13 @@ It identifies keys that require a managed UUID-to-citekey mapping; it does not
 verify that a matching Org-roam node exists.")
 
 (defvar org-roam-organize-citar--installed-p nil
-  "Non-nil when the Citar adapter is installed.")
+  "The value is non-nil when the complete Citar adapter is installed.")
 
 (defvar org-roam-organize-citar--previous-at-point-function nil
-  "Default Citar at-point function saved before adapter installation.")
+  "The value stores Citar's default at-point function before installation.
+
+Teardown restores this value only while the adapter still owns Citar's current
+default, so a later user change is preserved.")
 
 (defun org-roam-organize-citar--unique-values (values)
   "Return VALUES without duplicates while preserving their order.
@@ -337,6 +351,8 @@ advice added during the attempt and restores the saved default.
 Rationale: Explicit installation during Org-roam Organize mode setup provides
 a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
   (org-roam-organize-citar--ensure-mode)
+  ;; Reject invalid managed citation configuration before loading optional
+  ;; dependencies or changing any Citar global state.
   (org-roam-organize-citar--cite-record-tag)
   (unless (require 'citar nil t)
     (user-error
@@ -345,6 +361,8 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
     (user-error
      (concat "Citar Org integration is required by the "
              "Org-roam Organize Citar adapter")))
+  ;; Capability validation is the portable compatibility boundary.  Citar has
+  ;; no runtime version API that works across package.el and Nix installations.
   (let ((result
          (org-roam-organize--check-capabilities
           org-roam-organize-citar--capability-alist)))
@@ -354,6 +372,8 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
        org-roam-organize-citar--minimum-tested-version
        (cdr result))))
   (unless org-roam-organize-citar--installed-p
+    ;; Save ownership state before installing either advice so failure cleanup
+    ;; can restore Citar without leaving a partially active adapter.
     (setq org-roam-organize-citar--previous-at-point-function
           (default-value 'citar-at-point-function))
     (condition-case err
@@ -406,6 +426,8 @@ configuration."
     (advice-remove
      'citar-org-select-key
      #'org-roam-organize-citar--filter-selected-key)
+    ;; Restore only the value installed by this adapter.  A different current
+    ;; value belongs to the user or another integration.
     (when (eq (default-value 'citar-at-point-function)
               #'org-roam-organize-citar-dwim)
       (set-default 'citar-at-point-function

@@ -194,7 +194,11 @@ The provider does not control paths, targets, or capture templates."
 (defvar org-roam-organize-mode)
 (defvar org-note-abort)
 (defvar org-roam-organize--active-cite-backend nil
-  "Citation backend installed by the current mode lifecycle.")
+  "The value names the backend installed by the current mode lifecycle.
+
+This records successful installation rather than the requested value in
+`org-roam-organize-cite-backend', allowing optional backend failure to leave
+the core mode active without claiming adapter ownership.")
 
 (declare-function org-roam-organize-citar-setup "org-roam-organize-citar")
 (declare-function org-roam-organize-citar-teardown "org-roam-organize-citar")
@@ -2392,16 +2396,19 @@ matches the input order."
 
 BACKEND currently accepts only `citar'.  Signal `user-error' when
 `org-roam-organize-mode' is disabled, when BACKEND is unsupported, or when its
-adapter cannot be loaded.  A nil BACKEND disables interactive citation
-integration.  Return the installed backend symbol, or nil when no adapter is
-selected.
+adapter cannot be loaded or validated.  A nil BACKEND disables interactive
+citation integration.  Return the installed backend symbol, or nil when no
+adapter is selected.  Failure does not itself disable Org-roam Organize mode;
+the mode lifecycle decides whether an adapter error is fatal.
 
 Implementation notes: Each supported backend maps to a separate adapter
 feature and setup function.  The active backend is recorded only after setup
 succeeds so mode teardown does not claim ownership of a partial installation.
 
 Rationale: Adapter installation belongs to the mode lifecycle because advice
-and third-party customization changes must have a matching teardown boundary."
+and third-party customization changes must have a matching teardown boundary.
+Keeping failure policy in the caller lets optional integration degrade without
+blocking core behavior."
   (unless org-roam-organize-mode
     (user-error "Org-roam Organize mode must be enabled"))
   (pcase backend
@@ -2428,7 +2435,7 @@ rather than the current customization value, which may have changed since mode
 setup.
 
 Rationale: Advice and third-party variable changes must be removed by the
-component that installed them, including during failed or partial mode setup."
+component that installed them."
   (pcase org-roam-organize--active-cite-backend
     ('citar
      (when (featurep 'org-roam-organize-citar)
@@ -2935,6 +2942,9 @@ check and sync commands display detailed diagnostics in
                           (add-hook
                            'org-export-filter-parse-tree-functions
                            #'org-roam-organize--cite-export-filter)
+                          ;; The citation backend is optional.  Its setup
+                          ;; failure must not undo successful core mode setup or
+                          ;; remove the export filter installed above.
                           (condition-case backend-err
                               (org-roam-organize--setup-cite-backend
                                org-roam-organize-cite-backend)
