@@ -597,7 +597,8 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
     (require 'citar)
     (require 'citar-org)
     (org-roam-organize-citar-teardown)
-    (let ((previous-at-point (default-value 'citar-at-point-function)))
+    (let ((previous-at-point (default-value 'citar-at-point-function))
+          (previous-notes-source citar-notes-source))
       (unwind-protect
           (progn
             (should (org-roam-organize-citar-setup))
@@ -613,7 +614,15 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
               'citar-org-select-key))
             (should
              (eq (default-value 'citar-at-point-function)
-                 #'org-roam-organize-citar-dwim)))
+                 #'org-roam-organize-citar-dwim))
+            (should
+             (eq citar-notes-source
+                 org-roam-organize-citar--notes-source))
+            (should
+             (equal
+              (cdr (assq org-roam-organize-citar--notes-source
+                         citar-notes-sources))
+              org-roam-organize-citar--notes-config)))
         (org-roam-organize-citar-teardown))
       (should-not org-roam-organize-citar--installed-p)
       (should-not
@@ -626,7 +635,11 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         'citar-org-select-key))
       (should
        (eq (default-value 'citar-at-point-function)
-           previous-at-point)))))
+           previous-at-point))
+      (should (eq citar-notes-source previous-notes-source))
+      (should-not
+       (assq org-roam-organize-citar--notes-source
+             citar-notes-sources)))))
 
 (ert-deftest org-roam-organize-citar-test-teardown-preserves-later-user-value ()
   (org-roam-organize-citar-test--with-adapter-context
@@ -634,24 +647,105 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
     (require 'citar-org)
     (org-roam-organize-citar-teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
-          (user-at-point (lambda () 'user-value)))
+          (previous-notes-source citar-notes-source)
+          (user-at-point (lambda () 'user-value))
+          (user-notes-source 'user-notes))
       (unwind-protect
           (progn
             (org-roam-organize-citar-setup)
             (set-default 'citar-at-point-function user-at-point)
+            (setq citar-notes-source user-notes-source)
             (org-roam-organize-citar-teardown)
             (should
              (eq (default-value 'citar-at-point-function)
-                 user-at-point)))
+                 user-at-point))
+            (should (eq citar-notes-source user-notes-source))
+            (should-not
+             (assq org-roam-organize-citar--notes-source
+                   citar-notes-sources)))
         (org-roam-organize-citar-teardown)
-        (set-default 'citar-at-point-function previous-at-point)))))
+        (set-default 'citar-at-point-function previous-at-point)
+        (setq citar-notes-source previous-notes-source)))))
+
+(ert-deftest org-roam-organize-citar-test-setup-rejects-notes-source-collision ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (require 'citar)
+    (require 'citar-org)
+    (org-roam-organize-citar-teardown)
+    (let ((previous-notes-source citar-notes-source)
+          (foreign-config '(:name "Foreign Notes")))
+      (unwind-protect
+          (progn
+            (push (cons org-roam-organize-citar--notes-source
+                        foreign-config)
+                  citar-notes-sources)
+            (org-roam-organize-citar-test--should-user-error
+                (rx "Citar notes source is already registered")
+              (org-roam-organize-citar-setup))
+            (should-not org-roam-organize-citar--installed-p)
+            (should (eq citar-notes-source previous-notes-source))
+            (should
+             (equal
+              (cdr (assq org-roam-organize-citar--notes-source
+                         citar-notes-sources))
+              foreign-config)))
+        (setq citar-notes-sources
+              (assq-delete-all
+               org-roam-organize-citar--notes-source
+               citar-notes-sources))))))
+
+(ert-deftest org-roam-organize-citar-test-setup-rolls-back-notes-source-on-error ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (require 'citar)
+    (require 'citar-org)
+    (org-roam-organize-citar-teardown)
+    (let ((previous-at-point (default-value 'citar-at-point-function))
+          (previous-notes-source citar-notes-source))
+      (cl-letf (((symbol-function 'advice-add)
+                 (lambda (&rest _arguments)
+                   (error "Test advice installation failure"))))
+        (should-error (org-roam-organize-citar-setup)))
+      (should-not org-roam-organize-citar--installed-p)
+      (should (eq citar-notes-source previous-notes-source))
+      (should
+       (eq (default-value 'citar-at-point-function)
+           previous-at-point))
+      (should-not
+       (assq org-roam-organize-citar--notes-source
+             citar-notes-sources))
+      (should-not org-roam-organize-citar--previous-notes-source)
+      (should-not org-roam-organize-citar--previous-at-point-function))))
+
+(ert-deftest org-roam-organize-citar-test-restores-other-notes-source ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (require 'citar)
+    (require 'citar-org)
+    (org-roam-organize-citar-teardown)
+    (let ((citar-notes-source 'citar-org-roam)
+          (citar-notes-sources
+           (cons '(citar-org-roam :name "Org-Roam Notes")
+                 citar-notes-sources)))
+      (unwind-protect
+          (progn
+            (org-roam-organize-citar-setup)
+            (should
+             (eq citar-notes-source
+                 org-roam-organize-citar--notes-source))
+            (org-roam-organize-citar-teardown)
+            (should (eq citar-notes-source 'citar-org-roam))
+            (should (assq 'citar-org-roam citar-notes-sources))
+            (should-not
+             (assq org-roam-organize-citar--notes-source
+                   citar-notes-sources)))
+        (org-roam-organize-citar-teardown)))))
 
 (ert-deftest org-roam-organize-citar-test-capability-failure-leaves-uninstalled ()
   (org-roam-organize-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
     (org-roam-organize-citar-teardown)
-    (let ((previous-at-point (default-value 'citar-at-point-function)))
+    (let ((previous-at-point (default-value 'citar-at-point-function))
+          (previous-notes-source citar-notes-source))
       (cl-letf (((symbol-function 'org-roam-organize--check-capabilities)
                  (lambda (_capabilities)
                    (cons nil "missing test capability"))))
@@ -661,7 +755,11 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
       (should-not org-roam-organize-citar--installed-p)
       (should
        (eq (default-value 'citar-at-point-function)
-           previous-at-point)))))
+           previous-at-point))
+      (should (eq citar-notes-source previous-notes-source))
+      (should-not
+       (assq org-roam-organize-citar--notes-source
+             citar-notes-sources)))))
 
 (provide 'org-roam-organize-citar-test)
 ;;; org-roam-organize-citar-test.el ends here

@@ -76,6 +76,8 @@ The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
 Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citation export, checking, and citing-node entry synchronization. That record may use =:backend citar= to install the optional Citar integration when the mode is enabled. A missing or nil =:backend= installs no adapter; unsupported values are ignored with a warning. The core =:cite t= behavior does not depend on a backend. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
 
+When =:backend citar= is active, Org-roam Organize registers and selects its own Citar notes source. Citar note lookup and opening use managed literature node UUIDs internally, while note creation uses the citation record's managed capture template. Successful creation automatically adds the selected external citekey as =ROAM_REFS=, saves the node, and updates the Org-roam database. The template therefore does not need a =roam_refs= property. If a node already exists for the citekey, creation reports an error instead of opening or modifying it. Disabling =org-roam-organize-mode= removes the adapter source and restores the Citar notes source that was active before setup. An existing source with the reserved =org-roam-organize-citar= name prevents adapter installation; the core mode remains enabled without the optional backend.
+
 The optional =:template= value is a structured alist for the generated managed capture template. Its optional =path= entry controls the ordinary node file path inside the =${id}/= bundle directory and defaults to =${slug}.org=. The =path= entry may contain bundle-internal subdirectories, is ignored by MOC capture, and cannot be declared by the =:moc t= record. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
 For a dynamic date, use Org capture's time escape syntax:
@@ -159,11 +161,6 @@ Commands that produce detailed diagnostics use the =*Org-roam Organize Report*= 
 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
-  (defun example-org-roam-organize-literature-provider (_record)
-    (list :title "Example Literature Note"
-          :info (list :author "John Doe"
-                      :citar-key "doe2026")))
-
   (use-package org-roam-organize
     :straight (:host github :repo "ren-lingyu/org-roam-organize")
     :after org-roam
@@ -196,10 +193,8 @@ An example of configuration is shown here.
                  :backend 'citar
                  :directory "literature"
                  :inbox "Inbox"
-                 :provider #'example-org-roam-organize-literature-provider
                  :template '((path . "ref.org")
-                             (properties . ((roam_refs . "@${citar-key}")))
-                             (keywords . ((author . "${author}")
+                             (keywords . ((author . nil)
                                           (date . nil)
                                           (description . nil)
                                           (filetags . ("ref"))))))
@@ -260,32 +255,27 @@ When =path= is omitted from a record's =:template=, it defaults to =${slug}.org=
 
 During capture, Org-roam assigns the node ID. Org-roam-organize computes the expanded bundle root =<directory>/<id>/= in =org-roam-capture-preface-hook=, verifies the target file stays inside that bundle root, and creates the target file's parent directory before the file is opened. After capture, Org-roam-organize cleans only the bundle root: empty bundle roots are removed automatically, while non-empty aborted bundle roots require interactive confirmation before recursive deletion.
 
-A minimal custom provider can supply dynamic fields for placeholders used by the record template:
+A minimal custom provider can supply dynamic fields for placeholders used by the record template when the user invokes =org-roam-organize-node-create=. Citar notes creation does not call this provider; the Citar adapter obtains the initial title from the bibliography entry and owns cite ref creation.
 
 #+BEGIN_SRC emacs-lisp
-  (defun my-org-roam-organize-literature-provider (_record)
-    (let ((title (read-string "Literature title: "))
-          (author (read-string "Author: "))
-          (citekey (read-string "Citation key: ")))
+  (defun my-org-roam-organize-reading-provider (_record)
+    (let ((title (read-string "Reading note title: "))
+          (author (read-string "Author: ")))
       (unless (string= title "")
         (list :title title
-              :info (list :author author
-                          :citar-key citekey)))))
+              :info (list :author author)))))
 
   (setq org-roam-organize-registry
-        (list (list :name "literature"
-                    :tag "ref"
+        (list (list :name "reading"
+                    :tag "reading"
                     :basic t
-                    :cite t
-                    :backend 'citar
-                    :directory "literature"
-                    :provider #'my-org-roam-organize-literature-provider
-                    :template '((path . "ref.org")
-                                (properties . ((roam_refs . "@${citar-key}")))
+                    :directory "reading"
+                    :provider #'my-org-roam-organize-reading-provider
+                    :template '((path . "note.org")
                                 (keywords . ((author . "${author}")
                                              (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
                                              (description . nil)
-                                             (filetags . ("ref"))))))))
+                                             (filetags . ("reading"))))))))
 #+END_SRC
 
 * MOC Entry Format
@@ -321,6 +311,8 @@ The corresponding literature node keeps its current external bibliography citeke
 #+BEGIN_SRC org
   :ROAM_REFS: @external-citekey
 #+END_SRC
+
+With =:backend citar=, the adapter creates this property after a successful Citar note capture, so the citation record's capture template does not need to declare it. Literature nodes created through another path remain the user's responsibility and are reported by =org-roam-organize-cite-check= when the mapping is missing or ambiguous.
 
 The command =org-roam-organize-cite-check= performs a global read-only check for the single =:cite t= registry record. It reports managed literature nodes that lack a cite-type ref, nodes that have more than one cite-type ref, and external citekeys attached to multiple managed literature nodes.
 

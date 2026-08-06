@@ -17,12 +17,17 @@
 (declare-function citar-run-default-action "citar" (citekeys))
 (declare-function citar-get-field-with-value
                   "citar" (fields citekey-or-entry))
+(declare-function citar-register-notes-source "citar" (name config))
+(declare-function citar-remove-notes-source "citar" (name))
 (declare-function org-roam-node-from-id "org-roam-node" (id))
 (declare-function org-roam-node-visit
                   "org-roam-node" (node &optional other-window force))
 (declare-function org-roam-ref-add "org-roam-node" (ref))
 (declare-function org-roam-db-update-file
                   "org-roam-db" (&optional file-path deprecated-arg))
+
+(defvar citar-notes-source)
+(defvar citar-notes-sources)
 
 (defconst org-roam-organize-citar--minimum-tested-version "1.4.0"
   "The value records the minimum tested Citar version.
@@ -34,14 +39,23 @@ portable runtime version API; actual compatibility is validated through
 
 (defconst org-roam-organize-citar--capability-alist
   '((citar-at-point-function . variable)
+    (citar-notes-source . variable)
+    (citar-notes-sources . variable)
     (citar-key-at-point . function)
     (citar-citation-at-point . function)
     (citar-run-default-action . function)
+    (citar-get-field-with-value . function)
+    (citar-register-notes-source . function)
+    (citar-remove-notes-source . function)
     (citar-dwim . function)
     (citar-insert-citation . function)
     (citar-org-insert-citation . function)
     (citar-org-select-key . function)
-    (citar-org-follow . function))
+    (citar-org-follow . function)
+    (org-roam-node-from-id . function)
+    (org-roam-node-visit . function)
+    (org-roam-ref-add . function)
+    (org-roam-db-update-file . function))
   "The alist describes runtime capabilities expected by the Citar adapter.
 
 Each entry maps a Citar symbol to the capability type accepted by
@@ -96,12 +110,34 @@ pipeline while keeping UUID-to-citekey translation inside the adapter.")
 Teardown restores this value only while the adapter still owns Citar's current
 default, so a later user change is preserved.")
 
+(defvar org-roam-organize-citar--previous-notes-source nil
+  "The value stores Citar's notes source before adapter installation.
+
+Teardown restores this value only while the adapter still owns both its
+registered source configuration and `citar-notes-source'.")
+
 (defun org-roam-organize-citar--unique-values (values)
   "Return VALUES without duplicates while preserving their order.
 
 The returned list is a copy, and VALUES is not modified.  Equality follows the
 `delete-dups' comparison semantics."
   (delete-dups (copy-sequence values)))
+
+(defun org-roam-organize-citar--notes-source-owned-p ()
+  "Return non-nil when Citar retains this adapter's notes source config.
+
+Compare the registered plist for `org-roam-organize-citar--notes-source' with
+`org-roam-organize-citar--notes-config'.  Return nil when Citar is not loaded,
+the source is absent, or another value now owns that source name.  This
+function does not modify Citar state.
+
+Rationale: Teardown should undo configuration installed by this adapter without
+removing a later replacement that happens to reuse the same symbol."
+  (and (boundp 'citar-notes-sources)
+       (equal
+        (cdr (assq org-roam-organize-citar--notes-source
+                   citar-notes-sources))
+        org-roam-organize-citar--notes-config)))
 
 (defun org-roam-organize-citar--ensure-mode ()
   "Require Org-roam Organize mode for Citar adapter operations.
@@ -561,25 +597,29 @@ stable Org-roam UUIDs without reimplementing Citar's action system."
     (user-error "No citation keys found")))
 
 (defun org-roam-organize-citar-setup ()
-  "Install UUID translation at Citar's Org integration boundaries.
+  "Install UUID translation and managed notes integration for Citar.
 
 Require `org-roam-organize-mode' to be enabled.  Install insertion advice for
 both `citar-insert-citation' in Org buffers and the Citar processor used by
-`org-cite-insert'.  Set the default value of `citar-at-point-function' to
+`org-cite-insert'.  Register and select the managed Citar notes source, and set
+the default value of `citar-at-point-function' to
 `org-roam-organize-citar-dwim'.  Repeated calls are idempotent and return
 non-nil after successful installation.  Signal `user-error' when Citar or its
 Org integration cannot be loaded, when no valid citation registry record is
-configured, or when a required runtime capability is unavailable.
+configured, when a required runtime capability is unavailable, or when the
+adapter's notes source name is already registered.
 
 Implementation notes: The function validates the managed citation record
 before loading Citar, then checks
 `org-roam-organize-citar--capability-alist' after loading `citar' and
-`citar-org'.  It advises `citar-org-insert-citation' with
+`citar-org'.  A fresh installation saves Citar's notes source and at-point
+function before registering `org-roam-organize-citar--notes-config'.  It
+advises `citar-org-insert-citation' with
 `org-roam-organize-citar--filter-org-insert-args' and
 `citar-org-select-key' with
-`org-roam-organize-citar--filter-selected-key'.  It records Citar's previous
-default at-point function before changing it.  Failed installation removes any
-advice added during the attempt and restores the saved default.
+`org-roam-organize-citar--filter-selected-key'.  Failed installation removes
+any advice and notes source added during the attempt and restores both saved
+values.
 
 Rationale: Explicit installation during Org-roam Organize mode setup provides
 a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
@@ -605,49 +645,72 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
        org-roam-organize-citar--minimum-tested-version
        (cdr result))))
   (unless org-roam-organize-citar--installed-p
-    ;; Save ownership state before installing either advice so failure cleanup
-    ;; can restore Citar without leaving a partially active adapter.
+    (when (assq org-roam-organize-citar--notes-source
+                citar-notes-sources)
+      (user-error
+       "Citar notes source is already registered: %s"
+       org-roam-organize-citar--notes-source))
+    ;; Save ownership state before changing Citar so failure cleanup can
+    ;; restore it without leaving a partially active adapter.
     (setq org-roam-organize-citar--previous-at-point-function
           (default-value 'citar-at-point-function))
-    (condition-case err
-        (progn
-          (advice-add
-           'citar-org-insert-citation
-           :filter-args
-           #'org-roam-organize-citar--filter-org-insert-args)
-          (advice-add
-           'citar-org-select-key
-           :filter-return
-           #'org-roam-organize-citar--filter-selected-key)
-          (set-default 'citar-at-point-function
-                       #'org-roam-organize-citar-dwim)
-          (setq org-roam-organize-citar--installed-p t))
-      (error
-       (advice-remove
-        'citar-org-insert-citation
-        #'org-roam-organize-citar--filter-org-insert-args)
-       (advice-remove
-        'citar-org-select-key
-        #'org-roam-organize-citar--filter-selected-key)
-       (set-default 'citar-at-point-function
-                    org-roam-organize-citar--previous-at-point-function)
-       (setq org-roam-organize-citar--previous-at-point-function nil)
-       (signal (car err) (cdr err)))))
+    (setq org-roam-organize-citar--previous-notes-source
+          citar-notes-source)
+    (let (notes-source-registered)
+      (condition-case err
+          (progn
+            (citar-register-notes-source
+             org-roam-organize-citar--notes-source
+             org-roam-organize-citar--notes-config)
+            (setq notes-source-registered t)
+            (advice-add
+             'citar-org-insert-citation
+             :filter-args
+             #'org-roam-organize-citar--filter-org-insert-args)
+            (advice-add
+             'citar-org-select-key
+             :filter-return
+             #'org-roam-organize-citar--filter-selected-key)
+            (set-default 'citar-at-point-function
+                         #'org-roam-organize-citar-dwim)
+            (setq citar-notes-source
+                  org-roam-organize-citar--notes-source)
+            (setq org-roam-organize-citar--installed-p t))
+        (error
+         (advice-remove
+          'citar-org-insert-citation
+          #'org-roam-organize-citar--filter-org-insert-args)
+         (advice-remove
+          'citar-org-select-key
+          #'org-roam-organize-citar--filter-selected-key)
+         (when notes-source-registered
+           (citar-remove-notes-source
+            org-roam-organize-citar--notes-source))
+         (setq citar-notes-source
+               org-roam-organize-citar--previous-notes-source)
+         (set-default 'citar-at-point-function
+                      org-roam-organize-citar--previous-at-point-function)
+         (setq org-roam-organize-citar--previous-notes-source nil)
+         (setq org-roam-organize-citar--previous-at-point-function nil)
+         (signal (car err) (cdr err))))))
   t)
 
 (defun org-roam-organize-citar-teardown ()
-  "Remove UUID translation from Citar's Org integration boundaries.
+  "Remove UUID translation and managed notes integration from Citar.
 
 Remove both insertion advice functions installed by
-`org-roam-organize-citar-setup'.  Restore the saved default value of
+`org-roam-organize-citar-setup'.  Remove the managed notes source and restore
+the saved `citar-notes-source' only while the registered source still has this
+adapter's configuration.  Restore the saved default value of
 `citar-at-point-function' only when it still names
 `org-roam-organize-citar-dwim'; preserve a value changed by the user while the
 adapter was active.  Return nil after teardown.  This function intentionally
 works while `org-roam-organize-mode' is disabled.
 
 Implementation notes: Advice removal is safe when an advice is already absent.
-The installation flag distinguishes a previously nil at-point value from an
-adapter that was never installed.
+The installation flag distinguishes previously nil values from an adapter that
+was never installed.  Notes-source ownership is checked before restoring or
+removing it so a later replacement under the same symbol is preserved.
 
 Rationale: Mode teardown must be able to undo global Citar integration after
 the mode flag has already changed, while avoiding overwriting newer user
@@ -665,7 +728,15 @@ configuration."
               #'org-roam-organize-citar-dwim)
       (set-default 'citar-at-point-function
                    org-roam-organize-citar--previous-at-point-function))
+    (when (org-roam-organize-citar--notes-source-owned-p)
+      (when (eq citar-notes-source
+                org-roam-organize-citar--notes-source)
+        (setq citar-notes-source
+              org-roam-organize-citar--previous-notes-source))
+      (citar-remove-notes-source
+       org-roam-organize-citar--notes-source))
     (setq org-roam-organize-citar--installed-p nil)
+    (setq org-roam-organize-citar--previous-notes-source nil)
     (setq org-roam-organize-citar--previous-at-point-function nil))
   nil)
 
