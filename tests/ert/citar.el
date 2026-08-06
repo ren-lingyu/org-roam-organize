@@ -261,6 +261,143 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (org-roam-organize-citar--open-note
          org-roam-organize-citar-test--uuid-a)))))
 
+(ert-deftest org-roam-organize-citar-test-entry-title-uses-title-or-citekey ()
+  (let (requested-fields requested-entry)
+    (cl-letf (((symbol-function 'citar-get-field-with-value)
+               (lambda (fields entry)
+                 (setq requested-fields fields
+                       requested-entry entry)
+                 '("title" . "Reference Title"))))
+      (let ((entry '(("title" . "Reference Title"))))
+        (should
+         (equal (org-roam-organize-citar--entry-title "key-a" entry)
+                "Reference Title"))
+        (should (equal requested-fields '("title")))
+        (should (eq requested-entry entry)))))
+  (cl-letf (((symbol-function 'citar-get-field-with-value)
+             (lambda (&rest _arguments)
+               '("title" . "  "))))
+    (should
+     (equal (org-roam-organize-citar--entry-title "key-a" '(entry))
+            "key-a")))
+  (should
+   (equal (org-roam-organize-citar--entry-title "key-a" nil)
+          "key-a")))
+
+(ert-deftest org-roam-organize-citar-test-create-note-delegates-managed-capture ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (let* ((record (car org-roam-organize-registry))
+           (template '("n" "literature node" plain "%?"))
+           (notes (make-hash-table :test 'equal))
+           captured-arguments
+           stored-citekey)
+      (cl-letf (((symbol-function 'org-roam-organize-citar--cite-record)
+                 (lambda () record))
+                ((symbol-function 'org-roam-organize-citar--get-notes)
+                 (lambda (citekeys)
+                   (should (equal citekeys '("new-key")))
+                   notes))
+                ((symbol-function
+                  'org-roam-organize--record-node-capture-template)
+                 (lambda (selected-record)
+                   (should (eq selected-record record))
+                   template))
+                ((symbol-function 'citar-get-field-with-value)
+                 (lambda (fields entry)
+                   (should (equal fields '("title")))
+                   (should (equal entry '(("title" . "New Reference"))))
+                   '("title" . "New Reference")))
+                ((symbol-function 'org-roam-organize--capture-node)
+                 (lambda (&rest arguments)
+                   (setq captured-arguments arguments)
+                   'capturing))
+                ((symbol-function 'org-roam-organize-citar--store-cite-ref)
+                 (lambda (citekey)
+                   (setq stored-citekey citekey))))
+        (should
+         (eq (org-roam-organize-citar--create-note
+              "new-key"
+              '(("title" . "New Reference")))
+             'capturing))
+        (should (equal (nth 0 captured-arguments) "New Reference"))
+        (should (eq (nth 1 captured-arguments) template))
+        (should-not (nth 2 captured-arguments))
+        (should (equal (nth 3 captured-arguments) '(:finalize find-file)))
+        (should (eq (nth 4 captured-arguments) record))
+        (should (functionp (nth 5 captured-arguments)))
+        (should-not stored-citekey)
+        (funcall (nth 5 captured-arguments))
+        (should (equal stored-citekey "new-key"))))))
+
+(ert-deftest org-roam-organize-citar-test-create-note-rejects-existing-nodes ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (let ((notes (make-hash-table :test 'equal))
+          capture-called)
+      (puthash "key-a"
+               (list org-roam-organize-citar-test--uuid-a)
+               notes)
+      (cl-letf (((symbol-function 'org-roam-organize-citar--get-notes)
+                 (lambda (_citekeys) notes))
+                ((symbol-function 'org-roam-organize--capture-node)
+                 (lambda (&rest _arguments)
+                   (setq capture-called t))))
+        (org-roam-organize-citar-test--should-user-error
+            (rx "already exists for citekey key-a")
+          (org-roam-organize-citar--create-note "key-a" nil))
+        (should-not capture-called)
+        (puthash "key-a"
+                 (list org-roam-organize-citar-test--uuid-a
+                       org-roam-organize-citar-test--uuid-b)
+                 notes)
+        (org-roam-organize-citar-test--should-user-error
+            (rx "Multiple managed literature nodes already exist"
+                (* anychar)
+                "key-a")
+          (org-roam-organize-citar--create-note "key-a" nil))
+        (should-not capture-called)))))
+
+(ert-deftest org-roam-organize-citar-test-create-note-rejects-invalid-template ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (let ((notes (make-hash-table :test 'equal)))
+      (cl-letf (((symbol-function 'org-roam-organize-citar--get-notes)
+                 (lambda (_citekeys) notes))
+                ((symbol-function
+                  'org-roam-organize--record-node-capture-template)
+                 (lambda (_record) nil)))
+        (org-roam-organize-citar-test--should-user-error
+            (rx "Cannot create a managed node for citation record")
+          (org-roam-organize-citar--create-note "new-key" nil))))))
+
+(ert-deftest org-roam-organize-citar-test-store-cite-ref-saves-and-updates-database ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (org-roam-organize-citar-test--with-database
+      (let* ((file (expand-file-name
+                    "literature/reference-a.org"
+                    org-roam-directory))
+             (buffer (find-file-noselect file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (org-mode)
+              (goto-char (point-min))
+              (org-roam-organize-citar--store-cite-ref "key-extra")
+              (should-not (buffer-modified-p))
+              (should
+               (member
+                "key-extra"
+                (mapcar
+                 #'car
+                 (org-roam-db-query
+                  [:select ref :from refs :where (= node-id $s1)]
+                  org-roam-organize-citar-test--uuid-a))))
+              (with-temp-buffer
+                (insert-file-contents file)
+                (should
+                 (string-match-p
+                  (rx ":ROAM_REFS:" (* nonl) "@key-extra")
+                  (buffer-string)))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
 (ert-deftest org-roam-organize-citar-test-rejects-missing-citekey-mapping ()
   (org-roam-organize-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)

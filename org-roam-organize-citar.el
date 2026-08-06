@@ -15,9 +15,14 @@
 (declare-function citar-key-at-point "citar" ())
 (declare-function citar-citation-at-point "citar" ())
 (declare-function citar-run-default-action "citar" (citekeys))
+(declare-function citar-get-field-with-value
+                  "citar" (fields citekey-or-entry))
 (declare-function org-roam-node-from-id "org-roam-node" (id))
 (declare-function org-roam-node-visit
                   "org-roam-node" (node &optional other-window force))
+(declare-function org-roam-ref-add "org-roam-node" (ref))
+(declare-function org-roam-db-update-file
+                  "org-roam-db" (&optional file-path deprecated-arg))
 
 (defconst org-roam-organize-citar--minimum-tested-version "1.4.0"
   "The value records the minimum tested Citar version.
@@ -111,18 +116,19 @@ package mode boundary itself."
     (user-error "Org-roam Organize mode must be enabled"))
   t)
 
-(defun org-roam-organize-citar--cite-record-tag ()
-  "Return the tag of the configured citation registry record.
+(defun org-roam-organize-citar--cite-record ()
+  "Return the configured citation registry record.
 
-Signal `user-error' unless exactly one `:cite t' record with a string tag is
-configured.
+Signal `user-error' unless exactly one `:cite t' record is configured.  Require
+`org-roam-organize-mode' to be enabled.
 
 Implementation notes: The function uses
 `org-roam-organize--registry-cite-records' to enforce the same registry
 selection boundary as core citation synchronization and export mapping.
 
-Rationale: Adapter queries must be limited to managed literature nodes rather
-than every Org-roam node that happens to declare a cite ref."
+Rationale: Keeping record selection in one helper lets adapter queries and node
+creation share the same registry identity instead of independently selecting a
+tag and capture template."
   (org-roam-organize-citar--ensure-mode)
   (let ((records (org-roam-organize--registry-cite-records)))
     (cond
@@ -131,10 +137,23 @@ than every Org-roam node that happens to declare a cite ref."
      ((cdr records)
       (user-error "Multiple :cite t registry records are configured"))
      (t
-      (let ((tag (org-roam-organize--record-tag (car records))))
-        (if (stringp tag)
-            tag
-          (user-error "The :cite t registry record has no valid tag")))))))
+      (car records)))))
+
+(defun org-roam-organize-citar--cite-record-tag ()
+  "Return the tag of the configured citation registry record.
+
+Signal `user-error' unless exactly one `:cite t' record with a string tag is
+configured.  Require `org-roam-organize-mode' to be enabled.
+
+Implementation notes: Record selection is delegated to
+`org-roam-organize-citar--cite-record' so creation and database queries use the
+same citation record boundary."
+  (let ((tag
+         (org-roam-organize--record-tag
+          (org-roam-organize-citar--cite-record))))
+    (if (stringp tag)
+        tag
+      (user-error "The :cite t registry record has no valid tag"))))
 
 (defun org-roam-organize-citar--get-notes (&optional citekeys)
   "Return managed Org-roam note identifiers for CITEKEYS.
@@ -225,6 +244,104 @@ for Citar's note selection boundary."
   (if-let* ((node (org-roam-node-from-id uuid)))
       (org-roam-node-visit node)
     (user-error "No Org-roam node for Citar note ID: %s" uuid)))
+
+(defun org-roam-organize-citar--entry-title (citekey entry)
+  "Return the node title for CITEKEY and Citar ENTRY.
+
+Use ENTRY's first non-empty `title' field when available.  Return CITEKEY when
+the field is absent, non-string, or blank.  This function does not query the
+bibliography or modify ENTRY.
+
+Implementation notes: `citar-get-field-with-value' reads Citar's public entry
+representation and returns a field-and-value cons.  No other bibliography
+fields are converted into Org-roam capture information.
+
+Rationale: Node creation requires one title, but metadata naming and formatting
+remain the user's capture-template responsibility."
+  (let ((title
+         (when entry
+           (cdr (citar-get-field-with-value '("title") entry)))))
+    (if (and (stringp title)
+             (not (org-roam-organize--blank-string-p title)))
+        title
+      citekey)))
+
+(defun org-roam-organize-citar--store-cite-ref (citekey)
+  "Persist CITEKEY as a cite ref on the node at point.
+
+Add `@CITEKEY' to the current Org-roam node, save its file, and immediately
+update that file in the Org-roam database.  Signal `user-error' when the
+current buffer does not visit a file.  Propagate errors from Org-roam property
+mutation, saving, or database update.
+
+Implementation notes: This function runs from the successful-finalize callback
+installed by `org-roam-organize--capture-node'.  Explicit database update keeps
+the new mapping observable even when Org-roam autosync is disabled.
+
+Rationale: The adapter, rather than the user's capture template, owns the cite
+ref required for UUID-to-citekey translation."
+  (unless (buffer-file-name (or (buffer-base-buffer) (current-buffer)))
+    (user-error "Cannot store a cite ref outside a file-visiting buffer"))
+  (org-roam-ref-add (concat "@" citekey))
+  (save-buffer)
+  (org-roam-db-update-file))
+
+(defun org-roam-organize-citar--create-note (citekey entry)
+  "Create a managed literature node for CITEKEY and ENTRY.
+
+CITEKEY is supplied by Citar and must be a non-blank string.  ENTRY is Citar's
+bibliography entry and supplies only the initial node title; an absent title
+falls back to CITEKEY.  Start the citation registry record's managed capture
+when no corresponding node exists.  Signal `user-error' without opening or
+modifying a node when one already exists, when multiple nodes make the mapping
+ambiguous, or when the citation record cannot produce a capture template.
+
+The capture remains interactive and finalizes by visiting the created file.
+Only successful finalization adds the cite ref, saves the file, and updates the
+Org-roam database.  This function does not invoke the record's `:provider' or
+construct bibliography metadata capture fields.
+
+Implementation notes: `org-roam-organize-citar--get-notes' performs the
+preflight lookup.  Creation delegates to `org-roam-organize--capture-node' with
+a lexical success callback that calls
+`org-roam-organize-citar--store-cite-ref'.
+
+Rationale: Citar owns bibliography selection, while Org-roam Organize owns the
+managed node layout and the cite ref needed by its UUID citation model."
+  (org-roam-organize-citar--ensure-mode)
+  (unless (and (stringp citekey)
+               (not (org-roam-organize--blank-string-p citekey)))
+    (user-error "Citar citekey cannot be empty"))
+  (let* ((record (org-roam-organize-citar--cite-record))
+         (matches
+          (gethash citekey
+                   (org-roam-organize-citar--get-notes (list citekey)))))
+    (cond
+     ((null matches)
+      (let ((template
+             (org-roam-organize--record-node-capture-template record)))
+        (unless (and template (car-safe template))
+          (user-error
+           "Cannot create a managed node for citation record: %S"
+           record))
+        (org-roam-organize--capture-node
+         (org-roam-organize-citar--entry-title citekey entry)
+         template
+         nil
+         '(:finalize find-file)
+         record
+         (lambda ()
+           (org-roam-organize-citar--store-cite-ref citekey)))))
+     ((cdr matches)
+      (user-error
+       "Multiple managed literature nodes already exist for citekey %s: %s"
+       citekey
+       (mapconcat #'identity matches ", ")))
+     (t
+      (user-error
+       "A managed literature node already exists for citekey %s: %s"
+       citekey
+       (car matches))))))
 
 (defun org-roam-organize-citar--citekeys-to-uuids (citekeys)
   "Return managed literature node UUIDs corresponding to CITEKEYS.
