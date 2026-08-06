@@ -404,7 +404,7 @@ ref required for UUID-to-citekey translation."
   (org-roam-db-update-file))
 
 (defun org-roam-organize-citar--create-note (citekey entry)
-  "Create a managed literature node for CITEKEY and ENTRY.
+  "Create a managed citation-record node for CITEKEY and ENTRY.
 
 CITEKEY is supplied by Citar and must be a non-blank string.  ENTRY is Citar's
 bibliography entry.  The citation record's tagged backend options format the
@@ -412,12 +412,15 @@ initial node title and capture info; a blank title falls back to CITEKEY.  Start
 the record's managed capture when no corresponding node exists.  Signal
 `user-error' without opening or modifying a node when one already exists, when
 multiple nodes make the mapping ambiguous, or when the citation record cannot
-produce a capture template.
+produce a capture template.  Existing-node errors identify the citation record
+by its configured `:name'.
 
 The capture remains interactive and finalizes by visiting the created file.
 Only successful finalization adds the cite ref, saves the file, and updates the
 Org-roam database.  This function does not invoke the record's ordinary
-`:provider'.
+`:provider'.  The capture template remains responsible for writing the
+citation record's tag; a created node without that tag is outside the managed
+note lookup and citekey-to-UUID mapping boundary.
 
 Implementation notes: `org-roam-organize-citar--get-notes' performs the
 preflight lookup.  Creation delegates to `org-roam-organize--capture-node' with
@@ -470,11 +473,12 @@ managed node layout and the cite ref needed by its UUID citation model."
        (car matches))))))
 
 (defun org-roam-organize-citar--citekeys-to-uuids (citekeys)
-  "Return managed literature node UUIDs corresponding to CITEKEYS.
+  "Return managed citation-record node UUIDs corresponding to CITEKEYS.
 
 The returned UUID list preserves the order and multiplicity of CITEKEYS.
-Signal `user-error' when no managed literature node declares a citekey or when
-more than one managed node declares it, or when `org-roam-organize-mode' is
+Signal `user-error' identifying the citation record by its configured `:name'
+when no managed node declares a citekey.  Also signal `user-error' when more
+than one managed node declares a citekey or when `org-roam-organize-mode' is
 disabled.  The function reads the Org-roam database and does not modify it or
 the current buffer.
 

@@ -8,6 +8,7 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
 #+BEGIN_SRC text
   .
   ├── org-roam-organize.el
+  ├── org-roam-organize-citar.el
   ├── README.org
   ├── LICENSE
   ├── flake.nix
@@ -16,7 +17,8 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
       ├── default.nix
       ├── ert/
       │   ├── default.nix
-      │   └── ert.el
+      │   ├── ert.el
+      │   └── citar.el
       └── package-lint/
           └── default.nix
 #+END_SRC
@@ -24,8 +26,9 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
 Key conventions:
 
 - =org-roam-organize.el= is the package implementation and public entry point.
-- =flake.nix= defines the package build, development shell, ERT check, and package-lint check.
-- =tests/ert/ert.el= contains the ERT test suite.
+- =org-roam-organize-citar.el= is the optional Citar adapter loaded only when its backend is enabled.
+- =flake.nix= defines the package build, development shell, core and Citar ERT checks, and package-lint check.
+- =tests/ert/ert.el= contains the core ERT suite; =tests/ert/citar.el= contains Citar adapter integration tests.
 - =tests/package-lint/default.nix= runs package-lint against the packaged Elisp source.
 
 * Features
@@ -63,6 +66,7 @@ This package depends on the following:
 - Emacs 30.1 or later
 - Org 9.5 or later
 - Org-roam 2.3.1 or later
+- Citar when a citation record enables the optional Citar backend; 1.4.0 is the minimum tested version, and setup validates required runtime capabilities
 
 * Configuration
 Before using this package, you need to configure the following variables:
@@ -76,7 +80,7 @@ The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
 Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citation export, checking, and citing-node entry synchronization. That record may use =:backend citar= to install the optional Citar integration with default creation formatting, or a tagged specification of the form =:backend '(citar :title FORMAT :info PLIST)=. A missing or nil =:backend= installs no adapter; unsupported backend names are ignored with a warning. The core =:cite t= behavior does not depend on a backend. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
 
-When the Citar backend is active, Org-roam Organize registers and selects its own Citar notes source. Citar note lookup and opening use managed literature node UUIDs internally, while note creation uses the citation record's managed capture template. In a tagged backend specification, =:title= is a Citar format string and defaults to =${title}=; =:info= is a plist mapping user-chosen Org-roam capture info keywords to Citar format strings. The adapter evaluates these strings with the entry supplied by Citar and passes the resulting title and info to the managed capture. Citar controls which fields are present in that entry through settings including =citar-templates=, =citar-link-fields=, and =citar-additional-fields=. Successful creation automatically adds the selected external citekey as =ROAM_REFS=, saves the node, and updates the Org-roam database. The template therefore must not create its own =roam_refs= property. If a node already exists for the citekey, creation reports an error instead of opening or modifying it. Disabling =org-roam-organize-mode= removes the adapter source and restores the Citar notes source that was active before setup. An existing source with the reserved =org-roam-organize-citar= name prevents adapter installation; malformed Citar options likewise disable only the optional backend. The core mode remains enabled in either case.
+When the Citar backend is active, Org-roam Organize registers and selects its own Citar notes source. Citar note lookup and opening use managed literature node UUIDs internally, while note creation uses the citation record's managed capture template. Citation insertion through =citar-insert-citation=, or through =org-cite-insert= while the Citar Org Cite processor is active, translates selected external citekeys to managed UUIDs. At a citation, the adapter translates UUIDs back to external citekeys before running Citar's default action. In a tagged backend specification, =:title= is a Citar format string and defaults to =${title}=; =:info= is a plist mapping user-chosen Org-roam capture info keywords to Citar format strings. The adapter evaluates these strings with the entry supplied by Citar and passes the resulting title and info to the managed capture. Citar controls which fields are present in that entry through settings including =citar-templates=, =citar-link-fields=, and =citar-additional-fields=. Successful creation automatically adds the selected external citekey as =ROAM_REFS=, saves the node, and updates the Org-roam database. The template therefore must not create its own =roam_refs= property. It remains responsible for writing the citation record's =:tag= through the =filetags= keyword; Citar note lookup and citekey-to-UUID translation only recognize level-0 nodes carrying that tag. If a node already exists for the citekey, creation reports an error that identifies the citation record by its =:name= instead of opening or modifying the node. Disabling =org-roam-organize-mode= removes the adapter source and restores the Citar notes source that was active before setup. An existing source with the reserved =org-roam-organize-citar= name prevents adapter installation; malformed Citar options likewise disable only the optional backend. The core mode remains enabled in either case.
 
 The optional =:template= value is a structured alist for the generated managed capture template. Its optional =path= entry controls the ordinary node file path inside the =${id}/= bundle directory and defaults to =${slug}.org=. The =path= entry may contain bundle-internal subdirectories, is ignored by MOC capture, and cannot be declared by the =:moc t= record. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
@@ -335,7 +339,7 @@ The package uses Org-roam's database queries to resolve MOC nodes by file path, 
 The mode includes a startup hook that validates setup when the mode is enabled.
 
 * Tests
-The repository provides Nix checks for ERT and package-lint:
+The repository provides separate Nix checks for the core ERT suite, the Citar adapter ERT suite, and package-lint; =nix flake check= also evaluates the package build:
 
 #+BEGIN_SRC sh
   nix flake check

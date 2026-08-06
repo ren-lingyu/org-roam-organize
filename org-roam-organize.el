@@ -142,6 +142,9 @@ Each record is a plist.  `:name' and `:tag' are required strings.
 `:moc', `:basic', and `:cite' are optional booleans.  A `:moc t' record must
 also be `:basic t'.  At most one record may use `:cite t'; that record
 identifies literature nodes for citation export, checking, and synchronization.
+Citation database operations recognize level-0 nodes carrying that record's
+`:tag'; a capture template that creates citation nodes is responsible for
+including the tag in its `filetags' keyword.
 Its optional `:backend' value selects additional interactive integration.  It
 may be a backend name or a proper list whose car is the backend name and whose
 cdr is an option plist.  `citar' installs the optional Citar adapter, while
