@@ -57,8 +57,9 @@
       devShells = {
         default = pkgs.mkShell {
           packages = [
-            (mkEmacs (ps_ : [
-              ps_.package-lint
+            (mkEmacs (ps_ : with ps_; [
+              package-lint
+              citar
             ]))
           ];
         };
