@@ -15,11 +15,11 @@
 (declare-function citar-key-at-point "citar" ())
 (declare-function citar-citation-at-point "citar" ())
 (declare-function citar-run-default-action "citar" (citekeys))
-(declare-function citar-get-field-with-value
-                  "citar" (fields citekey-or-entry))
 (declare-function citar-register-notes-source "citar" (name config))
 (declare-function citar-remove-notes-source "citar" (name))
 (declare-function citar-create-note "citar" (key &optional entry))
+(declare-function citar-format--entry
+                  "citar-format" (format entry &optional width &rest options))
 (declare-function org-roam-node-from-id "org-roam-node" (id))
 (declare-function org-roam-node-visit
                   "org-roam-node" (node &optional other-window force))
@@ -45,10 +45,10 @@ portable runtime version API; actual compatibility is validated through
     (citar-key-at-point . function)
     (citar-citation-at-point . function)
     (citar-run-default-action . function)
-    (citar-get-field-with-value . function)
     (citar-register-notes-source . function)
     (citar-remove-notes-source . function)
     (citar-create-note . function)
+    (citar-format--entry . function)
     (citar-dwim . function)
     (citar-insert-citation . function)
     (citar-org-insert-citation . function)
@@ -79,6 +79,9 @@ intended to preserve.")
 The regexp accepts hexadecimal UUID text in the canonical 8-4-4-4-12 layout.
 It identifies keys that require a managed UUID-to-citekey mapping; it does not
 verify that a matching Org-roam node exists.")
+
+(defconst org-roam-organize-citar--default-title-format "${title}"
+  "The Citar format used for node titles when no backend title is configured.")
 
 (defconst org-roam-organize-citar--notes-source
   'org-roam-organize-citar
@@ -283,26 +286,102 @@ for Citar's note selection boundary."
       (org-roam-node-visit node)
     (user-error "No Org-roam node for Citar note ID: %s" uuid)))
 
-(defun org-roam-organize-citar--entry-title (citekey entry)
-  "Return the node title for CITEKEY and Citar ENTRY.
+(defun org-roam-organize-citar--validate-info-formats (formats)
+  "Validate Citar capture info FORMATS and return non-nil.
 
-Use ENTRY's first non-empty `title' field when available.  Return CITEKEY when
-the field is absent, non-string, or blank.  This function does not query the
-bibliography or modify ENTRY.
+FORMATS must be nil or a proper plist whose keys are unique keywords and whose
+values are Citar format strings.  Signal `user-error' for malformed input.
+This function does not load Citar, parse format strings, or inspect an entry.
 
-Implementation notes: `citar-get-field-with-value' reads Citar's public entry
-representation and returns a field-and-value cons.  No other bibliography
-fields are converted into Org-roam capture information.
+Rationale: Capture info names belong to user configuration, while the adapter
+must reject ambiguous or incomplete mappings before starting a capture."
+  (unless (org-roam-organize--plistp formats)
+    (user-error "Citar backend :info must be a proper plist"))
+  (let (seen)
+    (while formats
+      (let ((key (pop formats))
+            (format-string (pop formats)))
+        (unless (keywordp key)
+          (user-error "Citar backend :info key must be a keyword: %S" key))
+        (when (memq key seen)
+          (user-error "Duplicate Citar backend :info key: %S" key))
+        (unless (stringp format-string)
+          (user-error
+           "Citar backend :info format for %S must be a string"
+           key))
+        (push key seen))))
+  t)
 
-Rationale: Node creation requires one title, but metadata naming and formatting
-remain the user's capture-template responsibility."
-  (let ((title
-         (when entry
-           (cdr (citar-get-field-with-value '("title") entry)))))
-    (if (and (stringp title)
-             (not (org-roam-organize--blank-string-p title)))
-        title
-      citekey)))
+(defun org-roam-organize-citar--validate-backend-options (record)
+  "Validate the Citar backend options in registry RECORD and return non-nil.
+
+Accept only unique `:title' and `:info' keys.  `:title', when present, must be
+a string.  `:info' is validated by
+`org-roam-organize-citar--validate-info-formats'.  A symbol backend has no
+options and is valid.  Signal `user-error' for an unknown, duplicated, or
+malformed option.
+
+Implementation notes: Core registry validation owns the generic tagged backend
+shape.  This adapter owns the meaning of the option plist and validates it
+during setup so failure disables only the optional backend."
+  (let ((options (org-roam-organize--record-backend-options record))
+        seen)
+    (unless (org-roam-organize--plistp options)
+      (user-error "Citar backend options must be a proper plist"))
+    (while options
+      (let ((key (pop options))
+            (value (pop options)))
+        (unless (memq key '(:title :info))
+          (user-error "Unknown Citar backend option: %S" key))
+        (when (memq key seen)
+          (user-error "Duplicate Citar backend option: %S" key))
+        (push key seen)
+        (pcase key
+          (:title
+           (unless (stringp value)
+             (user-error "Citar backend :title must be a format string")))
+          (:info
+           (org-roam-organize-citar--validate-info-formats value)))))
+    t))
+
+(defun org-roam-organize-citar--creation-request (record citekey entry)
+  "Return a managed capture request for RECORD, CITEKEY, and Citar ENTRY.
+
+Interpret RECORD's Citar backend `:title' and `:info' values as Citar format
+strings.  Return a plist containing the formatted `:title' and `:info'.  Use
+`org-roam-organize-citar--default-title-format' when `:title' is absent, and
+fall back to CITEKEY when the formatted title is blank.  Preserve configured
+empty info strings so Org-roam does not prompt for those placeholders.
+
+Signal `user-error' when the backend options are invalid or Citar returns a
+non-string formatted value.  This function does not query the bibliography,
+start capture, or modify ENTRY.
+
+Rationale: Citar owns bibliography parsing and interpolation, while the record
+declares how formatted strings map onto Org-roam capture information."
+  (org-roam-organize-citar--validate-backend-options record)
+  (let* ((options (org-roam-organize--record-backend-options record))
+         (title-format
+          (if (plist-member options :title)
+              (plist-get options :title)
+            org-roam-organize-citar--default-title-format))
+         (title (citar-format--entry title-format entry))
+         (info-formats (plist-get options :info))
+         info)
+    (unless (stringp title)
+      (user-error "Citar formatted node title must be a string"))
+    (while info-formats
+      (let* ((key (pop info-formats))
+             (format-string (pop info-formats))
+             (value (citar-format--entry format-string entry)))
+        (unless (stringp value)
+          (user-error
+           "Citar formatted capture info for %S must be a string"
+           key))
+        (setq info (plist-put info key value))))
+    (list :title
+          (if (org-roam-organize--blank-string-p title) citekey title)
+          :info info)))
 
 (defun org-roam-organize-citar--store-cite-ref (citekey)
   "Persist CITEKEY as a cite ref on the node at point.
@@ -328,16 +407,17 @@ ref required for UUID-to-citekey translation."
   "Create a managed literature node for CITEKEY and ENTRY.
 
 CITEKEY is supplied by Citar and must be a non-blank string.  ENTRY is Citar's
-bibliography entry and supplies only the initial node title; an absent title
-falls back to CITEKEY.  Start the citation registry record's managed capture
-when no corresponding node exists.  Signal `user-error' without opening or
-modifying a node when one already exists, when multiple nodes make the mapping
-ambiguous, or when the citation record cannot produce a capture template.
+bibliography entry.  The citation record's tagged backend options format the
+initial node title and capture info; a blank title falls back to CITEKEY.  Start
+the record's managed capture when no corresponding node exists.  Signal
+`user-error' without opening or modifying a node when one already exists, when
+multiple nodes make the mapping ambiguous, or when the citation record cannot
+produce a capture template.
 
 The capture remains interactive and finalizes by visiting the created file.
 Only successful finalization adds the cite ref, saves the file, and updates the
-Org-roam database.  This function does not invoke the record's `:provider' or
-construct bibliography metadata capture fields.
+Org-roam database.  This function does not invoke the record's ordinary
+`:provider'.
 
 Implementation notes: `org-roam-organize-citar--get-notes' performs the
 preflight lookup.  Creation delegates to `org-roam-organize--capture-node' with
@@ -357,15 +437,18 @@ managed node layout and the cite ref needed by its UUID citation model."
     (cond
      ((null matches)
       (let ((template
-             (org-roam-organize--record-node-capture-template record)))
+             (org-roam-organize--record-node-capture-template record))
+            (request
+             (org-roam-organize-citar--creation-request
+              record citekey entry)))
         (unless (and template (car-safe template))
           (user-error
            "Cannot create a managed node for citation record: %S"
            record))
         (org-roam-organize--capture-node
-         (org-roam-organize-citar--entry-title citekey entry)
+         (plist-get request :title)
          template
-         nil
+         (plist-get request :info)
          '(:finalize find-file)
          record
          (lambda ()
@@ -608,8 +691,9 @@ the default value of `citar-at-point-function' to
 `org-roam-organize-citar-dwim'.  Repeated calls are idempotent and return
 non-nil after successful installation.  Signal `user-error' when Citar or its
 Org integration cannot be loaded, when no valid citation registry record is
-configured, when a required runtime capability is unavailable, or when the
-adapter's notes source name is already registered.
+configured, when its Citar backend options are invalid, when a required runtime
+capability is unavailable, or when the adapter's notes source name is already
+registered.
 
 Implementation notes: The function validates the managed citation record
 before loading Citar, then checks
@@ -629,6 +713,8 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
   ;; Reject invalid managed citation configuration before loading optional
   ;; dependencies or changing any Citar global state.
   (org-roam-organize-citar--cite-record-tag)
+  (org-roam-organize-citar--validate-backend-options
+   (org-roam-organize-citar--cite-record))
   (unless (require 'citar nil t)
     (user-error
      "Citar is required by the Org-roam Organize Citar adapter"))

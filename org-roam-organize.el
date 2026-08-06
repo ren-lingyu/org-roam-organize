@@ -142,11 +142,13 @@ Each record is a plist.  `:name' and `:tag' are required strings.
 `:moc', `:basic', and `:cite' are optional booleans.  A `:moc t' record must
 also be `:basic t'.  At most one record may use `:cite t'; that record
 identifies literature nodes for citation export, checking, and synchronization.
-Its optional `:backend' value selects additional interactive integration:
-`citar' installs the optional Citar adapter, while nil, an absent key, or any
-other value installs no adapter.  A `:backend citar' record must also use
-`:cite t'.  Unsupported non-nil backend values are ignored with a warning when
-the mode is enabled.  A basic record must have a relative `:directory';
+Its optional `:backend' value selects additional interactive integration.  It
+may be a backend name or a proper list whose car is the backend name and whose
+cdr is an option plist.  `citar' installs the optional Citar adapter, while
+nil, an absent key, or any other backend name installs no adapter.  A Citar
+backend record must also use `:cite t'.  Unsupported non-nil backend names are
+ignored with a warning when the mode is enabled.  A basic record must have a
+relative `:directory';
 non-basic records may also use `:directory' to create managed nodes in an
 existing kind directory.
 `:moc-path' and `:moc-title' are optional overrides resolved from the record
@@ -486,12 +488,24 @@ status so setups that do not use citing-node entry synchronization remain
 valid."
   (eq (plist-get record :cite) t))
 
-(defun org-roam-organize--record-backend (record)
-  "Return RECORD's optional interactive backend value.
+(defun org-roam-organize--record-backend-specification (record)
+  "Return RECORD's optional interactive backend specification.
 
 RECORD is a registry plist.  Return its `:backend' value without validating or
-normalizing it; a missing key therefore returns nil.  This function does not
-load an adapter or modify RECORD.
+normalizing it; a missing key therefore returns nil.  A specification may be
+a backend name or a proper list beginning with a backend name and followed by
+an option plist.  This function does not load an adapter or modify RECORD.
+
+Rationale: Adapter-specific option consumers need the original tagged value,
+while lifecycle dispatch should use `org-roam-organize--record-backend'."
+  (plist-get record :backend))
+
+(defun org-roam-organize--record-backend (record)
+  "Return the optional interactive backend name for RECORD.
+
+Return the car of a cons backend specification and otherwise return its raw
+value.  Registry validation is responsible for rejecting malformed tagged
+specifications.  This function does not load an adapter or modify RECORD.
 
 Implementation notes: Registry validation constrains the recognized `citar'
 value to a `:cite t' record.  Runtime setup decides whether other values are
@@ -499,7 +513,20 @@ ignored and reported.
 
 Rationale: Keeping backend access behind the registry accessor boundary avoids
 coupling mode lifecycle code to the record's plist representation."
-  (plist-get record :backend))
+  (let ((backend
+         (org-roam-organize--record-backend-specification record)))
+    (if (consp backend) (car backend) backend)))
+
+(defun org-roam-organize--record-backend-options (record)
+  "Return the option plist from RECORD's tagged backend specification.
+
+Return nil for a backend symbol, a missing backend, or a tagged specification
+without options.  Registry validation is responsible for ensuring that a
+non-nil return value is a proper plist.  The returned list is shared with
+RECORD and must not be modified."
+  (let ((backend
+         (org-roam-organize--record-backend-specification record)))
+    (when (consp backend) (cdr backend))))
 
 (defun org-roam-organize--record-directory (record)
   "Return RECORD's relative node directory.
@@ -1238,8 +1265,14 @@ checked when node creation calls the provider."
                (moc (when plistp (plist-get record :moc)))
                (basic (when plistp (plist-get record :basic)))
                (cite (when plistp (plist-get record :cite)))
+               (backend-specification
+                (when plistp
+                  (org-roam-organize--record-backend-specification record)))
                (backend (when plistp
                           (org-roam-organize--record-backend record)))
+               (backend-options
+                (when plistp
+                  (org-roam-organize--record-backend-options record)))
                (directory (when plistp (org-roam-organize--record-directory record)))
                (inbox (when plistp (org-roam-organize--record-inbox record)))
                (provider (when plistp (plist-get record :provider)))
@@ -1297,6 +1330,18 @@ checked when node creation calls the provider."
               (setq result_message
                     (concat result_message
                             "  :backend citar requires :cite t\n")))
+            (when (and (consp backend-specification)
+                       (or (not
+                            (org-roam-organize--proper-list-p
+                             backend-specification))
+                           (not (symbolp backend))
+                           (not (org-roam-organize--plistp
+                                 backend-options))))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat
+                     result_message
+                     "  tagged :backend must be (BACKEND OPTION VALUE...)\n")))
             (cond
              ((org-roam-organize--record-basic-p record)
               (unless (stringp directory)

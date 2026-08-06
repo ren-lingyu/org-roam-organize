@@ -74,9 +74,9 @@ Before using this package, you need to configure the following variables:
 
 The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
-Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citation export, checking, and citing-node entry synchronization. That record may use =:backend citar= to install the optional Citar integration when the mode is enabled. A missing or nil =:backend= installs no adapter; unsupported values are ignored with a warning. The core =:cite t= behavior does not depend on a backend. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
+Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citation export, checking, and citing-node entry synchronization. That record may use =:backend citar= to install the optional Citar integration with default creation formatting, or a tagged specification of the form =:backend '(citar :title FORMAT :info PLIST)=. A missing or nil =:backend= installs no adapter; unsupported backend names are ignored with a warning. The core =:cite t= behavior does not depend on a backend. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
 
-When =:backend citar= is active, Org-roam Organize registers and selects its own Citar notes source. Citar note lookup and opening use managed literature node UUIDs internally, while note creation uses the citation record's managed capture template. Successful creation automatically adds the selected external citekey as =ROAM_REFS=, saves the node, and updates the Org-roam database. The template therefore does not need a =roam_refs= property. If a node already exists for the citekey, creation reports an error instead of opening or modifying it. Disabling =org-roam-organize-mode= removes the adapter source and restores the Citar notes source that was active before setup. An existing source with the reserved =org-roam-organize-citar= name prevents adapter installation; the core mode remains enabled without the optional backend.
+When the Citar backend is active, Org-roam Organize registers and selects its own Citar notes source. Citar note lookup and opening use managed literature node UUIDs internally, while note creation uses the citation record's managed capture template. In a tagged backend specification, =:title= is a Citar format string and defaults to =${title}=; =:info= is a plist mapping user-chosen Org-roam capture info keywords to Citar format strings. The adapter evaluates these strings with the entry supplied by Citar and passes the resulting title and info to the managed capture. Citar controls which fields are present in that entry through settings including =citar-templates=, =citar-link-fields=, and =citar-additional-fields=. Successful creation automatically adds the selected external citekey as =ROAM_REFS=, saves the node, and updates the Org-roam database. The template therefore must not create its own =roam_refs= property. If a node already exists for the citekey, creation reports an error instead of opening or modifying it. Disabling =org-roam-organize-mode= removes the adapter source and restores the Citar notes source that was active before setup. An existing source with the reserved =org-roam-organize-citar= name prevents adapter installation; malformed Citar options likewise disable only the optional backend. The core mode remains enabled in either case.
 
 The optional =:template= value is a structured alist for the generated managed capture template. Its optional =path= entry controls the ordinary node file path inside the =${id}/= bundle directory and defaults to =${slug}.org=. The =path= entry may contain bundle-internal subdirectories, is ignored by MOC capture, and cannot be declared by the =:moc t= record. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
@@ -190,12 +190,16 @@ An example of configuration is shown here.
                  :tag "ref"
                  :basic t
                  :cite t
-                 :backend 'citar
+                 :backend '(citar
+                            :title "${title}"
+                            :info (:citar-key "${=key=}"
+                                   :citar-author "${author editor}"
+                                   :citar-year "${year issued date}"))
                  :directory "literature"
                  :inbox "Inbox"
-                 :template '((path . "ref.org")
-                             (keywords . ((author . nil)
-                                          (date . nil)
+                 :template '((path . "${citar-key}.org")
+                             (keywords . ((author . "${citar-author}")
+                                          (year . "${citar-year}")
                                           (description . nil)
                                           (filetags . ("ref"))))))
            (list :name "permanent"

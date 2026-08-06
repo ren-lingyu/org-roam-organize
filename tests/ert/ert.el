@@ -119,7 +119,12 @@
 (ert-deftest org-roam-organize-test-registry-allows-optional-cite-backend ()
   (let ((org-roam-organize-directory
          (org-roam-organize-test--temporary-root)))
-    (dolist (backend '(nil citar unsupported))
+    (dolist (backend
+             '(nil
+               citar
+               (citar :title "${title}" :info (:key "${=key=}"))
+               unsupported
+               (unsupported :option t)))
       (let ((org-roam-organize-registry
              `((:name "maps" :tag "map" :moc t :basic t :directory "moc")
                (:name "literature"
@@ -143,6 +148,41 @@
       (should (string-match-p (rx ":backend citar requires :cite t")
                               (cdr result))))))
 
+(ert-deftest org-roam-organize-test-registry-rejects-malformed-tagged-backend ()
+  (dolist (backend
+           '((citar :title)
+             (citar . :title)
+             ("citar" :title "${title}")))
+    (let ((org-roam-organize-registry
+           `((:name "literature"
+              :tag "ref"
+              :cite t
+              :backend ,backend
+              :basic t
+              :directory "literature"))))
+      (let ((result (org-roam-organize--validate-registry)))
+        (should-not (car result))
+        (should
+         (string-match-p
+          (rx "tagged :backend must be (BACKEND OPTION VALUE...)")
+          (cdr result)))))))
+
+(ert-deftest org-roam-organize-test-record-backend-accessors ()
+  (let ((record
+         '(:name "literature"
+           :backend
+           (citar :title "${title}" :info (:key "${=key=}")))))
+    (should
+     (equal (org-roam-organize--record-backend-specification record)
+            '(citar :title "${title}" :info (:key "${=key=}"))))
+    (should (eq (org-roam-organize--record-backend record) 'citar))
+    (should
+     (equal (org-roam-organize--record-backend-options record)
+            '(:title "${title}" :info (:key "${=key=}")))))
+  (let ((record '(:name "literature" :backend citar)))
+    (should (eq (org-roam-organize--record-backend record) 'citar))
+    (should-not (org-roam-organize--record-backend-options record))))
+
 (ert-deftest org-roam-organize-test-registry-cite-backend-reads-cite-record ()
   (let ((org-roam-organize-registry
          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
@@ -150,6 +190,16 @@
             :tag "ref"
             :cite t
             :backend citar
+            :basic t
+            :directory "literature"))))
+    (should (eq (org-roam-organize--registry-cite-backend) 'citar))))
+
+(ert-deftest org-roam-organize-test-registry-cite-backend-normalizes-tagged-record ()
+  (let ((org-roam-organize-registry
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :backend (citar :title "${title}")
             :basic t
             :directory "literature"))))
     (should (eq (org-roam-organize--registry-cite-backend) 'citar))))

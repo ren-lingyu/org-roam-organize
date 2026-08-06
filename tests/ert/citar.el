@@ -333,32 +333,112 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (org-roam-organize-citar--open-note
          org-roam-organize-citar-test--uuid-a)))))
 
-(ert-deftest org-roam-organize-citar-test-entry-title-uses-title-or-citekey ()
-  (let (requested-fields requested-entry)
-    (cl-letf (((symbol-function 'citar-get-field-with-value)
-               (lambda (fields entry)
-                 (setq requested-fields fields
-                       requested-entry entry)
-                 '("title" . "Reference Title"))))
+(ert-deftest org-roam-organize-citar-test-creation-request-uses-default-title ()
+  (let ((record '(:backend citar))
+        received-format
+        received-entry)
+    (cl-letf (((symbol-function 'citar-format--entry)
+               (lambda (format-string entry)
+                 (setq received-format format-string
+                       received-entry entry)
+                 "Reference Title")))
       (let ((entry '(("title" . "Reference Title"))))
         (should
-         (equal (org-roam-organize-citar--entry-title "key-a" entry)
-                "Reference Title"))
-        (should (equal requested-fields '("title")))
-        (should (eq requested-entry entry)))))
-  (cl-letf (((symbol-function 'citar-get-field-with-value)
-             (lambda (&rest _arguments)
-               '("title" . "  "))))
+         (equal
+          (org-roam-organize-citar--creation-request record "key-a" entry)
+          '(:title "Reference Title" :info nil)))
+        (should
+         (equal received-format
+                org-roam-organize-citar--default-title-format))
+        (should (eq received-entry entry))))))
+
+(ert-deftest org-roam-organize-citar-test-creation-request-formats-title-and-info ()
+  (let ((record
+         '(:backend
+           (citar
+            :title "${author}, ${title}"
+            :info
+            (:reference-key "${=key=}"
+             :creators "${author editor:%etal}"))))
+        calls)
+    (cl-letf (((symbol-function 'citar-format--entry)
+               (lambda (format-string entry)
+                 (push (list format-string entry) calls)
+                 (pcase format-string
+                   ("${author}, ${title}" "Doe, Reference")
+                   ("${=key=}" "key-a")
+                   ("${author editor:%etal}" "Doe & Roe")))))
+      (let* ((entry '(("title" . "Reference")))
+             (request
+              (org-roam-organize-citar--creation-request
+               record "key-a" entry)))
+        (should
+         (equal request
+                '(:title "Doe, Reference"
+                  :info
+                  (:reference-key "key-a" :creators "Doe & Roe"))))
+        (should (= (length calls) 3))
+        (should (seq-every-p
+                 (lambda (call) (eq (nth 1 call) entry))
+                 calls))))))
+
+(ert-deftest org-roam-organize-citar-test-creation-request-uses-citar-formatting ()
+  (require 'citar)
+  (let* ((record
+          '(:backend
+            (citar
+             :title "${author editor:%etal}, ${title}"
+             :info (:reference-key "${=key=}"))))
+         (entry
+          '(("=key=" . "key-a")
+            ("author" . "Doe, Jane and Roe, Richard")
+            ("title" . "Reference Title")))
+         (request
+          (org-roam-organize-citar--creation-request
+           record "key-a" entry)))
     (should
-     (equal (org-roam-organize-citar--entry-title "key-a" '(entry))
-            "key-a")))
-  (should
-   (equal (org-roam-organize-citar--entry-title "key-a" nil)
-          "key-a")))
+     (equal request
+            '(:title "Doe & Roe, Reference Title"
+              :info (:reference-key "key-a"))))))
+
+(ert-deftest org-roam-organize-citar-test-creation-request-falls-back-to-citekey ()
+  (cl-letf (((symbol-function 'citar-format--entry)
+             (lambda (&rest _arguments) "  ")))
+    (should
+     (equal
+      (org-roam-organize-citar--creation-request
+       '(:backend citar) "key-a" nil)
+      '(:title "key-a" :info nil)))))
+
+(ert-deftest org-roam-organize-citar-test-rejects-invalid-backend-options ()
+  (dolist
+      (case
+       '(((citar :unknown t) "Unknown Citar backend option")
+         ((citar :title "${title}" :title "${year}")
+          "Duplicate Citar backend option")
+         ((citar :title 1) "Citar backend :title must be a format string")
+         ((citar :info (:field)) "Citar backend :info must be a proper plist")
+         ((citar :info (field "${title}"))
+          "Citar backend :info key must be a keyword")
+         ((citar :info (:field "${title}" :field "${year}"))
+          "Duplicate Citar backend :info key")
+         ((citar :info (:field 1))
+          "Citar backend :info format for :field must be a string")))
+    (let ((record (list :backend (nth 0 case))))
+      (org-roam-organize-citar-test--should-user-error
+          (rx-to-string `(seq ,(nth 1 case)))
+        (org-roam-organize-citar--validate-backend-options record)))))
 
 (ert-deftest org-roam-organize-citar-test-create-note-delegates-managed-capture ()
   (org-roam-organize-citar-test--with-adapter-context
-    (let* ((record (car org-roam-organize-registry))
+    (let* ((record
+            '(:name "literature"
+              :tag "ref"
+              :cite t
+              :backend
+              (citar
+               :title "${title}"
+               :info (:selected-key "${=key=}"))))
            (template '("n" "literature node" plain "%?"))
            (notes (make-hash-table :test 'equal))
            captured-arguments
@@ -374,11 +454,12 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                  (lambda (selected-record)
                    (should (eq selected-record record))
                    template))
-                ((symbol-function 'citar-get-field-with-value)
-                 (lambda (fields entry)
-                   (should (equal fields '("title")))
+                ((symbol-function 'citar-format--entry)
+                 (lambda (format-string entry)
                    (should (equal entry '(("title" . "New Reference"))))
-                   '("title" . "New Reference")))
+                   (pcase format-string
+                     ("${title}" "New Reference")
+                     ("${=key=}" "new-key"))))
                 ((symbol-function 'org-roam-organize--capture-node)
                  (lambda (&rest arguments)
                    (setq captured-arguments arguments)
@@ -393,7 +474,9 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
              'capturing))
         (should (equal (nth 0 captured-arguments) "New Reference"))
         (should (eq (nth 1 captured-arguments) template))
-        (should-not (nth 2 captured-arguments))
+        (should
+         (equal (nth 2 captured-arguments)
+                '(:selected-key "new-key")))
         (should (equal (nth 3 captured-arguments) '(:finalize find-file)))
         (should (eq (nth 4 captured-arguments) record))
         (should (functionp (nth 5 captured-arguments)))
@@ -467,9 +550,10 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                       ((symbol-function
                         'org-roam-organize--record-node-capture-template)
                        (lambda (_record) template))
-                      ((symbol-function 'citar-get-field-with-value)
-                       (lambda (&rest _arguments)
-                         '("title" . "New Reference")))
+                      ((symbol-function 'citar-format--entry)
+                       (lambda (format-string _entry)
+                         (should (equal format-string "${title}"))
+                         "New Reference"))
                       ((symbol-function 'org-roam-organize--capture-node)
                        (lambda (_title _template _info _props _record
                                 success-function)
@@ -924,6 +1008,30 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (org-roam-organize-citar-test--should-user-error
             (rx "capability check failed")
           (org-roam-organize-citar-setup)))
+      (should-not org-roam-organize-citar--installed-p)
+      (should
+       (eq (default-value 'citar-at-point-function)
+           previous-at-point))
+      (should (eq citar-notes-source previous-notes-source))
+      (should-not
+       (assq org-roam-organize-citar--notes-source
+             citar-notes-sources)))))
+
+(ert-deftest org-roam-organize-citar-test-invalid-options-leave-uninstalled ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :backend (citar :unknown t)))))
+    (require 'citar)
+    (require 'citar-org)
+    (org-roam-organize-citar-teardown)
+    (let ((previous-at-point (default-value 'citar-at-point-function))
+          (previous-notes-source citar-notes-source))
+      (org-roam-organize-citar-test--should-user-error
+          (rx "Unknown Citar backend option")
+        (org-roam-organize-citar-setup))
       (should-not org-roam-organize-citar--installed-p)
       (should
        (eq (default-value 'citar-at-point-function)
