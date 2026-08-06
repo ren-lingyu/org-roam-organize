@@ -1070,63 +1070,78 @@ finalization hooks.  `bound-and-true-p' keeps this helper safe outside that
 dynamic context."
   (bound-and-true-p org-note-abort))
 
-(defun org-roam-organize--capture-node (title template &optional info props managed-record)
+(defun org-roam-organize--capture-node
+    (title template &optional info props managed-record on-success)
   "Capture an Org-roam node with TITLE and TEMPLATE.
 
 INFO and PROPS are passed through to `org-roam-capture-'.  When MANAGED-RECORD
 is non-nil, create the expanded target's parent directory during Org-roam's
-capture preface phase and clean the managed bundle root after capture.
+capture preface phase and clean the managed bundle root after capture.  When
+ON-SUCCESS is non-nil, it must be a function of no arguments; call it once in
+the capture buffer after successful finalization, but not when capture is
+aborted.  Signal `user-error' before starting capture when ON-SUCCESS is
+neither nil nor a function.
 
 Implementation notes: this helper centralizes the capture call boundary used
 by managed ordinary nodes and MOC nodes.  Ordinary nodes pass their registry
 record so the bundle root can be computed after Org-roam expands capture
-placeholders.  MOC nodes pass nil and keep their flat MOC path behavior."
+placeholders.  An `org-capture-after-finalize-hook' closure owns both
+ON-SUCCESS dispatch and managed-directory cleanup.  It removes itself before
+invoking caller code and uses `unwind-protect' so callback errors do not skip
+cleanup scheduling.
+
+Rationale: integrations may need to commit buffer-local metadata only after a
+capture succeeds.  Keeping that transaction boundary here avoids treating an
+interactive `org-roam-capture-' return as proof of successful finalization."
   (let ((key (car-safe template)))
     (unless (and (stringp title)
                  (not (org-roam-organize--blank-string-p title)))
       (user-error "Node title cannot be empty"))
     (unless (and template key)
       (user-error "Cannot capture node without a valid template"))
+    (unless (or (null on-success) (functionp on-success))
+      (user-error "Capture success callback must be a function"))
     (let ((node (org-roam-node-create :title title)))
-      (if managed-record
-          (let (created-directory cleanup-hook)
-            (cl-labels
-                ((cleanup ()
-                   (remove-hook 'org-capture-after-finalize-hook cleanup-hook)
+      (let (created-directory finalize-hook)
+        (cl-labels
+            ((finalize ()
+               (remove-hook 'org-capture-after-finalize-hook finalize-hook)
+               (let ((aborted (org-roam-organize--capture-aborted-p)))
+                 (unwind-protect
+                     (when (and on-success (not aborted))
+                       (funcall on-success))
                    (when created-directory
                      (run-at-time
                       0 nil
                       #'org-roam-organize--capture-delete-directory
                       created-directory
-                      (org-roam-organize--capture-aborted-p))))
-                 (create-parent-directory ()
-                   (setq created-directory
-                         (org-roam-organize--capture-create-target-directory
-                          managed-record))
-                   nil))
-              (setq cleanup-hook #'cleanup)
-              (add-hook 'org-capture-after-finalize-hook cleanup-hook t)
-              (let ((org-roam-capture-preface-hook
+                      aborted)))))
+             (create-parent-directory ()
+               (setq created-directory
+                     (org-roam-organize--capture-create-target-directory
+                      managed-record))
+               nil))
+          (setq finalize-hook #'finalize)
+          (when (or managed-record on-success)
+            (add-hook 'org-capture-after-finalize-hook finalize-hook t))
+          (let ((org-roam-capture-preface-hook
+                 (if managed-record
                      (cons #'create-parent-directory
-                           org-roam-capture-preface-hook)))
-                (condition-case err
-                    (org-roam-capture- :node node
-                                       :keys key
-                                       :info info
-                                       :props props
-                                       :templates (list template))
-                  (error
-                   (remove-hook 'org-capture-after-finalize-hook cleanup-hook)
-                   (when created-directory
-                     (org-roam-organize--capture-delete-directory
-                      created-directory
-                      t))
-                   (signal (car err) (cdr err)))))))
-        (org-roam-capture- :node node
-                           :keys key
-                           :info info
-                           :props props
-                           :templates (list template))))))
+                           org-roam-capture-preface-hook)
+                   org-roam-capture-preface-hook)))
+            (condition-case err
+                (org-roam-capture- :node node
+                                   :keys key
+                                   :info info
+                                   :props props
+                                   :templates (list template))
+              (error
+               (remove-hook 'org-capture-after-finalize-hook finalize-hook)
+               (when created-directory
+                 (org-roam-organize--capture-delete-directory
+                  created-directory
+                  t))
+               (signal (car err) (cdr err))))))))))
 
 (defun org-roam-organize--default-node-provider (_record)
   "Return the default managed node creation request.

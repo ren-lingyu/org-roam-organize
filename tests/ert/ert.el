@@ -328,6 +328,82 @@
     (should (equal (plist-get captured :templates)
                    (list template)))))
 
+(ert-deftest org-roam-organize-test-capture-node-runs-success-callback-after-finalize ()
+  (let ((template '("n" "test node" plain "%?"
+                    :target (file+head "/tmp/test.org" "#+TITLE: ${title}\n")
+                    :unnarrowed t))
+        (org-capture-after-finalize-hook nil)
+        (call-count 0))
+    (cl-letf (((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args))))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       nil
+       (lambda ()
+         (setq call-count (1+ call-count))))
+      (should (= call-count 0))
+      (should org-capture-after-finalize-hook)
+      (run-hooks 'org-capture-after-finalize-hook)
+      (should (= call-count 1))
+      (should-not org-capture-after-finalize-hook))))
+
+(ert-deftest org-roam-organize-test-capture-node-skips-success-callback-after-abort ()
+  (let ((template '("n" "test node" plain "%?"
+                    :target (file+head "/tmp/test.org" "#+TITLE: ${title}\n")
+                    :unnarrowed t))
+        (org-capture-after-finalize-hook nil)
+        called)
+    (cl-letf (((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args))))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       nil
+       (lambda ()
+         (setq called t)))
+      (let ((org-note-abort t))
+        (run-hooks 'org-capture-after-finalize-hook))
+      (should-not called)
+      (should-not org-capture-after-finalize-hook))))
+
+(ert-deftest org-roam-organize-test-capture-node-cleans-up-after-success-callback-error ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (target-file
+          (expand-file-name "literature/test-id/test-title.org" root))
+         (target-directory (file-name-directory target-file))
+         (record '(:name "literature" :tag "ref" :directory "literature"))
+         (template `("n" "test node" plain "%?"
+                     :target (file+head ,target-file "#+TITLE: ${title}\n")
+                     :unnarrowed t))
+         (org-capture-after-finalize-hook nil))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-target-file)
+               (lambda ()
+                 target-file))
+              ((symbol-function 'org-roam-capture-)
+               (lambda (&rest _args)
+                 (run-hooks 'org-roam-capture-preface-hook)))
+              ((symbol-function 'run-at-time)
+               (lambda (_secs _repeat function &rest args)
+                 (apply function args))))
+      (org-roam-organize--capture-node
+       "Dynamic Title"
+       template
+       nil
+       nil
+       record
+       (lambda ()
+         (error "Callback failed")))
+      (should (file-directory-p target-directory))
+      (should-error (run-hooks 'org-capture-after-finalize-hook))
+      (should-not (file-exists-p target-directory))
+      (should-not org-capture-after-finalize-hook))))
+
 (ert-deftest org-roam-organize-test-capture-node-cleans-empty-directory-after-finalize ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-directory root)
