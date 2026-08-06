@@ -74,7 +74,7 @@ Before using this package, you need to configure the following variables:
 
 The =org-roam-organize-directory= must be inside =org-roam-directory=.
 
-Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citing-node entry synchronization. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
+Each registry record must declare =:name= and =:tag=. Basic records use =:basic t= and a relative =:directory=. The top-level MOC record is marked with =:moc t= and must also be =:basic t=. At most one record may use =:cite t= to mark literature nodes for citation export, checking, and citing-node entry synchronization. That record may use =:backend citar= to install the optional Citar integration when the mode is enabled. A missing or nil =:backend= installs no adapter; unsupported values are ignored with a warning. The core =:cite t= behavior does not depend on a backend. Non-basic records may also use =:directory= to create managed nodes in an existing kind directory. MOC files use =:moc-path= and =:moc-title= when explicitly provided, or derive them from the record name and the =:moc t= directory when absent. The optional =:inbox= value names the level-1 headline used for newly added generated entries and defaults to =Inbox=.
 
 The optional =:template= value is a structured alist for the generated managed capture template. Its optional =path= entry controls the ordinary node file path inside the =${id}/= bundle directory and defaults to =${slug}.org=. The =path= entry may contain bundle-internal subdirectories, is ignored by MOC capture, and cannot be declared by the =:moc t= record. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
@@ -193,6 +193,7 @@ An example of configuration is shown here.
                  :tag "ref"
                  :basic t
                  :cite t
+                 :backend 'citar
                  :directory "literature"
                  :inbox "Inbox"
                  :provider #'example-org-roam-organize-literature-provider
@@ -276,6 +277,7 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
                     :tag "ref"
                     :basic t
                     :cite t
+                    :backend 'citar
                     :directory "literature"
                     :provider #'my-org-roam-organize-literature-provider
                     :template '((path . "ref.org")
@@ -322,7 +324,7 @@ The corresponding literature node keeps its current external bibliography citeke
 
 The command =org-roam-organize-cite-check= performs a global read-only check for the single =:cite t= registry record. It reports managed literature nodes that lack a cite-type ref, nodes that have more than one cite-type ref, and external citekeys attached to multiple managed literature nodes.
 
-The command =org-roam-organize-cite-sync= performs a global sync for the same record. Before writing generated entries, it uses the same cite reference validation as =org-roam-organize-cite-check=. It then computes citation relationships from Org-roam's =refs= and =citations= tables using =refs.node_id = citations.cite_key=, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them. If the same external citekey is attached to multiple managed literature nodes, it is reported as a non-blocking data quality warning.
+The command =org-roam-organize-cite-sync= performs a global sync for the same record. Before writing generated entries, it requires every managed literature node to have exactly one cite ref. It then computes citation relationships from Org-roam's =refs= and =citations= tables using =refs.node_id = citations.cite_key=, updates existing link titles, adds missing citing nodes, removes stale entries, and preserves duplicate entries while reporting them. Unlike the stricter global cite check, a citekey attached to multiple managed literature nodes remains a non-blocking sync warning.
 
 When =org-roam-organize-mode= is enabled, export-time citation conversion is registered through Org export's parse-tree filter. During export, citation keys that match managed literature node UUIDs are replaced with the current external citekey from =refs.ref=. Export validation is limited to managed literature UUIDs that appear in the current export tree; unrelated literature node metadata does not block export. Citation keys that do not match managed literature nodes are left unchanged, and the source Org buffer is not modified.
 

@@ -78,27 +78,6 @@
   :type 'string
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize-cite-backend nil
-  "Select the backend used for interactive citation operations.
-
-Set this to nil to disable interactive backend integration.  Set this to
-`citar' to use the optional Citar adapter.  The value is read when
-`org-roam-organize-mode' is enabled; disable and re-enable the mode after
-changing it.  It does not affect UUID citation storage, citation
-synchronization, or export conversion.
-
-Implementation notes: Mode setup loads and installs the selected adapter, and
-mode teardown removes it.  The Citar adapter changes Citar's Org insertion and
-follow boundaries while leaving Citar's user-facing commands intact.
-
-Rationale: Interactive citation managers are optional frontends around the
-Org-roam Organize UUID data model, so selecting one must not make it a core
-package dependency."
-  :type '(choice
-          (const :tag "None" nil)
-          (const :tag "Citar" citar))
-  :group 'org-roam-organize)
-
 (defcustom org-roam-organize-registry
   (list (list :name "navigation"
               :tag "map"
@@ -162,9 +141,14 @@ package dependency."
 Each record is a plist.  `:name' and `:tag' are required strings.
 `:moc', `:basic', and `:cite' are optional booleans.  A `:moc t' record must
 also be `:basic t'.  At most one record may use `:cite t'; that record
-identifies literature nodes for citing-node entry synchronization.  A basic
-record must have a relative `:directory'; non-basic records may also use
-`:directory' to create managed nodes in an existing kind directory.
+identifies literature nodes for citation export, checking, and synchronization.
+Its optional `:backend' value selects additional interactive integration:
+`citar' installs the optional Citar adapter, while nil, an absent key, or any
+other value installs no adapter.  A `:backend citar' record must also use
+`:cite t'.  Unsupported non-nil backend values are ignored with a warning when
+the mode is enabled.  A basic record must have a relative `:directory';
+non-basic records may also use `:directory' to create managed nodes in an
+existing kind directory.
 `:moc-path' and `:moc-title' are optional overrides resolved from the record
 name when absent.  `:inbox' is an optional level-1 headline name used for
 newly added generated entries and defaults to \"Inbox\".
@@ -197,8 +181,8 @@ The provider does not control paths, targets, or capture templates."
   "The value names the backend installed by the current mode lifecycle.
 
 This records successful installation rather than the requested value in
-`org-roam-organize-cite-backend', allowing optional backend failure to leave
-the core mode active without claiming adapter ownership.")
+the citation registry record, allowing optional backend failure to leave the
+core mode active without claiming adapter ownership.")
 
 (declare-function org-roam-organize-citar-setup "org-roam-organize-citar")
 (declare-function org-roam-organize-citar-teardown "org-roam-organize-citar")
@@ -502,6 +486,21 @@ status so setups that do not use citing-node entry synchronization remain
 valid."
   (eq (plist-get record :cite) t))
 
+(defun org-roam-organize--record-backend (record)
+  "Return RECORD's optional interactive backend value.
+
+RECORD is a registry plist.  Return its `:backend' value without validating or
+normalizing it; a missing key therefore returns nil.  This function does not
+load an adapter or modify RECORD.
+
+Implementation notes: Registry validation constrains the recognized `citar'
+value to a `:cite t' record.  Runtime setup decides whether other values are
+ignored and reported.
+
+Rationale: Keeping backend access behind the registry accessor boundary avoids
+coupling mode lifecycle code to the record's plist representation."
+  (plist-get record :backend))
+
 (defun org-roam-organize--record-directory (record)
   "Return RECORD's relative node directory.
 
@@ -620,6 +619,23 @@ ensures there is at most one citation record, while
   (seq-find #'org-roam-organize--record-cite-p
             (seq-filter #'org-roam-organize--plistp
                         org-roam-organize-registry)))
+
+(defun org-roam-organize--registry-cite-backend ()
+  "Return the backend value of the configured citation registry record.
+
+Return nil when no `:cite t' record exists or when that record has no backend.
+Registry validation guarantees at most one citation record before mode setup
+calls this function.  The function does not validate, load, or install the
+returned backend.
+
+Implementation notes: The citation record is selected with
+`org-roam-organize--registry-cite-record' and read through
+`org-roam-organize--record-backend'.
+
+Rationale: Backend selection belongs to the unique managed citation record,
+while adapter dispatch remains a separate mode-lifecycle responsibility."
+  (when-let* ((record (org-roam-organize--registry-cite-record)))
+    (org-roam-organize--record-backend record)))
 
 (defun org-roam-organize--registry-cite-records ()
   "Return registry records marked with `:cite t'.
@@ -1207,6 +1223,8 @@ checked when node creation calls the provider."
                (moc (when plistp (plist-get record :moc)))
                (basic (when plistp (plist-get record :basic)))
                (cite (when plistp (plist-get record :cite)))
+               (backend (when plistp
+                          (org-roam-organize--record-backend record)))
                (directory (when plistp (org-roam-organize--record-directory record)))
                (inbox (when plistp (org-roam-organize--record-inbox record)))
                (provider (when plistp (plist-get record :provider)))
@@ -1258,6 +1276,12 @@ checked when node creation calls the provider."
                       (concat result_message "  :moc t requires :basic t\n"))))
             (when (org-roam-organize--record-cite-p record)
               (setq cite-count (1+ cite-count)))
+            (when (and (eq backend 'citar)
+                       (not (org-roam-organize--record-cite-p record)))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message
+                            "  :backend citar requires :cite t\n")))
             (cond
              ((org-roam-organize--record-basic-p record)
               (unless (stringp directory)
@@ -2414,16 +2438,17 @@ matches the input order."
 (defun org-roam-organize--setup-cite-backend (backend)
   "Install the optional citation adapter selected by BACKEND.
 
-BACKEND currently accepts only `citar'.  Signal `user-error' when
-`org-roam-organize-mode' is disabled, when BACKEND is unsupported, or when its
-adapter cannot be loaded or validated.  A nil BACKEND disables interactive
-citation integration.  Return the installed backend symbol, or nil when no
-adapter is selected.  Failure does not itself disable Org-roam Organize mode;
+BACKEND installs the Citar adapter when it is `citar'.  A nil value selects no
+adapter.  Any other value is ignored with a warning.  Signal `user-error' when
+`org-roam-organize-mode' is disabled or when the selected Citar adapter cannot
+be loaded or validated.  Return the installed backend symbol, or nil when no
+adapter is installed.  Failure does not itself disable Org-roam Organize mode;
 the mode lifecycle decides whether an adapter error is fatal.
 
-Implementation notes: Each supported backend maps to a separate adapter
+Implementation notes: The recognized backend maps to a separate adapter
 feature and setup function.  The active backend is recorded only after setup
 succeeds so mode teardown does not claim ownership of a partial installation.
+Unsupported values never load optional packages or claim active ownership.
 
 Rationale: Adapter installation belongs to the mode lifecycle because advice
 and third-party customization changes must have a matching teardown boundary.
@@ -2441,7 +2466,11 @@ blocking core behavior."
      (org-roam-organize-citar-setup)
      (setq org-roam-organize--active-cite-backend 'citar))
     (_
-     (user-error "Unsupported citation backend: %S" backend))))
+     (setq org-roam-organize--active-cite-backend nil)
+     (message
+      "[WARNING] Citation backend is not supported and was ignored: %S"
+      backend)
+     nil)))
 
 (defun org-roam-organize--teardown-cite-backend ()
   "Remove the citation adapter installed by Org-roam Organize mode.
@@ -2970,7 +2999,7 @@ check and sync commands display detailed diagnostics in
                           ;; remove the export filter installed above.
                           (condition-case backend-err
                               (org-roam-organize--setup-cite-backend
-                               org-roam-organize-cite-backend)
+                               (org-roam-organize--registry-cite-backend))
                             (error
                              (org-roam-organize--teardown-cite-backend)
                              (message

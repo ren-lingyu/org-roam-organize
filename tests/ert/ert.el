@@ -116,6 +116,61 @@
       (should-not (car result))
       (should (string-match-p ":cite boolean" (cdr result))))))
 
+(ert-deftest org-roam-organize-test-registry-allows-optional-cite-backend ()
+  (let ((org-roam-organize-directory
+         (org-roam-organize-test--temporary-root)))
+    (dolist (backend '(nil citar unsupported))
+      (let ((org-roam-organize-registry
+             `((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+               (:name "literature"
+                :tag "ref"
+                :cite t
+                :backend ,backend
+                :basic t
+                :directory "literature"))))
+        (should (car (org-roam-organize--validate-registry)))))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-citar-backend-without-cite ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature"
+            :tag "ref"
+            :backend citar
+            :basic t
+            :directory "literature"))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p (rx ":backend citar requires :cite t")
+                              (cdr result))))))
+
+(ert-deftest org-roam-organize-test-registry-cite-backend-reads-cite-record ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature"
+            :tag "ref"
+            :cite t
+            :backend citar
+            :basic t
+            :directory "literature"))))
+    (should (eq (org-roam-organize--registry-cite-backend) 'citar))))
+
+(ert-deftest org-roam-organize-test-setup-ignores-unsupported-cite-backend ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize--active-cite-backend nil)
+        messages)
+    (cl-letf (((symbol-function 'message)
+               (lambda (format-string &rest arguments)
+                 (push (apply #'format format-string arguments) messages))))
+      (should-not (org-roam-organize--setup-cite-backend 'unsupported)))
+    (should-not org-roam-organize--active-cite-backend)
+    (should
+     (seq-some
+      (lambda (message-text)
+        (string-match-p
+         (rx "Citation backend is not supported and was ignored: unsupported")
+         message-text))
+      messages))))
+
 (ert-deftest org-roam-organize-test-create-directories-uses-basic-registry-directories ()
   (let* ((root (file-name-as-directory
                 (make-temp-file "org-roam-organize-test-" t)))

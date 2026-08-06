@@ -320,21 +320,33 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
              :tag "map"
              :moc t
              :basic t
-             :directory "moc")))
-         (org-roam-organize-cite-backend 'citar)
+             :directory "moc")
+            (:name "literature"
+             :tag "ref"
+             :cite t
+             :backend citar
+             :basic t
+             :directory "literature")))
          (org-roam-organize--active-cite-backend nil)
          (org-export-filter-parse-tree-functions nil)
          (org-roam-organize-mode nil)
+         setup-called
          messages)
     (make-directory (expand-file-name "moc" root) t)
+    (make-directory (expand-file-name "literature" root) t)
     (org-roam-organize-citar-teardown)
     (unwind-protect
-        (cl-letf (((symbol-function 'message)
+        (cl-letf (((symbol-function 'org-roam-organize-citar-setup)
+                   (lambda ()
+                     (setq setup-called t)
+                     (user-error "Test Citar capability failure")))
+                  ((symbol-function 'message)
                    (lambda (format-string &rest arguments)
                      (push (apply #'format format-string arguments)
                            messages))))
           (org-roam-organize-mode 1)
           (should org-roam-organize-mode)
+          (should setup-called)
           (should-not org-roam-organize--active-cite-backend)
           (should-not org-roam-organize-citar--installed-p)
           (should
@@ -353,7 +365,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             (lambda (message-text)
               (string-match-p
                (rx "[WARNING] Citation backend was not installed: "
-                   "No :cite t registry record is configured")
+                   "Test Citar capability failure")
                message-text))
             messages)))
       (org-roam-organize-mode -1)
