@@ -28,4 +28,12 @@ in {
     testFile = ./ert.el;
   };
 
+  ert-citar = mkErtCheck {
+    name = "org-roam-organize-citar-ert";
+    testFile = ./citar.el;
+    extraPackages = ps_ : [
+      ps_.citar
+    ];
+  };
+
 }
