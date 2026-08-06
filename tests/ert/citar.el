@@ -309,6 +309,56 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
       (ert-info ((cdr result))
         (should (car result))))))
 
+(ert-deftest org-roam-organize-citar-test-mode-degrades-on-backend-failure ()
+  (let* ((root (file-name-as-directory
+                (make-temp-file "org-roam-organize-citar-test-" t)))
+         (default-directory temporary-file-directory)
+         (org-roam-directory root)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc")))
+         (org-roam-organize-cite-backend 'citar)
+         (org-roam-organize--active-cite-backend nil)
+         (org-export-filter-parse-tree-functions nil)
+         (org-roam-organize-mode nil)
+         messages)
+    (make-directory (expand-file-name "moc" root) t)
+    (org-roam-organize-citar-teardown)
+    (unwind-protect
+        (cl-letf (((symbol-function 'message)
+                   (lambda (format-string &rest arguments)
+                     (push (apply #'format format-string arguments)
+                           messages))))
+          (org-roam-organize-mode 1)
+          (should org-roam-organize-mode)
+          (should-not org-roam-organize--active-cite-backend)
+          (should-not org-roam-organize-citar--installed-p)
+          (should
+           (memq #'org-roam-organize--cite-export-filter
+                 org-export-filter-parse-tree-functions))
+          (should-not
+           (advice-member-p
+            #'org-roam-organize-citar--filter-org-insert-args
+            'citar-org-insert-citation))
+          (should-not
+           (advice-member-p
+            #'org-roam-organize-citar--filter-selected-key
+            'citar-org-select-key))
+          (should
+           (seq-some
+            (lambda (message-text)
+              (string-match-p
+               (rx "[WARNING] Citation backend was not installed: "
+                   "No :cite t registry record is configured")
+               message-text))
+            messages)))
+      (org-roam-organize-mode -1)
+      (org-roam-organize-citar-teardown))))
+
 (ert-deftest org-roam-organize-citar-test-setup-and-teardown-own-global-state ()
   (org-roam-organize-citar-test--with-adapter-context
     (require 'citar)
