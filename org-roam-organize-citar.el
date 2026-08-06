@@ -19,6 +19,7 @@
                   "citar" (fields citekey-or-entry))
 (declare-function citar-register-notes-source "citar" (name config))
 (declare-function citar-remove-notes-source "citar" (name))
+(declare-function citar-create-note "citar" (key &optional entry))
 (declare-function org-roam-node-from-id "org-roam-node" (id))
 (declare-function org-roam-node-visit
                   "org-roam-node" (node &optional other-window force))
@@ -47,6 +48,7 @@ portable runtime version API; actual compatibility is validated through
     (citar-get-field-with-value . function)
     (citar-register-notes-source . function)
     (citar-remove-notes-source . function)
+    (citar-create-note . function)
     (citar-dwim . function)
     (citar-insert-citation . function)
     (citar-org-insert-citation . function)

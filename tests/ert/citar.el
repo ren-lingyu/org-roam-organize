@@ -230,6 +230,29 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             :open org-roam-organize-citar--open-note
             :create org-roam-organize-citar--create-note))))
 
+(ert-deftest org-roam-organize-citar-test-citar-create-note-dispatches-callback ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (require 'citar)
+    (require 'citar-org)
+    (org-roam-organize-citar-teardown)
+    (let ((entry '(("title" . "Dispatched Reference")))
+          received-citekey
+          received-entry)
+      (unwind-protect
+          (progn
+            (org-roam-organize-citar-setup)
+            (cl-letf (((symbol-function
+                        'org-roam-organize-citar--create-note)
+                       (lambda (citekey callback-entry)
+                         (setq received-citekey citekey
+                               received-entry callback-entry)
+                         'created)))
+              (should (eq (citar-create-note "dispatch-key" entry)
+                          'created)))
+            (should (equal received-citekey "dispatch-key"))
+            (should (eq received-entry entry)))
+        (org-roam-organize-citar-teardown)))))
+
 (ert-deftest org-roam-organize-citar-test-get-notes-filters-managed-database-nodes ()
   (org-roam-organize-citar-test--with-adapter-context
     (org-roam-organize-citar-test--with-database
