@@ -410,6 +410,25 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
        '(:backend citar) "key-a" nil)
       '(:title "key-a" :info nil)))))
 
+(ert-deftest org-roam-organize-citar-test-creation-request-rejects-non-string-title ()
+  (cl-letf (((symbol-function 'citar-format--entry)
+             (lambda (&rest _arguments) nil)))
+    (org-roam-organize-citar-test--should-user-error
+        (rx "Citar formatted node title must be a string")
+      (org-roam-organize-citar--creation-request
+       '(:backend citar) "key-a" nil))))
+
+(ert-deftest org-roam-organize-citar-test-creation-request-rejects-non-string-info ()
+  (cl-letf (((symbol-function 'citar-format--entry)
+             (lambda (format-string _entry)
+               (if (equal format-string "${title}") "Reference" nil))))
+    (org-roam-organize-citar-test--should-user-error
+        (rx "Citar formatted capture info for :author must be a string")
+      (org-roam-organize-citar--creation-request
+       '(:backend (citar :info (:author "${author}")))
+       "key-a"
+       nil))))
+
 (ert-deftest org-roam-organize-citar-test-rejects-invalid-backend-options ()
   (dolist
       (case

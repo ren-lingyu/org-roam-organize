@@ -136,17 +136,18 @@
         (should (car (org-roam-organize--validate-registry)))))))
 
 (ert-deftest org-roam-organize-test-registry-rejects-citar-backend-without-cite ()
-  (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-           (:name "literature"
-            :tag "ref"
-            :backend citar
-            :basic t
-            :directory "literature"))))
-    (let ((result (org-roam-organize--validate-registry)))
-      (should-not (car result))
-      (should (string-match-p (rx ":backend citar requires :cite t")
-                              (cdr result))))))
+  (dolist (backend '(citar (citar :title "${title}")))
+    (let ((org-roam-organize-registry
+           `((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+             (:name "literature"
+              :tag "ref"
+              :backend ,backend
+              :basic t
+              :directory "literature"))))
+      (let ((result (org-roam-organize--validate-registry)))
+        (should-not (car result))
+        (should (string-match-p (rx ":backend citar requires :cite t")
+                                (cdr result)))))))
 
 (ert-deftest org-roam-organize-test-registry-rejects-malformed-tagged-backend ()
   (dolist (backend
