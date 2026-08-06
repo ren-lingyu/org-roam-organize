@@ -88,12 +88,12 @@ Setup will reject an existing source with this name instead of replacing
 configuration owned by another package or an earlier incomplete installation.")
 
 (defconst org-roam-organize-citar--notes-config
-  '(:name "Org-roam Organize Notes"
-    :category org-roam-node
-    :items org-roam-organize-citar--get-notes
-    :hasitems org-roam-organize-citar--has-notes
-    :open org-roam-organize-citar--open-note
-    :create org-roam-organize-citar--create-note)
+  (list :name "Org-roam Organize Notes"
+        :category 'org-roam-node
+        :items 'org-roam-organize-citar--get-notes
+        :hasitems 'org-roam-organize-citar--has-notes
+        :open 'org-roam-organize-citar--open-note
+        :create 'org-roam-organize-citar--create-note)
   "The plist describes Org-roam Organize's Citar notes source.
 
 The callbacks use managed node UUIDs as Citar note identifiers.  The `:create'
