@@ -4,7 +4,7 @@
 
 ;; Author: aRenCoco
 ;; Maintainer: aRenCoco
-;; Version: 0.6.0
+;; Version: 0.7.0
 ;; Package-Requires: ((emacs "30.1") (org "9.5") (org-roam "2.3.1"))
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/ren-lingyu/org-roam-organize
