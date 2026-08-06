@@ -16,6 +16,21 @@
 (declare-function citar-citation-at-point "citar" ())
 (declare-function citar-run-default-action "citar" (citekeys))
 
+(defconst org-roam-organize-citar--minimum-tested-version "1.4.0"
+  "Minimum Citar version against which this adapter is tested.")
+
+(defconst org-roam-organize-citar--capability-alist
+  '((citar-at-point-function . variable)
+    (citar-key-at-point . function)
+    (citar-citation-at-point . function)
+    (citar-run-default-action . function)
+    (citar-dwim . function)
+    (citar-insert-citation . function)
+    (citar-org-insert-citation . function)
+    (citar-org-select-key . function)
+    (citar-org-follow . function))
+  "Runtime capabilities required or expected by the Citar adapter.")
+
 (defconst org-roam-organize-citar--uuid-regexp
   (rx string-start
       (= 8 xdigit) "-"
@@ -306,9 +321,13 @@ both `citar-insert-citation' in Org buffers and the Citar processor used by
 `org-cite-insert'.  Set the default value of `citar-at-point-function' to
 `org-roam-organize-citar-dwim'.  Repeated calls are idempotent and return
 non-nil after successful installation.  Signal `user-error' when Citar or its
-Org integration cannot be loaded.
+Org integration cannot be loaded, when no valid citation registry record is
+configured, or when a required runtime capability is unavailable.
 
-Implementation notes: The function advises `citar-org-insert-citation' with
+Implementation notes: The function validates the managed citation record
+before loading Citar, then checks
+`org-roam-organize-citar--capability-alist' after loading `citar' and
+`citar-org'.  It advises `citar-org-insert-citation' with
 `org-roam-organize-citar--filter-org-insert-args' and
 `citar-org-select-key' with
 `org-roam-organize-citar--filter-selected-key'.  It records Citar's previous
@@ -318,6 +337,7 @@ advice added during the attempt and restores the saved default.
 Rationale: Explicit installation during Org-roam Organize mode setup provides
 a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
   (org-roam-organize-citar--ensure-mode)
+  (org-roam-organize-citar--cite-record-tag)
   (unless (require 'citar nil t)
     (user-error
      "Citar is required by the Org-roam Organize Citar adapter"))
@@ -325,6 +345,14 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
     (user-error
      (concat "Citar Org integration is required by the "
              "Org-roam Organize Citar adapter")))
+  (let ((result
+         (org-roam-organize--check-capabilities
+          org-roam-organize-citar--capability-alist)))
+    (unless (car result)
+      (user-error
+       "Citar adapter capability check failed (minimum tested version %s): %s"
+       org-roam-organize-citar--minimum-tested-version
+       (cdr result))))
   (unless org-roam-organize-citar--installed-p
     (setq org-roam-organize-citar--previous-at-point-function
           (default-value 'citar-at-point-function))

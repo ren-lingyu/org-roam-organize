@@ -2895,9 +2895,10 @@ buffer when present; clean runs only produce a summary message."
 When enabled, the mode validates setup, registers the export-time citation
 filter, installs the configured interactive citation adapter, and keeps command
 behavior available globally.  Disabling the mode removes the filter and
-adapter.  Setup failure disables the mode again and reports the failure through
-the echo area.  User-facing check and sync commands display detailed
-diagnostics in `org-roam-organize--report-buffer-name' when needed."
+adapter.  Core setup failure disables the mode again.  Optional citation
+adapter failure leaves the mode enabled and reports a warning.  User-facing
+check and sync commands display detailed diagnostics in
+`org-roam-organize--report-buffer-name' when needed."
   :lighter " Organize"
   ;; :group nil
   :global t
@@ -2931,11 +2932,19 @@ diagnostics in `org-roam-organize--report-buffer-name' when needed."
                           (unless (featurep 'ox) (require 'ox))
                           (unless (featurep 'org-roam) (require 'org-roam))
                           (unless (featurep 'cl-lib) (require 'cl-lib))
-                          (org-roam-organize--setup-cite-backend
-                           org-roam-organize-cite-backend)
                           (add-hook
                            'org-export-filter-parse-tree-functions
-                           #'org-roam-organize--cite-export-filter))
+                           #'org-roam-organize--cite-export-filter)
+                          (condition-case backend-err
+                              (org-roam-organize--setup-cite-backend
+                               org-roam-organize-cite-backend)
+                            (error
+                             (org-roam-organize--teardown-cite-backend)
+                             (message
+                              (concat
+                               "[WARNING] Citation backend was not installed: "
+                               "%s")
+                              (error-message-string backend-err)))))
                       (error
                        (org-roam-organize--teardown-cite-backend)
                        (setq org-roam-organize-mode nil)
