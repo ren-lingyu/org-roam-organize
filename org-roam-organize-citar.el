@@ -15,6 +15,9 @@
 (declare-function citar-key-at-point "citar" ())
 (declare-function citar-citation-at-point "citar" ())
 (declare-function citar-run-default-action "citar" (citekeys))
+(declare-function org-roam-node-from-id "org-roam-node" (id))
+(declare-function org-roam-node-visit
+                  "org-roam-node" (node &optional other-window force))
 
 (defconst org-roam-organize-citar--minimum-tested-version "1.4.0"
   "The value records the minimum tested Citar version.
@@ -55,6 +58,29 @@ intended to preserve.")
 The regexp accepts hexadecimal UUID text in the canonical 8-4-4-4-12 layout.
 It identifies keys that require a managed UUID-to-citekey mapping; it does not
 verify that a matching Org-roam node exists.")
+
+(defconst org-roam-organize-citar--notes-source
+  'org-roam-organize-citar
+  "The symbol identifies Org-roam Organize's Citar notes source.
+
+Setup will reject an existing source with this name instead of replacing
+configuration owned by another package or an earlier incomplete installation.")
+
+(defconst org-roam-organize-citar--notes-config
+  '(:name "Org-roam Organize Notes"
+    :category org-roam-node
+    :items org-roam-organize-citar--get-notes
+    :hasitems org-roam-organize-citar--has-notes
+    :open org-roam-organize-citar--open-note
+    :create org-roam-organize-citar--create-note)
+  "The plist describes Org-roam Organize's Citar notes source.
+
+The callbacks use managed node UUIDs as Citar note identifiers.  The `:create'
+callback is implemented with the node-creation stage of the adapter; source
+registration occurs only after every callback and capability is available.
+
+Rationale: A formal notes source preserves Citar's note selection and action
+pipeline while keeping UUID-to-citekey translation inside the adapter.")
 
 (defvar org-roam-organize-citar--installed-p nil
   "The value is non-nil when the complete Citar adapter is installed.")
@@ -109,6 +135,96 @@ than every Org-roam node that happens to declare a cite ref."
         (if (stringp tag)
             tag
           (user-error "The :cite t registry record has no valid tag")))))))
+
+(defun org-roam-organize-citar--get-notes (&optional citekeys)
+  "Return managed Org-roam note identifiers for CITEKEYS.
+
+Return a hash table mapping each external citekey to a list of managed
+literature node UUIDs.  When CITEKEYS is nil, include every managed citekey;
+otherwise include only matching keys.  Duplicate database rows are removed
+without discarding distinct nodes for an ambiguous citekey.  Signal
+`user-error' when `org-roam-organize-mode' is disabled or the citation registry
+record is invalid.  This function reads the Org-roam database and does not
+modify buffers or files.
+
+Implementation notes: One `org-roam-db-query' joins cite `refs', the citation
+record's `tags', and level-0 `nodes'.  UUID lists preserve database row order
+after duplicate removal.
+
+Rationale: Citar's `:items' callback must represent missing and multiple notes
+instead of enforcing the stricter single-result contract used when inserting a
+citation."
+  (org-roam-organize-citar--ensure-mode)
+  (let* ((tag (org-roam-organize-citar--cite-record-tag))
+         (query
+          `[:select [r:ref r:node_id]
+            :from (as refs r)
+            :join (as tags t)
+            :on (= t:node_id r:node_id)
+            :join (as nodes n)
+            :on (and (= n:id r:node_id) (= n:level 0))
+            :where (and (= r:type "cite")
+                        (= t:tag $s1)
+                        ,@(when citekeys
+                            '((in r:ref $v2))))])
+         (rows
+          (if citekeys
+              (org-roam-db-query query tag (vconcat citekeys))
+            (org-roam-db-query query tag)))
+         (notes (make-hash-table :test 'equal)))
+    (dolist (row rows)
+      (let* ((citekey (nth 0 row))
+             (uuid (nth 1 row))
+             (uuids (gethash citekey notes)))
+        (unless (member uuid uuids)
+          (puthash citekey (cons uuid uuids) notes))))
+    (maphash
+     (lambda (citekey uuids)
+       (puthash citekey (nreverse uuids) notes))
+     notes)
+    notes))
+
+(defun org-roam-organize-citar--has-notes ()
+  "Return a predicate that tests whether a citekey has managed notes.
+
+Return nil when no managed citation nodes exist.  Otherwise return a function
+of one CITEKEY that is non-nil exactly when the database snapshot taken by this
+call contains at least one corresponding node.  Signal `user-error' under the
+same invalid mode or registry conditions as
+`org-roam-organize-citar--get-notes'.
+
+Implementation notes: The function loads all notes once and closes over their
+hash table so Citar can test many bibliography entries without issuing one
+database query per entry.
+
+Rationale: This matches Citar's `:hasitems' callback contract rather than
+mistaking it for a predicate called separately for each citekey."
+  (let ((notes (org-roam-organize-citar--get-notes)))
+    (unless (= (hash-table-count notes) 0)
+      (lambda (citekey)
+        (and (gethash citekey notes) t)))))
+
+(defun org-roam-organize-citar--open-note (uuid)
+  "Visit the managed Org-roam node identified by UUID.
+
+UUID is the note identifier previously returned by
+`org-roam-organize-citar--get-notes'.  Signal `user-error' when
+`org-roam-organize-mode' is disabled, UUID is not a string, or no current
+Org-roam database node has that ID.  Return the value of
+`org-roam-node-visit'; visiting may change the selected buffer and window.
+
+Implementation notes: Resolve the current node with `org-roam-node-from-id'
+immediately before visiting it instead of retaining file paths or database
+positions in Citar candidates.
+
+Rationale: Org-roam owns node locations, while the stable UUID is sufficient
+for Citar's note selection boundary."
+  (org-roam-organize-citar--ensure-mode)
+  (unless (stringp uuid)
+    (user-error "Citar note ID must be a node UUID string"))
+  (if-let* ((node (org-roam-node-from-id uuid)))
+      (org-roam-node-visit node)
+    (user-error "No Org-roam node for Citar note ID: %s" uuid)))
 
 (defun org-roam-organize-citar--citekeys-to-uuids (citekeys)
   "Return managed literature node UUIDs corresponding to CITEKEYS.

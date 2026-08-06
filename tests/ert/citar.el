@@ -28,7 +28,7 @@ adapter or access the Org-roam database unless BODY does so."
   (declare (indent 0) (debug t))
   `(let ((org-roam-organize-mode t)
          (org-roam-organize-registry
-          '((:name "literature" :tag "ref" :cite t))))
+          '((:name "literature" :tag "ref" :cite t :backend citar))))
      ,@body))
 
 (defmacro org-roam-organize-citar-test--with-database (&rest body)
@@ -176,6 +176,90 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                   (org-roam-organize-citar-dwim))
                 (should (equal action-keys '("key-a"))))))
         (org-roam-organize-citar-teardown)))))
+
+(ert-deftest org-roam-organize-citar-test-notes-config-uses-managed-callbacks ()
+  (should (eq org-roam-organize-citar--notes-source
+              'org-roam-organize-citar))
+  (should
+   (equal org-roam-organize-citar--notes-config
+          '(:name "Org-roam Organize Notes"
+            :category org-roam-node
+            :items org-roam-organize-citar--get-notes
+            :hasitems org-roam-organize-citar--has-notes
+            :open org-roam-organize-citar--open-note
+            :create org-roam-organize-citar--create-note))))
+
+(ert-deftest org-roam-organize-citar-test-get-notes-filters-managed-database-nodes ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (org-roam-organize-citar-test--with-database
+      (let ((notes
+             (org-roam-organize-citar--get-notes
+              '("key-b" "missing"))))
+        (should (= (hash-table-count notes) 1))
+        (should
+         (equal (gethash "key-b" notes)
+                (list org-roam-organize-citar-test--uuid-b)))
+        (should-not (gethash "key-a" notes))
+        (should-not (gethash "missing" notes))))))
+
+(ert-deftest org-roam-organize-citar-test-get-notes-preserves-ambiguous-nodes ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (&rest _arguments)
+                 `(("key-a" ,org-roam-organize-citar-test--uuid-a)
+                   ("key-a" ,org-roam-organize-citar-test--uuid-a)
+                   ("key-a" ,org-roam-organize-citar-test--uuid-b)))))
+      (let ((notes (org-roam-organize-citar--get-notes '("key-a"))))
+        (should
+         (equal (gethash "key-a" notes)
+                (list org-roam-organize-citar-test--uuid-a
+                      org-roam-organize-citar-test--uuid-b)))))))
+
+(ert-deftest org-roam-organize-citar-test-has-notes-uses-one-database-snapshot ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (org-roam-organize-citar-test--with-database
+      (let ((predicate (org-roam-organize-citar--has-notes)))
+        (should predicate)
+        (should (funcall predicate "key-a"))
+        (should (funcall predicate "key-b"))
+        (should-not (funcall predicate "missing"))))))
+
+(ert-deftest org-roam-organize-citar-test-has-notes-returns-nil-when-empty ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (&rest _arguments) nil)))
+      (should-not (org-roam-organize-citar--has-notes)))))
+
+(ert-deftest org-roam-organize-citar-test-open-note-visits-node-by-uuid ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (org-roam-organize-citar-test--with-database
+      (let (visited-node)
+        (cl-letf (((symbol-function 'org-roam-node-visit)
+                   (lambda (node &rest _arguments)
+                     (setq visited-node node)
+                     'visited)))
+          (should
+           (eq (org-roam-organize-citar--open-note
+                org-roam-organize-citar-test--uuid-a)
+               'visited))
+          (should
+           (equal (org-roam-node-id visited-node)
+                  org-roam-organize-citar-test--uuid-a))
+          (should
+           (equal (file-truename (org-roam-node-file visited-node))
+                  (file-truename
+                   (expand-file-name
+                    "literature/reference-a.org"
+                    org-roam-directory)))))))))
+
+(ert-deftest org-roam-organize-citar-test-open-note-rejects-missing-node ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (cl-letf (((symbol-function 'org-roam-node-from-id)
+               (lambda (_uuid) nil)))
+      (org-roam-organize-citar-test--should-user-error
+          (rx "No Org-roam node for Citar note ID")
+        (org-roam-organize-citar--open-note
+         org-roam-organize-citar-test--uuid-a)))))
 
 (ert-deftest org-roam-organize-citar-test-rejects-missing-citekey-mapping ()
   (org-roam-organize-citar-test--with-adapter-context
