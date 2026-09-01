@@ -67,6 +67,7 @@ temporary SQLite database before evaluating BODY."
        (concat ":PROPERTIES:\n"
                ":ID: %s\n"
                ":ROAM_REFS: @key-a\n"
+               ":BIBLIOGRAPHY: reference-a.bib\n"
                ":END:\n"
                "#+TITLE: Reference A\n"
                "#+FILETAGS: :ref:\n")
@@ -80,6 +81,7 @@ temporary SQLite database before evaluating BODY."
        (concat ":PROPERTIES:\n"
                ":ID: %s\n"
                ":ROAM_REFS: @key-b\n"
+               ":BIBLIOGRAPHY: reference-b.bib\n"
                ":END:\n"
                "#+TITLE: Reference B\n"
                "#+FILETAGS: :ref:\n")
@@ -133,6 +135,14 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
     (should-error
      (org-roam-organize-citar--citekeys-to-uuids '("key-a"))
      :type 'user-error)))
+
+(ert-deftest org-roam-organize-citar-test-local-bibliographies-require-backend ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "literature" :tag "ref" :cite t))))
+    (org-roam-organize-citar-test--should-user-error
+        (rx "does not use Citar")
+      (org-roam-organize-citar--local-bib-files))))
 
 (ert-deftest org-roam-organize-citar-test-requires-one-valid-cite-record ()
   (let ((org-roam-organize-mode t)
@@ -190,6 +200,13 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             (org-roam-organize-citar-setup)
             (with-temp-buffer
               (org-mode)
+              (should
+               (equal
+                (org-roam-organize-citar--local-bib-files)
+                (list (expand-file-name "reference-a.bib"
+                                        literature-directory)
+                      (expand-file-name "reference-b.bib"
+                                        literature-directory))))
               (citar-org-insert-citation '("key-a" "key-b"))
               (should
                (string-match-p
@@ -752,6 +769,30 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (should (equal action-keys '("key-a")))
         (should-not citation-called)))))
 
+(ert-deftest org-roam-organize-citar-test-dwim-falls-back-to-org-cite ()
+  (org-roam-organize-citar-test--with-adapter-context
+    (let (action-keys)
+      (cl-letf (((symbol-function 'citar-key-at-point) (lambda () nil))
+                ((symbol-function 'citar-citation-at-point) (lambda () nil))
+                ((symbol-function
+                  'org-roam-organize-citar--uuids-to-citekeys)
+                 (lambda (keys)
+                   (should
+                    (equal keys
+                           (list org-roam-organize-citar-test--uuid-a)))
+                   '("key-a")))
+                ((symbol-function 'citar-run-default-action)
+                 (lambda (keys)
+                   (setq action-keys keys))))
+        (with-temp-buffer
+          (org-mode)
+          (insert (format "[cite:@%s]"
+                          org-roam-organize-citar-test--uuid-a))
+          (goto-char (point-min))
+          (search-forward org-roam-organize-citar-test--uuid-a)
+          (org-roam-organize-citar-dwim))
+        (should (equal action-keys '("key-a")))))))
+
 (ert-deftest org-roam-organize-citar-test-dwim-rejects-missing-citation ()
   (org-roam-organize-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'citar-key-at-point) (lambda () nil))
@@ -846,7 +887,13 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
     (require 'citar-org)
     (org-roam-organize-citar-teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
-          (previous-notes-source citar-notes-source))
+          (previous-notes-source citar-notes-source)
+          (previous-insert-citation-function
+           (alist-get
+            'insert-citation
+            (cdr (org-roam-organize-citar--org-major-mode-entry))))
+          (previous-local-bib-files-function
+           (org-roam-organize-citar--org-local-bib-files-function)))
       (unwind-protect
           (progn
             (should (org-roam-organize-citar-setup))
@@ -867,6 +914,14 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
              (eq citar-notes-source
                  org-roam-organize-citar--notes-source))
             (should
+             (eq (org-roam-organize-citar--org-local-bib-files-function)
+                 #'org-roam-organize-citar--local-bib-files))
+            (should
+             (eq (alist-get
+                  'insert-citation
+                  (cdr (org-roam-organize-citar--org-major-mode-entry)))
+                 previous-insert-citation-function))
+            (should
              (equal
               (cdr (assq org-roam-organize-citar--notes-source
                          citar-notes-sources))
@@ -885,6 +940,14 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
        (eq (default-value 'citar-at-point-function)
            previous-at-point))
       (should (eq citar-notes-source previous-notes-source))
+      (should
+       (eq (org-roam-organize-citar--org-local-bib-files-function)
+           previous-local-bib-files-function))
+      (should
+       (eq (alist-get
+            'insert-citation
+            (cdr (org-roam-organize-citar--org-major-mode-entry)))
+           previous-insert-citation-function))
       (should-not
        (assq org-roam-organize-citar--notes-source
              citar-notes-sources)))))
@@ -896,24 +959,34 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
     (org-roam-organize-citar-teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source)
+          (previous-local-bib-files-function
+           (org-roam-organize-citar--org-local-bib-files-function))
           (user-at-point (lambda () 'user-value))
-          (user-notes-source 'user-notes))
+          (user-notes-source 'user-notes)
+          (user-local-bib-files-function (lambda () '("user.bib"))))
       (unwind-protect
           (progn
             (org-roam-organize-citar-setup)
             (set-default 'citar-at-point-function user-at-point)
             (setq citar-notes-source user-notes-source)
+            (org-roam-organize-citar--set-org-local-bib-files-function
+             user-local-bib-files-function)
             (org-roam-organize-citar-teardown)
             (should
              (eq (default-value 'citar-at-point-function)
                  user-at-point))
             (should (eq citar-notes-source user-notes-source))
+            (should
+             (eq (org-roam-organize-citar--org-local-bib-files-function)
+                 user-local-bib-files-function))
             (should-not
              (assq org-roam-organize-citar--notes-source
                    citar-notes-sources)))
         (org-roam-organize-citar-teardown)
         (set-default 'citar-at-point-function previous-at-point)
-        (setq citar-notes-source previous-notes-source)))))
+        (setq citar-notes-source previous-notes-source)
+        (org-roam-organize-citar--set-org-local-bib-files-function
+         previous-local-bib-files-function)))))
 
 (ert-deftest org-roam-organize-citar-test-teardown-preserves-replaced-source ()
   (org-roam-organize-citar-test--with-adapter-context

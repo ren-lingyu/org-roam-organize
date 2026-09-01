@@ -205,6 +205,31 @@
             :directory "literature"))))
     (should (eq (org-roam-organize--registry-cite-backend) 'citar))))
 
+(ert-deftest org-roam-organize-test-queries-bibliography-files-from-properties ()
+  (let ((org-roam-organize-registry
+         '((:name "literature" :tag "ref" :cite t)))
+        query-arguments)
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (_query &rest arguments)
+                 (setq query-arguments arguments)
+                 '(("/notes/b.org"
+                    (("BIBLIOGRAPHY" . "z.bib")))
+                   ("/notes/a.org"
+                    (("BIBLIOGRAPHY" . "a.bib")))
+                   ("/notes/duplicate.org"
+                    (("BIBLIOGRAPHY" . "a.bib")))
+                   ("/notes/missing.org" (("ID" . "ignored")))))))
+      (should
+       (equal (org-roam-organize--bibliography-files)
+              '("/notes/a.bib" "/notes/z.bib")))
+      (should
+       (equal query-arguments
+              (list "ref"))))))
+
+(ert-deftest org-roam-organize-test-bibliography-files-require-cite-record ()
+  (let ((org-roam-organize-registry nil))
+    (should-not (org-roam-organize--bibliography-files))))
+
 (ert-deftest org-roam-organize-test-setup-ignores-unsupported-cite-backend ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize--active-cite-backend nil)
