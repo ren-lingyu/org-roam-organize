@@ -196,6 +196,13 @@ core mode active without claiming adapter ownership.")
 ;; 常量定义
 ;; ==============================
 
+(defconst org-roam-organize--bibliography-property "BIBLIOGRAPHY"
+  "The Org property that names a citation node's bibliography file.
+
+Its value is resolved relative to the Org file containing the managed
+citation node.  Org-roam Organize treats the property as stored metadata and
+does not insert it into capture templates or validate the referenced file.")
+
 (defconst org-roam-organize--variable-type-alist
   '((org-roam-organize-directory . directory)
     (org-roam-organize-moc-managed-tag-property . string)
@@ -666,6 +673,49 @@ Rationale: Backend selection belongs to the unique managed citation record,
 while adapter dispatch remains a separate mode-lifecycle responsibility."
   (when-let* ((record (org-roam-organize--registry-cite-record)))
     (org-roam-organize--record-backend record)))
+
+(defun org-roam-organize--bibliography-files ()
+  "Return bibliography files declared by managed citation nodes.
+
+Read `org-roam-organize--bibliography-property' from level-0 nodes carrying
+the configured citation record's tag.  Resolve each property value relative
+to its node file, remove duplicate paths, and return the lexically sorted
+result.  Return nil when no citation record is configured.  Each call queries
+the Org-roam database; the function does not retain its result, read or modify
+Org or bibliography files, or validate property values or resulting paths.
+
+Implementation notes: One `org-roam-db-query' joins `tags' to level-0 `nodes'
+and selects `nodes.properties', which Org-roam returns as an alist.  Path
+aggregation remains in the core package; optional backend adapters decide when
+and where to expose the result.
+
+Rationale: A node property makes bibliography ownership self-describing while
+keeping backend-specific global customization outside the core data model."
+  (let ((record (org-roam-organize--registry-cite-record)))
+    (when record
+      (let* ((tag (org-roam-organize--record-tag record))
+             (rows
+              (org-roam-db-query
+               (vector :select (vector 'n:file 'n:properties)
+                       :from '(as tags t)
+                       :join '(as nodes n)
+                       :on '(and (= n:level 0) (= n:id t:node_id))
+                       :where '(= t:tag $s1))
+               tag)))
+        (sort
+         (delete-dups
+          (delq
+           nil
+           (mapcar
+            (lambda (row)
+              (when-let* ((value
+                           (cdr
+                            (assoc org-roam-organize--bibliography-property
+                                   (nth 1 row)))))
+                (expand-file-name value
+                                  (file-name-directory (nth 0 row)))))
+            rows)))
+         #'string<)))))
 
 (defun org-roam-organize--registry-cite-records ()
   "Return registry records marked with `:cite t'.
