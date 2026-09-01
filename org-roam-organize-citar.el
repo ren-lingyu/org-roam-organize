@@ -18,6 +18,7 @@
 (declare-function citar-register-notes-source "citar" (name config))
 (declare-function citar-remove-notes-source "citar" (name))
 (declare-function citar-create-note "citar" (key &optional entry))
+(declare-function citar-org-local-bib-files "citar-org" ())
 (declare-function citar-format--entry
                   "citar-format" (format entry &optional width &rest options))
 (declare-function org-roam-node-from-id "org-roam-node" (id))
@@ -29,6 +30,7 @@
 
 (defvar citar-notes-source)
 (defvar citar-notes-sources)
+(defvar citar-major-mode-functions)
 
 (defconst org-roam-organize-citar--minimum-tested-version "1.4.0"
   "The value records the minimum tested Citar version.
@@ -40,6 +42,7 @@ portable runtime version API; actual compatibility is validated through
 
 (defconst org-roam-organize-citar--capability-alist
   '((citar-at-point-function . variable)
+    (citar-major-mode-functions . variable)
     (citar-notes-source . variable)
     (citar-notes-sources . variable)
     (citar-key-at-point . function)
@@ -54,6 +57,7 @@ portable runtime version API; actual compatibility is validated through
     (citar-org-insert-citation . function)
     (citar-org-select-key . function)
     (citar-org-follow . function)
+    (citar-org-local-bib-files . function)
     (org-roam-node-from-id . function)
     (org-roam-node-visit . function)
     (org-roam-ref-add . function)
@@ -121,12 +125,90 @@ default, so a later user change is preserved.")
 Teardown restores this value only while the adapter still owns both its
 registered source configuration and `citar-notes-source'.")
 
+(defvar org-roam-organize-citar--previous-local-bib-files-function nil
+  "The value stores Citar's Org local bibliography function before setup.
+
+Teardown restores this value only while the adapter still owns the
+`local-bib-files' entry in `citar-major-mode-functions'.")
+
 (defun org-roam-organize-citar--unique-values (values)
   "Return VALUES without duplicates while preserving their order.
 
 The returned list is a copy, and VALUES is not modified.  Equality follows the
 `delete-dups' comparison semantics."
   (delete-dups (copy-sequence values)))
+
+(defun org-roam-organize-citar--org-major-mode-entry ()
+  "Return Citar's dispatch entry for Org buffers, or nil.
+
+The return value is shared with `citar-major-mode-functions' and must not be
+modified.  Citar groups one or more mode symbols in each entry's car rather
+than using a major-mode symbol as an alist key."
+  (seq-find
+   (lambda (entry)
+     (memq 'org-mode (car-safe entry)))
+   citar-major-mode-functions))
+
+(defun org-roam-organize-citar--org-local-bib-files-function ()
+  "Return Citar's local bibliography function for Org buffers.
+
+Return nil when Citar has no Org dispatch entry or that entry has no
+`local-bib-files' callback.  This function does not modify Citar
+configuration."
+  (alist-get 'local-bib-files
+             (cdr (org-roam-organize-citar--org-major-mode-entry))))
+
+(defun org-roam-organize-citar--set-org-local-bib-files-function (function)
+  "Set Citar's Org local bibliography callback to FUNCTION.
+
+Replace `citar-major-mode-functions' with a copied tree and return FUNCTION.
+Other major-mode entries and Org callbacks are preserved.  Signal `user-error'
+when Citar has no Org dispatch entry.
+
+Rationale: Replacing the outer value avoids destructively modifying list
+structure that may be shared with a customization expression."
+  (let* ((functions (copy-tree citar-major-mode-functions))
+         (entry
+          (seq-find
+           (lambda (candidate)
+             (memq 'org-mode (car-safe candidate)))
+           functions)))
+    (unless entry
+      (user-error "Citar has no Org major-mode dispatch entry"))
+    (if-let* ((callback (assq 'local-bib-files (cdr entry))))
+        (setcdr callback function)
+      (setcdr entry
+              (cons (cons 'local-bib-files function)
+                    (cdr entry))))
+    (setq citar-major-mode-functions functions))
+  function)
+
+(defun org-roam-organize-citar--local-bib-files ()
+  "Return Citar and managed-node bibliography files for an Org buffer.
+
+Require `org-roam-organize-mode' and a citation record whose backend is
+`citar'.  Query the managed bibliography aggregation from the Org-roam
+database, append it to the files returned by Citar's previous Org callback,
+and remove duplicates while preserving that order.  Property values and
+resulting paths are not validated.
+
+Implementation notes: The previous callback is captured during adapter setup.
+Core aggregation is delegated to
+`org-roam-organize--bibliography-files'.
+
+Rationale: Citar retains ownership of its ordinary local bibliography rules,
+while the adapter adds database-backed files only during its active mode
+lifecycle."
+  (org-roam-organize-citar--ensure-mode)
+  (unless (eq (org-roam-organize--record-backend
+               (org-roam-organize-citar--cite-record))
+              'citar)
+    (user-error "The configured citation record does not use Citar"))
+  (org-roam-organize-citar--unique-values
+   (append
+    (when org-roam-organize-citar--previous-local-bib-files-function
+      (funcall org-roam-organize-citar--previous-local-bib-files-function))
+    (org-roam-organize--bibliography-files))))
 
 (defun org-roam-organize-citar--notes-source-owned-p ()
   "Return non-nil when Citar retains this adapter's notes source config.
@@ -664,6 +746,29 @@ boundary without advising Citar's general selection functions."
    (t
     (user-error "Unexpected Citar Org selection result: %S" result))))
 
+(defun org-roam-organize-citar--org-cite-keys-at-point ()
+  "Return Org Cite keys at point, or nil when point has no citation.
+
+Return a one-element list for a `citation-reference' context and every key in
+source order for a `citation' context.  Return nil outside an Org-derived mode.
+This function reads Org's element tree without modifying the buffer or point.
+
+Implementation notes: `org-element-context' identifies the citation boundary,
+and `org-element-map' extracts `:key' from its citation references.
+
+Rationale: Managed UUIDs are intentionally absent from Citar bibliographies,
+so Citar's at-point helpers may reject them before this adapter can translate
+them to external citekeys."
+  (when (derived-mode-p 'org-mode)
+    (let ((context (org-element-context)))
+      (pcase (org-element-type context)
+        ('citation-reference
+         (list (org-element-property :key context)))
+        ('citation
+         (org-element-map context 'citation-reference
+           (lambda (reference)
+             (org-element-property :key reference))))))))
+
 ;;;###autoload
 (defun org-roam-organize-citar-dwim ()
   "Run Citar's default action for the citation at point.
@@ -676,7 +781,8 @@ managed cite ref, when its mapping is ambiguous, or when
 but the configured Citar action may change buffers or external state.
 
 Implementation notes: The command mirrors `citar-dwim' by preferring
-`citar-key-at-point' over `citar-citation-at-point'.  It normalizes the result
+`citar-key-at-point' over `citar-citation-at-point', then falls back to Org's
+element tree when Citar rejects managed UUID keys.  It normalizes the result
 to a list, resolves UUIDs with
 `org-roam-organize-citar--uuids-to-citekeys', and passes the translated list to
 `citar-run-default-action'.
@@ -686,7 +792,8 @@ stable Org-roam UUIDs without reimplementing Citar's action system."
   (interactive)
   (org-roam-organize-citar--ensure-mode)
   (if-let* ((keys (or (citar-key-at-point)
-                      (citar-citation-at-point))))
+                      (citar-citation-at-point)
+                      (org-roam-organize-citar--org-cite-keys-at-point))))
       (let* ((keys (if (listp keys) keys (list keys)))
              (citekeys
               (org-roam-organize-citar--uuids-to-citekeys keys)))
@@ -694,29 +801,31 @@ stable Org-roam UUIDs without reimplementing Citar's action system."
     (user-error "No citation keys found")))
 
 (defun org-roam-organize-citar-setup ()
-  "Install UUID translation and managed notes integration for Citar.
+  "Install UUID, notes, and bibliography integration for Citar.
 
 Require `org-roam-organize-mode' to be enabled.  Install insertion advice for
 both `citar-insert-citation' in Org buffers and the Citar processor used by
 `org-cite-insert'.  Register and select the managed Citar notes source, and set
 the default value of `citar-at-point-function' to
 `org-roam-organize-citar-dwim'.  Repeated calls are idempotent and return
-non-nil after successful installation.  Signal `user-error' when Citar or its
-Org integration cannot be loaded, when no valid citation registry record is
-configured, when its Citar backend options are invalid, when a required runtime
-capability is unavailable, or when the adapter's notes source name is already
-registered.
+non-nil after successful installation.  Extend Citar's Org-local bibliography
+callback with files declared by managed citation nodes.  Signal `user-error'
+when Citar or its Org integration cannot be loaded, when no valid citation
+registry record is configured, when its Citar backend options are invalid,
+when a required runtime capability or Org callback is unavailable, or when the
+adapter's notes source name is already registered.
 
 Implementation notes: The function validates the managed citation record
 before loading Citar, then checks
 `org-roam-organize-citar--capability-alist' after loading `citar' and
-`citar-org'.  A fresh installation saves Citar's notes source and at-point
-function before registering `org-roam-organize-citar--notes-config'.  It
+`citar-org'.  A fresh installation saves Citar's notes source, at-point
+function, and Org-local bibliography callback before registering
+`org-roam-organize-citar--notes-config'.  It
 advises `citar-org-insert-citation' with
 `org-roam-organize-citar--filter-org-insert-args' and
 `citar-org-select-key' with
 `org-roam-organize-citar--filter-selected-key'.  Failed installation removes
-any advice and notes source added during the attempt and restores both saved
+any advice and notes source added during the attempt and restores all saved
 values.
 
 Rationale: Explicit installation during Org-roam Organize mode setup provides
@@ -750,13 +859,19 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
       (user-error
        "Citar notes source is already registered: %s"
        org-roam-organize-citar--notes-source))
+    (unless (functionp
+             (org-roam-organize-citar--org-local-bib-files-function))
+      (user-error
+       "Citar has no callable Org local bibliography function"))
     ;; Save ownership state before changing Citar so failure cleanup can
     ;; restore it without leaving a partially active adapter.
     (setq org-roam-organize-citar--previous-at-point-function
           (default-value 'citar-at-point-function))
     (setq org-roam-organize-citar--previous-notes-source
           citar-notes-source)
-    (let (notes-source-registered)
+    (setq org-roam-organize-citar--previous-local-bib-files-function
+          (org-roam-organize-citar--org-local-bib-files-function))
+    (let (local-bib-files-installed notes-source-registered)
       (condition-case err
           (progn
             (citar-register-notes-source
@@ -775,6 +890,9 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
                          #'org-roam-organize-citar-dwim)
             (setq citar-notes-source
                   org-roam-organize-citar--notes-source)
+            (org-roam-organize-citar--set-org-local-bib-files-function
+             #'org-roam-organize-citar--local-bib-files)
+            (setq local-bib-files-installed t)
             (setq org-roam-organize-citar--installed-p t))
         (error
          (advice-remove
@@ -788,15 +906,19 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
             org-roam-organize-citar--notes-source))
          (setq citar-notes-source
                org-roam-organize-citar--previous-notes-source)
+         (when local-bib-files-installed
+           (org-roam-organize-citar--set-org-local-bib-files-function
+            org-roam-organize-citar--previous-local-bib-files-function))
          (set-default 'citar-at-point-function
                       org-roam-organize-citar--previous-at-point-function)
          (setq org-roam-organize-citar--previous-notes-source nil)
          (setq org-roam-organize-citar--previous-at-point-function nil)
+         (setq org-roam-organize-citar--previous-local-bib-files-function nil)
          (signal (car err) (cdr err))))))
   t)
 
 (defun org-roam-organize-citar-teardown ()
-  "Remove UUID translation and managed notes integration from Citar.
+  "Remove UUID, notes, and bibliography integration from Citar.
 
 Remove both insertion advice functions installed by
 `org-roam-organize-citar-setup'.  Remove the managed notes source and restore
@@ -804,13 +926,14 @@ the saved `citar-notes-source' only while the registered source still has this
 adapter's configuration.  Restore the saved default value of
 `citar-at-point-function' only when it still names
 `org-roam-organize-citar-dwim'; preserve a value changed by the user while the
-adapter was active.  Return nil after teardown.  This function intentionally
-works while `org-roam-organize-mode' is disabled.
+adapter was active.  Restore Citar's prior Org-local bibliography callback only
+while the adapter still owns that dispatch entry.  Return nil after teardown.
+This function intentionally works while `org-roam-organize-mode' is disabled.
 
 Implementation notes: Advice removal is safe when an advice is already absent.
-The installation flag distinguishes previously nil values from an adapter that
-was never installed.  Notes-source ownership is checked before restoring or
-removing it so a later replacement under the same symbol is preserved.
+The installation flag distinguishes saved values from an adapter that was
+never installed.  Notes-source and bibliography callback ownership are checked
+before restoration so later replacements are preserved.
 
 Rationale: Mode teardown must be able to undo global Citar integration after
 the mode flag has already changed, while avoiding overwriting newer user
@@ -828,6 +951,10 @@ configuration."
               #'org-roam-organize-citar-dwim)
       (set-default 'citar-at-point-function
                    org-roam-organize-citar--previous-at-point-function))
+    (when (eq (org-roam-organize-citar--org-local-bib-files-function)
+              #'org-roam-organize-citar--local-bib-files)
+      (org-roam-organize-citar--set-org-local-bib-files-function
+       org-roam-organize-citar--previous-local-bib-files-function))
     (when (org-roam-organize-citar--notes-source-owned-p)
       (when (eq citar-notes-source
                 org-roam-organize-citar--notes-source)
@@ -837,7 +964,8 @@ configuration."
        org-roam-organize-citar--notes-source))
     (setq org-roam-organize-citar--installed-p nil)
     (setq org-roam-organize-citar--previous-notes-source nil)
-    (setq org-roam-organize-citar--previous-at-point-function nil))
+    (setq org-roam-organize-citar--previous-at-point-function nil)
+    (setq org-roam-organize-citar--previous-local-bib-files-function nil))
   nil)
 
 (provide 'org-roam-organize-citar)
