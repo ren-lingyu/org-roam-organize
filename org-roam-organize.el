@@ -45,6 +45,7 @@
 (require 'seq)
 (require 'rx)
 (require 'org)
+(require 'oc)
 (require 'org-element)
 (require 'ox)
 (require 'org-roam)
@@ -191,6 +192,10 @@ core mode active without claiming adapter ownership.")
 
 (declare-function org-roam-organize-citar-setup "org-roam-organize-citar")
 (declare-function org-roam-organize-citar-teardown "org-roam-organize-citar")
+(declare-function org-roam-organize-biblatex--setup
+                  "org-roam-organize-biblatex")
+(declare-function org-roam-organize-biblatex--teardown
+                  "org-roam-organize-biblatex")
 
 ;; ==============================
 ;; 常量定义
@@ -230,6 +235,9 @@ does not insert it into capture templates or validate the referenced file.")
     (org-element-type . function)
     (org-element-property . function)
     (org-element-put-property . function)
+    (org-cite-list-bibliography-files . function)
+    (org-export-derived-backend-p . function)
+    (org-export-filter-final-output-functions . variable)
     (org-export-filter-parse-tree-functions . variable)
     (org-link-make-string . function)
     (seq-every-p . function)
@@ -686,8 +694,8 @@ Org or bibliography files, or validate property values or resulting paths.
 
 Implementation notes: One `org-roam-db-query' joins `tags' to level-0 `nodes'
 and selects `nodes.properties', which Org-roam returns as an alist.  Path
-aggregation remains in the core package; optional backend adapters decide when
-and where to expose the result.
+aggregation remains in the core package and is exposed through Org Cite during
+the mode lifecycle.
 
 Rationale: A node property makes bibliography ownership self-describing while
 keeping backend-specific global customization outside the core data model."
@@ -716,6 +724,67 @@ keeping backend-specific global customization outside the core data model."
                                   (file-name-directory (nth 0 row)))))
             rows)))
          #'string<)))))
+
+(defun org-roam-organize--filter-bibliography-files (files)
+  "Append managed citation-node bibliographies to FILES.
+
+When `org-roam-organize-mode' is enabled in an Org-derived buffer, append the
+paths returned by `org-roam-organize--bibliography-files' to FILES and remove
+duplicates while preserving first occurrence order.  Otherwise return FILES
+unchanged.  Existing Org Cite bibliography files therefore take precedence.
+The function does not validate, read, or modify any referenced file.
+
+Implementation notes: This function is installed as `:filter-return' advice
+on `org-cite-list-bibliography-files' for the mode lifecycle.  Bibliography
+aggregation remains independent of the optional citation backend.
+
+Rationale: Org Cite is the shared bibliography-discovery boundary for export
+processors and consumers such as Citar, so extending it keeps the metadata
+available without backend-specific dispatch changes."
+  (if (and org-roam-organize-mode
+           (derived-mode-p 'org-mode))
+      (delete-dups
+       (append files
+               (org-roam-organize--bibliography-files)))
+    files))
+
+(defun org-roam-organize--setup-cite-integration ()
+  "Install the core Org Cite and BibLaTeX export integration.
+
+Register the managed UUID export filter, bibliography-discovery advice, and
+bundled BibLaTeX final-output compatibility filter.  Repeated calls are
+idempotent.  Return non-nil after installation.
+
+Implementation notes: The integrations are global and guard their behavior
+with `org-roam-organize-mode'.  BibLaTeX-specific behavior is isolated in
+`org-roam-organize-biblatex'.  The matching teardown function removes all
+three integrations during mode disable and failed setup rollback.
+
+Rationale: Bibliography discovery remains backend-independent, while the
+version-sensitive LaTeX compatibility behavior stays outside the core source
+file."
+  (add-hook 'org-export-filter-parse-tree-functions
+            #'org-roam-organize--cite-export-filter)
+  (advice-add 'org-cite-list-bibliography-files
+              :filter-return
+              #'org-roam-organize--filter-bibliography-files)
+  (require 'org-roam-organize-biblatex)
+  (org-roam-organize-biblatex--setup)
+  t)
+
+(defun org-roam-organize--teardown-cite-integration ()
+  "Remove the core Org Cite and BibLaTeX export integration.
+
+Remove the managed UUID export filter, bibliography-discovery advice, and
+bundled BibLaTeX compatibility filter.  Return nil.  Calling this function
+when any integration is absent is safe."
+  (remove-hook 'org-export-filter-parse-tree-functions
+               #'org-roam-organize--cite-export-filter)
+  (advice-remove 'org-cite-list-bibliography-files
+                 #'org-roam-organize--filter-bibliography-files)
+  (when (fboundp 'org-roam-organize-biblatex--teardown)
+    (org-roam-organize-biblatex--teardown))
+  nil)
 
 (defun org-roam-organize--registry-cite-records ()
   "Return registry records marked with `:cite t'.
@@ -3064,12 +3133,13 @@ buffer when present; clean runs only produce a summary message."
 (define-minor-mode org-roam-organize-mode
   "Toggle Org-roam Organize mode.
 
-When enabled, the mode validates setup, registers the export-time citation
-filter, installs the configured interactive citation adapter, and keeps command
-behavior available globally.  Disabling the mode removes the filter and
-adapter.  Core setup failure disables the mode again.  Optional citation
-adapter failure leaves the mode enabled and reports a warning.  User-facing
-check and sync commands display detailed diagnostics in
+When enabled, the mode validates setup, registers backend-independent Org Cite
+export and bibliography integration, installs bundled BibLaTeX export
+compatibility and the configured interactive citation adapter, and keeps
+command behavior available globally.  Disabling the mode removes those
+integrations and the adapter.  Core setup failure disables the mode again.
+Optional citation adapter failure leaves the mode enabled and reports a
+warning.  User-facing check and sync commands display detailed diagnostics in
 `org-roam-organize--report-buffer-name' when needed."
   :lighter " Organize"
   ;; :group nil
@@ -3088,9 +3158,7 @@ check and sync commands display detailed diagnostics in
                    ((not (car check_result))
                     (setq org-roam-organize-mode nil)
                     (org-roam-organize--teardown-cite-backend)
-                    (remove-hook
-                     'org-export-filter-parse-tree-functions
-                     #'org-roam-organize--cite-export-filter)
+                    (org-roam-organize--teardown-cite-integration)
                     (message "%s" (concat
                                    "[WARNING] Org Roam Organize setup checks failed. "
                                    "Org Roam Organize Mode setup failed.\n"
@@ -3104,12 +3172,11 @@ check and sync commands display detailed diagnostics in
                           (unless (featurep 'ox) (require 'ox))
                           (unless (featurep 'org-roam) (require 'org-roam))
                           (unless (featurep 'cl-lib) (require 'cl-lib))
-                          (add-hook
-                           'org-export-filter-parse-tree-functions
-                           #'org-roam-organize--cite-export-filter)
+                          (org-roam-organize--setup-cite-integration)
                           ;; The citation backend is optional.  Its setup
                           ;; failure must not undo successful core mode setup or
-                          ;; remove the export filter installed above.
+                          ;; remove the core citation integration installed
+                          ;; above.
                           (condition-case backend-err
                               (org-roam-organize--setup-cite-backend
                                (org-roam-organize--registry-cite-backend))
@@ -3123,16 +3190,12 @@ check and sync commands display detailed diagnostics in
                       (error
                        (org-roam-organize--teardown-cite-backend)
                        (setq org-roam-organize-mode nil)
-                       (remove-hook
-                        'org-export-filter-parse-tree-functions
-                        #'org-roam-organize--cite-export-filter)
+                       (org-roam-organize--teardown-cite-integration)
                        (message
                         "[WARNING] Org Roam Organize Mode setup failed: %s"
                         (error-message-string err)))))))
               (org-roam-organize--teardown-cite-backend)
-              (remove-hook
-               'org-export-filter-parse-tree-functions
-               #'org-roam-organize--cite-export-filter))))
+              (org-roam-organize--teardown-cite-integration))))
 
 (provide 'org-roam-organize)
 ;;; org-roam-organize.el ends here

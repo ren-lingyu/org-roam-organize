@@ -32,4 +32,9 @@ in {
     ];
   };
 
+  ert-biblatex = mkErtCheck {
+    name = "org-roam-organize-biblatex-ert";
+    testFile = ./biblatex.el;
+  };
+
 }

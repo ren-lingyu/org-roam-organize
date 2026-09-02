@@ -230,6 +230,56 @@
   (let ((org-roam-organize-registry nil))
     (should-not (org-roam-organize--bibliography-files))))
 
+(ert-deftest org-roam-organize-test-filter-bibliography-files-appends-managed-files ()
+  (let ((org-roam-organize-mode t))
+    (cl-letf (((symbol-function 'org-roam-organize--bibliography-files)
+               (lambda () '("/managed/shared.bib" "/managed/new.bib"))))
+      (with-temp-buffer
+        (org-mode)
+        (should
+         (equal
+          (org-roam-organize--filter-bibliography-files
+           '("/org/local.bib" "/managed/shared.bib"))
+          '("/org/local.bib" "/managed/shared.bib" "/managed/new.bib")))))))
+
+(ert-deftest org-roam-organize-test-filter-bibliography-files-obeys-mode-and-buffer ()
+  (let ((files '("/org/local.bib"))
+        query-called)
+    (cl-letf (((symbol-function 'org-roam-organize--bibliography-files)
+               (lambda ()
+                 (setq query-called t)
+                 '("/managed/reference.bib"))))
+      (with-temp-buffer
+        (org-mode)
+        (let ((org-roam-organize-mode nil))
+          (should (eq (org-roam-organize--filter-bibliography-files files)
+                      files)))
+        (fundamental-mode)
+        (let ((org-roam-organize-mode t))
+          (should (eq (org-roam-organize--filter-bibliography-files files)
+                      files)))))
+    (should-not query-called)))
+
+(ert-deftest org-roam-organize-test-org-cite-lists-managed-bibliographies-without-backend ()
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "literature" :tag "ref" :cite t)))
+        (org-cite-global-bibliography nil))
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (_query &rest _arguments)
+                 '(("/managed/node.org"
+                    (("BIBLIOGRAPHY" . "reference.bib")))))))
+      (unwind-protect
+          (progn
+            (org-roam-organize--setup-cite-integration)
+            (with-temp-buffer
+              (org-mode)
+              (should
+               (equal
+                (org-cite-list-bibliography-files)
+                '("/managed/reference.bib")))))
+        (org-roam-organize--teardown-cite-integration)))))
+
 (ert-deftest org-roam-organize-test-setup-ignores-unsupported-cite-backend ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize--active-cite-backend nil)
@@ -1511,7 +1561,7 @@
           (should-not org-roam-capture-templates))
       (org-roam-organize-mode -1))))
 
-(ert-deftest org-roam-organize-test-mode-registers-and-removes-cite-export-filter ()
+(ert-deftest org-roam-organize-test-mode-registers-and-removes-cite-integration ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (default-directory temporary-file-directory)
          (org-roam-directory root)
@@ -1526,9 +1576,17 @@
           (org-roam-organize-mode 1)
           (should (memq #'org-roam-organize--cite-export-filter
                         org-export-filter-parse-tree-functions))
+          (should
+           (advice-member-p
+            #'org-roam-organize--filter-bibliography-files
+            'org-cite-list-bibliography-files))
           (org-roam-organize-mode -1)
           (should-not (memq #'org-roam-organize--cite-export-filter
-                            org-export-filter-parse-tree-functions)))
+                            org-export-filter-parse-tree-functions))
+          (should-not
+           (advice-member-p
+            #'org-roam-organize--filter-bibliography-files
+            'org-cite-list-bibliography-files)))
       (org-roam-organize-mode -1))))
 
 (ert-deftest org-roam-organize-test-check-setup-combines-variable-registry-and-capability-checks ()
