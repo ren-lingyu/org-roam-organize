@@ -140,12 +140,17 @@
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
-`:moc', `:basic', and `:cite' are optional booleans.  A `:moc t' record must
-also be `:basic t'.  At most one record may use `:cite t'; that record
-identifies literature nodes for citation export, checking, and synchronization.
-Citation database operations recognize level-0 nodes carrying that record's
-`:tag'; a capture template that creates citation nodes is responsible for
-including the tag in its `filetags' keyword.
+`:moc', `:basic', `:cite', and `:bibliography' are optional booleans.  A
+`:moc t' record must also be `:basic t'.  At most one record may use
+`:cite t'; that record identifies literature nodes for citation export,
+checking, and synchronization.  Citation database operations recognize
+level-0 nodes carrying that record's `:tag'; a capture template that creates
+citation nodes is responsible for including the tag in its `filetags' keyword.
+Setting `:bibliography t' on the citation record exposes bibliography paths
+declared by those nodes through Org Cite and enables managed BibLaTeX export
+compatibility.  A missing or nil value leaves bibliography discovery and
+export metadata to Org and user configuration.  Any record using
+`:bibliography t' must also use `:cite t'.
 Its optional `:backend' value selects additional interactive integration.  It
 may be a backend name or a proper list whose car is the backend name and whose
 cdr is an option plist.  `citar' installs the optional Citar adapter, while
@@ -235,18 +240,24 @@ does not insert it into capture templates or validate the referenced file.")
     (org-element-type . function)
     (org-element-property . function)
     (org-element-put-property . function)
-    (org-cite-list-bibliography-files . function)
-    (org-export-derived-backend-p . function)
-    (org-export-filter-final-output-functions . variable)
     (org-export-filter-parse-tree-functions . variable)
     (org-link-make-string . function)
     (seq-every-p . function)
     (seq-filter . function)
     (seq-find . function))
-  "Runtime capabilities required by Org-roam Organize.
+  "Core runtime capabilities required by Org-roam Organize.
 
 The list maps symbols to capability types checked by
 `org-roam-organize--check-capabilities'.")
+
+(defconst org-roam-organize--bibliography-capability-alist
+  '((org-cite-list-bibliography-files . function)
+    (org-export-derived-backend-p . function)
+    (org-export-filter-final-output-functions . variable))
+  "Runtime capabilities required by managed bibliography integration.
+
+The list is appended to `org-roam-organize--capability-alist' only when the
+unique citation registry record sets `:bibliography t'.")
 
 (defconst org-roam-organize--record-name-regexp
   (rx string-start (+ (any "A-Za-z0-9_-")) string-end)
@@ -506,6 +517,14 @@ status so setups that do not use citing-node entry synchronization remain
 valid."
   (eq (plist-get record :cite) t))
 
+(defun org-roam-organize--record-bibliography-p (record)
+  "Return non-nil if RECORD enables managed bibliography integration.
+
+Implementation notes: Only literal `t' enables the integration.  Registry
+validation separately requires the key to be boolean and limits an enabled
+value to the unique `:cite t' record."
+  (eq (plist-get record :bibliography) t))
+
 (defun org-roam-organize--record-backend-specification (record)
   "Return RECORD's optional interactive backend specification.
 
@@ -682,15 +701,46 @@ while adapter dispatch remains a separate mode-lifecycle responsibility."
   (when-let* ((record (org-roam-organize--registry-cite-record)))
     (org-roam-organize--record-backend record)))
 
+(defun org-roam-organize--registry-cite-bibliography-p ()
+  "Return non-nil when the citation record enables bibliography integration.
+
+Return nil when no `:cite t' record exists or its `:bibliography' value is
+missing or nil.  Registry validation guarantees at most one citation record
+before mode setup calls this function.
+
+Implementation notes: The citation record is selected with
+`org-roam-organize--registry-cite-record' and tested through
+`org-roam-organize--record-bibliography-p'.
+
+Rationale: Bibliography source policy belongs to the unique managed citation
+record rather than to the optional interactive backend."
+  (when-let* ((record (org-roam-organize--registry-cite-record)))
+    (org-roam-organize--record-bibliography-p record)))
+
+(defun org-roam-organize--required-capabilities ()
+  "Return runtime capabilities required by the current registry.
+
+The result always includes `org-roam-organize--capability-alist'.  Append
+`org-roam-organize--bibliography-capability-alist' only when the citation
+record enables `:bibliography'.  The returned list may share cons cells with
+the constants and must not be modified.
+
+Rationale: An unused optional integration must not prevent the core mode from
+starting on an Org version that lacks its interfaces."
+  (append org-roam-organize--capability-alist
+          (when (org-roam-organize--registry-cite-bibliography-p)
+            org-roam-organize--bibliography-capability-alist)))
+
 (defun org-roam-organize--bibliography-files ()
   "Return bibliography files declared by managed citation nodes.
 
 Read `org-roam-organize--bibliography-property' from level-0 nodes carrying
 the configured citation record's tag.  Resolve each property value relative
 to its node file, remove duplicate paths, and return the lexically sorted
-result.  Return nil when no citation record is configured.  Each call queries
-the Org-roam database; the function does not retain its result, read or modify
-Org or bibliography files, or validate property values or resulting paths.
+result.  Return nil when no citation record enables `:bibliography t'.  Each
+enabled call queries the Org-roam database; the function does not retain its
+result, read or modify Org or bibliography files, or validate property values
+or resulting paths.
 
 Implementation notes: One `org-roam-db-query' joins `tags' to level-0 `nodes'
 and selects `nodes.properties', which Org-roam returns as an alist.  Path
@@ -700,7 +750,8 @@ the mode lifecycle.
 Rationale: A node property makes bibliography ownership self-describing while
 keeping backend-specific global customization outside the core data model."
   (let ((record (org-roam-organize--registry-cite-record)))
-    (when record
+    (when (and record
+               (org-roam-organize--record-bibliography-p record))
       (let* ((tag (org-roam-organize--record-tag record))
              (rows
               (org-roam-db-query
@@ -726,13 +777,14 @@ keeping backend-specific global customization outside the core data model."
          #'string<)))))
 
 (defun org-roam-organize--filter-bibliography-files (files)
-  "Append managed citation-node bibliographies to FILES.
+  "Append enabled managed citation-node bibliographies to FILES.
 
-When `org-roam-organize-mode' is enabled in an Org-derived buffer, append the
-paths returned by `org-roam-organize--bibliography-files' to FILES and remove
-duplicates while preserving first occurrence order.  Otherwise return FILES
-unchanged.  Existing Org Cite bibliography files therefore take precedence.
-The function does not validate, read, or modify any referenced file.
+When `org-roam-organize-mode' is enabled in an Org-derived buffer and the
+citation record sets `:bibliography t', append the paths returned by
+`org-roam-organize--bibliography-files' to FILES and remove duplicates while
+preserving first occurrence order.  Otherwise return FILES unchanged.
+Existing Org Cite bibliography files therefore take precedence.  The function
+does not validate, read, or modify any referenced file.
 
 Implementation notes: This function is installed as `:filter-return' advice
 on `org-cite-list-bibliography-files' for the mode lifecycle.  Bibliography
@@ -749,11 +801,13 @@ available without backend-specific dispatch changes."
     files))
 
 (defun org-roam-organize--setup-cite-integration ()
-  "Install the core Org Cite and BibLaTeX export integration.
+  "Install the configured core citation integrations.
 
-Register the managed UUID export filter, bibliography-discovery advice, and
-bundled BibLaTeX final-output compatibility filter.  Repeated calls are
-idempotent.  Return non-nil after installation.
+Always register the managed UUID export filter.  When the citation record sets
+`:bibliography t', also register the bibliography-discovery advice and bundled
+BibLaTeX final-output compatibility filter.  Repeated calls are idempotent.
+Return non-nil after installation.  The registry is read when this function is
+called; restart `org-roam-organize-mode' after changing the option.
 
 Implementation notes: The integrations are global and guard their behavior
 with `org-roam-organize-mode'.  BibLaTeX-specific behavior is isolated in
@@ -765,19 +819,20 @@ version-sensitive LaTeX compatibility behavior stays outside the core source
 file."
   (add-hook 'org-export-filter-parse-tree-functions
             #'org-roam-organize--cite-export-filter)
-  (advice-add 'org-cite-list-bibliography-files
-              :filter-return
-              #'org-roam-organize--filter-bibliography-files)
-  (require 'org-roam-organize-biblatex)
-  (org-roam-organize-biblatex--setup)
+  (when (org-roam-organize--registry-cite-bibliography-p)
+    (require 'org-roam-organize-biblatex)
+    (org-roam-organize-biblatex--setup)
+    (advice-add 'org-cite-list-bibliography-files
+                :filter-return
+                #'org-roam-organize--filter-bibliography-files))
   t)
 
 (defun org-roam-organize--teardown-cite-integration ()
   "Remove the core Org Cite and BibLaTeX export integration.
 
-Remove the managed UUID export filter, bibliography-discovery advice, and
-bundled BibLaTeX compatibility filter.  Return nil.  Calling this function
-when any integration is absent is safe."
+Remove the managed UUID export filter and any optional bibliography-discovery
+advice and bundled BibLaTeX compatibility filter.  Return nil.  Calling this
+function when any integration is absent is safe."
   (remove-hook 'org-export-filter-parse-tree-functions
                #'org-roam-organize--cite-export-filter)
   (advice-remove 'org-cite-list-bibliography-files
@@ -1387,6 +1442,8 @@ checked when node creation calls the provider."
                (moc (when plistp (plist-get record :moc)))
                (basic (when plistp (plist-get record :basic)))
                (cite (when plistp (plist-get record :cite)))
+               (bibliography (when plistp
+                               (plist-get record :bibliography)))
                (backend-specification
                 (when plistp
                   (org-roam-organize--record-backend-specification record)))
@@ -1438,6 +1495,11 @@ checked when node creation calls the provider."
               (setq result_bool nil)
               (setq result_message
                     (concat result_message "  :cite boolean? nil (should be t)\n")))
+            (when (and bibliography (not (booleanp bibliography)))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message
+                            "  :bibliography boolean? nil (should be t)\n")))
             (when (org-roam-organize--record-moc-p record)
               (setq moc-count (1+ moc-count))
               (unless (org-roam-organize--record-basic-p record)
@@ -1446,6 +1508,12 @@ checked when node creation calls the provider."
                       (concat result_message "  :moc t requires :basic t\n"))))
             (when (org-roam-organize--record-cite-p record)
               (setq cite-count (1+ cite-count)))
+            (when (and (org-roam-organize--record-bibliography-p record)
+                       (not (org-roam-organize--record-cite-p record)))
+              (setq result_bool nil)
+              (setq result_message
+                    (concat result_message
+                            "  :bibliography t requires :cite t\n")))
             (when (and (eq backend 'citar)
                        (not (org-roam-organize--record-cite-p record)))
               (setq result_bool nil)
@@ -1628,7 +1696,7 @@ problems in one pass."
          (org-roam-organize--validate-registry))
         (capability_check_result
          (org-roam-organize--check-capabilities
-          org-roam-organize--capability-alist)))
+          (org-roam-organize--required-capabilities))))
     (cons
      (and (car variable_check_result)
           (car root_check_result)
@@ -3134,13 +3202,13 @@ buffer when present; clean runs only produce a summary message."
   "Toggle Org-roam Organize mode.
 
 When enabled, the mode validates setup, registers backend-independent Org Cite
-export and bibliography integration, installs bundled BibLaTeX export
-compatibility and the configured interactive citation adapter, and keeps
-command behavior available globally.  Disabling the mode removes those
-integrations and the adapter.  Core setup failure disables the mode again.
-Optional citation adapter failure leaves the mode enabled and reports a
-warning.  User-facing check and sync commands display detailed diagnostics in
-`org-roam-organize--report-buffer-name' when needed."
+UUID export, installs managed bibliography discovery and bundled BibLaTeX
+export compatibility when the citation record sets `:bibliography t', and
+installs the configured interactive citation adapter.  Disabling the mode
+removes those integrations and the adapter.  Core setup failure disables the
+mode again.  Optional citation adapter failure leaves the mode enabled and
+reports a warning.  User-facing check and sync commands display detailed
+diagnostics in `org-roam-organize--report-buffer-name' when needed."
   :lighter " Organize"
   ;; :group nil
   :global t

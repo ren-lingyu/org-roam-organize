@@ -116,6 +116,47 @@
       (should-not (car result))
       (should (string-match-p ":cite boolean" (cdr result))))))
 
+(ert-deftest org-roam-organize-test-registry-allows-optional-bibliography ()
+  (let ((org-roam-organize-directory
+         (org-roam-organize-test--temporary-root)))
+    (dolist (bibliography '(nil t))
+      (let ((org-roam-organize-registry
+             `((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+               (:name "literature"
+                :tag "ref"
+                :cite t
+                :bibliography ,bibliography
+                :basic t
+                :directory "literature"))))
+        (should (car (org-roam-organize--validate-registry)))))))
+
+(ert-deftest org-roam-organize-test-registry-rejects-invalid-bibliography ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature"
+            :tag "ref"
+            :cite t
+            :bibliography "yes"
+            :basic t
+            :directory "literature"))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p (rx ":bibliography boolean")
+                              (cdr result))))))
+
+(ert-deftest org-roam-organize-test-registry-requires-cite-for-bibliography ()
+  (let ((org-roam-organize-registry
+         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+           (:name "literature"
+            :tag "ref"
+            :bibliography t
+            :basic t
+            :directory "literature"))))
+    (let ((result (org-roam-organize--validate-registry)))
+      (should-not (car result))
+      (should (string-match-p (rx ":bibliography t requires :cite t")
+                              (cdr result))))))
+
 (ert-deftest org-roam-organize-test-registry-allows-optional-cite-backend ()
   (let ((org-roam-organize-directory
          (org-roam-organize-test--temporary-root)))
@@ -184,6 +225,20 @@
     (should (eq (org-roam-organize--record-backend record) 'citar))
     (should-not (org-roam-organize--record-backend-options record))))
 
+(ert-deftest org-roam-organize-test-record-bibliography-accessors ()
+  (should
+   (org-roam-organize--record-bibliography-p
+    '(:name "literature" :bibliography t)))
+  (should-not
+   (org-roam-organize--record-bibliography-p
+    '(:name "literature")))
+  (let ((org-roam-organize-registry
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :bibliography t))))
+    (should (org-roam-organize--registry-cite-bibliography-p))))
+
 (ert-deftest org-roam-organize-test-registry-cite-backend-reads-cite-record ()
   (let ((org-roam-organize-registry
          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
@@ -207,7 +262,10 @@
 
 (ert-deftest org-roam-organize-test-queries-bibliography-files-from-properties ()
   (let ((org-roam-organize-registry
-         '((:name "literature" :tag "ref" :cite t)))
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :bibliography t)))
         query-arguments)
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (_query &rest arguments)
@@ -226,12 +284,25 @@
        (equal query-arguments
               (list "ref"))))))
 
-(ert-deftest org-roam-organize-test-bibliography-files-require-cite-record ()
+(ert-deftest org-roam-organize-test-bibliography-files-require-enabled-cite-record ()
   (let ((org-roam-organize-registry nil))
-    (should-not (org-roam-organize--bibliography-files))))
+    (should-not (org-roam-organize--bibliography-files)))
+  (let ((org-roam-organize-registry
+         '((:name "literature" :tag "ref" :cite t)))
+        query-called)
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (&rest _arguments)
+                 (setq query-called t))))
+      (should-not (org-roam-organize--bibliography-files))
+      (should-not query-called))))
 
 (ert-deftest org-roam-organize-test-filter-bibliography-files-appends-managed-files ()
-  (let ((org-roam-organize-mode t))
+  (let ((org-roam-organize-mode t)
+        (org-roam-organize-registry
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :bibliography t))))
     (cl-letf (((symbol-function 'org-roam-organize--bibliography-files)
                (lambda () '("/managed/shared.bib" "/managed/new.bib"))))
       (with-temp-buffer
@@ -260,10 +331,13 @@
                       files)))))
     (should-not query-called)))
 
-(ert-deftest org-roam-organize-test-org-cite-lists-managed-bibliographies-without-backend ()
+(ert-deftest org-roam-organize-test-org-cite-lists-enabled-bibliographies-without-backend ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
-         '((:name "literature" :tag "ref" :cite t)))
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :bibliography t)))
         (org-cite-global-bibliography nil))
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (_query &rest _arguments)
@@ -1568,8 +1642,14 @@
          (org-roam-organize-directory root)
          (org-roam-organize-registry
           '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-            (:name "idea" :tag "idea")))
+            (:name "literature"
+             :tag "ref"
+             :cite t
+             :bibliography t
+             :basic t
+             :directory "literature")))
          (org-export-filter-parse-tree-functions nil)
+         (org-export-filter-final-output-functions nil)
          (org-roam-organize-mode nil))
     (unwind-protect
         (progn
@@ -1580,13 +1660,48 @@
            (advice-member-p
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
+          (should
+           (memq #'org-roam-organize-biblatex--filter-final-output
+                 org-export-filter-final-output-functions))
           (org-roam-organize-mode -1)
           (should-not (memq #'org-roam-organize--cite-export-filter
                             org-export-filter-parse-tree-functions))
           (should-not
            (advice-member-p
             #'org-roam-organize--filter-bibliography-files
-            'org-cite-list-bibliography-files)))
+            'org-cite-list-bibliography-files))
+          (should-not
+           (memq #'org-roam-organize-biblatex--filter-final-output
+                 org-export-filter-final-output-functions)))
+      (org-roam-organize-mode -1))))
+
+(ert-deftest org-roam-organize-test-mode-skips-disabled-bibliography-integration ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (default-directory temporary-file-directory)
+         (org-roam-directory root)
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name "literature"
+             :tag "ref"
+             :cite t
+             :basic t
+             :directory "literature")))
+         (org-export-filter-parse-tree-functions nil)
+         (org-export-filter-final-output-functions nil)
+         (org-roam-organize-mode nil))
+    (unwind-protect
+        (progn
+          (org-roam-organize-mode 1)
+          (should (memq #'org-roam-organize--cite-export-filter
+                        org-export-filter-parse-tree-functions))
+          (should-not
+           (advice-member-p
+            #'org-roam-organize--filter-bibliography-files
+            'org-cite-list-bibliography-files))
+          (should-not
+           (memq #'org-roam-organize-biblatex--filter-final-output
+                 org-export-filter-final-output-functions)))
       (org-roam-organize-mode -1))))
 
 (ert-deftest org-roam-organize-test-check-setup-combines-variable-registry-and-capability-checks ()
@@ -1718,9 +1833,24 @@
 (ert-deftest org-roam-organize-test-required-runtime-capabilities-exist ()
   (let ((result
          (org-roam-organize--check-capabilities
-          org-roam-organize--capability-alist)))
+          (org-roam-organize--required-capabilities))))
     (ert-info ((cdr result))
       (should (car result)))))
+
+(ert-deftest org-roam-organize-test-required-capabilities-follow-bibliography-option ()
+  (let ((org-roam-organize-registry
+         '((:name "literature" :tag "ref" :cite t))))
+    (should-not
+     (assq 'org-cite-list-bibliography-files
+           (org-roam-organize--required-capabilities))))
+  (let ((org-roam-organize-registry
+         '((:name "literature"
+            :tag "ref"
+            :cite t
+            :bibliography t))))
+    (should
+     (assq 'org-cite-list-bibliography-files
+           (org-roam-organize--required-capabilities)))))
 
 (provide 'org-roam-organize-test)
 ;;; org-roam-organize-test.el ends here

@@ -38,12 +38,17 @@
   "Evaluate BODY with a valid, enabled citation adapter context.
 
 The context enables `org-roam-organize-mode' dynamically and configures one
-managed citation registry record tagged `ref'.  It does not install the Citar
-adapter or access the Org-roam database unless BODY does so."
+managed citation registry record tagged `ref' with bibliography integration.
+It does not install the Citar adapter or access the Org-roam database unless
+BODY does so."
   (declare (indent 0) (debug t))
   `(let ((org-roam-organize-mode t)
          (org-roam-organize-registry
-          '((:name "literature" :tag "ref" :cite t :backend citar))))
+          '((:name "literature"
+             :tag "ref"
+             :cite t
+             :bibliography t
+             :backend citar))))
      ,@body))
 
 (defmacro org-roam-organize-citar-test--with-database (&rest body)
@@ -823,6 +828,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             (:name "literature"
              :tag "ref"
              :cite t
+             :bibliography t
              :backend citar
              :basic t
              :directory "literature")))

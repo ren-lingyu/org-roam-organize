@@ -183,6 +183,11 @@ test suite does not depend on a newer string-counting API."
                         nil
                         ".bib"))
          (org-roam-organize-mode t)
+         (org-roam-organize-registry
+          '((:name "literature"
+             :tag "ref"
+             :cite t
+             :bibliography t)))
          (org-cite-export-processors '((latex biblatex)))
          (org-cite-global-bibliography nil)
          (org-export-filter-final-output-functions nil)
