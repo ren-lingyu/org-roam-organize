@@ -37,4 +37,9 @@ in {
     testFile = ./biblatex.el;
   };
 
+  ert-cite-display = mkErtCheck {
+    name = "org-roam-organize-cite-display-ert";
+    testFile = ./cite-display.el;
+  };
+
 }

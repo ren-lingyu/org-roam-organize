@@ -8,6 +8,8 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
 #+BEGIN_SRC text
   .
   ├── org-roam-organize.el
+  ├── org-roam-organize-biblatex.el
+  ├── org-roam-organize-cite-display.el
   ├── org-roam-organize-citar.el
   ├── README.org
   ├── LICENSE
@@ -17,6 +19,8 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
       ├── default.nix
       ├── ert/
       │   ├── default.nix
+      │   ├── biblatex.el
+      │   ├── cite-display.el
       │   ├── ert.el
       │   └── citar.el
       └── package-lint/
@@ -26,9 +30,11 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
 Key conventions:
 
 - =org-roam-organize.el= is the package implementation and public entry point.
+- =org-roam-organize-cite-display.el= is the backend-independent managed citation presentation layer.
 - =org-roam-organize-citar.el= is the optional Citar adapter loaded only when its backend is enabled.
-- =flake.nix= defines the package build, development shell, core and Citar ERT checks, and package-lint check.
-- =tests/ert/ert.el= contains the core ERT suite; =tests/ert/citar.el= contains Citar adapter integration tests.
+- =org-roam-organize-biblatex.el= is the managed bibliography compatibility layer for BibLaTeX export.
+- =flake.nix= defines the package build, development shell, ERT checks, and package-lint check.
+- =tests/ert/= contains separate core, citation display, Citar adapter, and BibLaTeX compatibility suites.
 - =tests/package-lint/default.nix= runs package-lint against the packaged Elisp source.
 
 * Features
@@ -45,6 +51,7 @@ The package includes the following main features:
 - Tag-based MOC membership synchronization
 
 ** 3. Citation Management
+- Display managed literature UUID citation keys as node titles in Org buffers
 - Synchronize citing-node entries for literature nodes
 - Citation entry synchronization
 - Maintain generated =#+ROAM_CITING_NODE= keyword entries
@@ -325,6 +332,14 @@ Managed citation references use the literature node UUID in the source Org text:
   [cite:@literature-node-uuid]
 #+END_SRC
 
+When =org-roam-organize-mode= is enabled, managed UUID keys are displayed as
+their literature node titles in Org buffers.  This presentation is automatic
+for the unique =:cite t= record and does not depend on the selected citation
+backend.  It changes neither the saved citation text nor its Org Element key.
+Ordinary citation keys and managed nodes without usable titles retain their
+source display.  Run =org-roam-organize-cite-display-refresh= in an Org buffer
+after changing a literature node title or its managed tag membership.
+
 The corresponding literature node keeps its current external bibliography citekey in exactly one =refs.type = "cite"= =ROAM_REFS= entry:
 
 #+BEGIN_SRC org
@@ -350,7 +365,9 @@ The package uses Org-roam's database queries to resolve MOC nodes by file path, 
 The mode includes a startup hook that validates setup when the mode is enabled.
 
 * Tests
-The repository provides separate Nix checks for the core ERT suite, the Citar adapter ERT suite, and package-lint; =nix flake check= also evaluates the package build:
+The repository provides separate Nix checks for the core, citation display,
+Citar adapter, and BibLaTeX compatibility ERT suites, plus package-lint;
+=nix flake check= also evaluates the package build:
 
 #+BEGIN_SRC sh
   nix flake check

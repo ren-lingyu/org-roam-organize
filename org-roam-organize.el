@@ -201,6 +201,10 @@ core mode active without claiming adapter ownership.")
                   "org-roam-organize-biblatex")
 (declare-function org-roam-organize-biblatex--teardown
                   "org-roam-organize-biblatex")
+(declare-function org-roam-organize-cite-display--setup
+                  "org-roam-organize-cite-display")
+(declare-function org-roam-organize-cite-display--teardown
+                  "org-roam-organize-cite-display")
 
 ;; ==============================
 ;; 常量定义
@@ -803,20 +807,26 @@ available without backend-specific dispatch changes."
 (defun org-roam-organize--setup-cite-integration ()
   "Install the configured core citation integrations.
 
-Always register the managed UUID export filter.  When the citation record sets
-`:bibliography t', also register the bibliography-discovery advice and bundled
-BibLaTeX final-output compatibility filter.  Repeated calls are idempotent.
-Return non-nil after installation.  The registry is read when this function is
-called; restart `org-roam-organize-mode' after changing the option.
+When a citation record exists, install backend-independent managed UUID title
+display in Org buffers.  Always register the managed UUID export filter.  When
+the citation record sets `:bibliography t', also register the
+bibliography-discovery advice and bundled BibLaTeX final-output compatibility
+filter.  Repeated calls are idempotent.  Return non-nil after installation.
+The registry is read when this function is called; restart
+`org-roam-organize-mode' after changing it.
 
 Implementation notes: The integrations are global and guard their behavior
-with `org-roam-organize-mode'.  BibLaTeX-specific behavior is isolated in
+with `org-roam-organize-mode'.  Buffer presentation and BibLaTeX-specific
+behavior are isolated in `org-roam-organize-cite-display' and
 `org-roam-organize-biblatex'.  The matching teardown function removes all
-three integrations during mode disable and failed setup rollback.
+installed integrations during mode disable and failed setup rollback.
 
 Rationale: Bibliography discovery remains backend-independent, while the
-version-sensitive LaTeX compatibility behavior stays outside the core source
-file."
+presentation and version-sensitive LaTeX implementation details stay outside
+the core source file."
+  (when (org-roam-organize--registry-cite-record)
+    (require 'org-roam-organize-cite-display)
+    (org-roam-organize-cite-display--setup))
   (add-hook 'org-export-filter-parse-tree-functions
             #'org-roam-organize--cite-export-filter)
   (when (org-roam-organize--registry-cite-bibliography-p)
@@ -828,11 +838,13 @@ file."
   t)
 
 (defun org-roam-organize--teardown-cite-integration ()
-  "Remove the core Org Cite and BibLaTeX export integration.
+  "Remove the core citation display and export integrations.
 
-Remove the managed UUID export filter and any optional bibliography-discovery
-advice and bundled BibLaTeX compatibility filter.  Return nil.  Calling this
-function when any integration is absent is safe."
+Remove managed UUID title presentation and export filtering, plus any optional
+bibliography-discovery advice and bundled BibLaTeX compatibility filter.
+Return nil.  Calling this function when any integration is absent is safe."
+  (when (fboundp 'org-roam-organize-cite-display--teardown)
+    (org-roam-organize-cite-display--teardown))
   (remove-hook 'org-export-filter-parse-tree-functions
                #'org-roam-organize--cite-export-filter)
   (advice-remove 'org-cite-list-bibliography-files
@@ -3202,13 +3214,14 @@ buffer when present; clean runs only produce a summary message."
   "Toggle Org-roam Organize mode.
 
 When enabled, the mode validates setup, registers backend-independent Org Cite
-UUID export, installs managed bibliography discovery and bundled BibLaTeX
-export compatibility when the citation record sets `:bibliography t', and
-installs the configured interactive citation adapter.  Disabling the mode
-removes those integrations and the adapter.  Core setup failure disables the
-mode again.  Optional citation adapter failure leaves the mode enabled and
-reports a warning.  User-facing check and sync commands display detailed
-diagnostics in `org-roam-organize--report-buffer-name' when needed."
+UUID title display and export, installs managed bibliography discovery and
+bundled BibLaTeX export compatibility when the citation record sets
+`:bibliography t', and installs the configured interactive citation adapter.
+Disabling the mode removes those integrations and the adapter.  Core setup
+failure disables the mode again.  Optional citation adapter failure leaves the
+mode enabled and reports a warning.  User-facing check and sync commands
+display detailed diagnostics in `org-roam-organize--report-buffer-name' when
+needed."
   :lighter " Organize"
   ;; :group nil
   :global t

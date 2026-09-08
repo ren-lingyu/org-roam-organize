@@ -23,6 +23,7 @@
         fileset = pkgs.lib.fileset.unions [
           ./org-roam-organize.el
           ./org-roam-organize-biblatex.el
+          ./org-roam-organize-cite-display.el
           ./org-roam-organize-citar.el
           ./README.org
           ./LICENSE

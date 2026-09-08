@@ -1627,12 +1627,16 @@
           '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
             (:name "idea" :tag "idea")))
          (org-roam-capture-templates nil)
+         (org-font-lock-set-keywords-hook nil)
          (org-roam-organize-mode nil))
     (unwind-protect
         (progn
           (org-roam-organize-mode 1)
           (should org-roam-organize-mode)
-          (should-not org-roam-capture-templates))
+          (should-not org-roam-capture-templates)
+          (should-not
+           (memq #'org-roam-organize-cite-display--font-lock-setup
+                 org-font-lock-set-keywords-hook)))
       (org-roam-organize-mode -1))))
 
 (ert-deftest org-roam-organize-test-mode-registers-and-removes-cite-integration ()
@@ -1650,12 +1654,16 @@
              :directory "literature")))
          (org-export-filter-parse-tree-functions nil)
          (org-export-filter-final-output-functions nil)
+         (org-font-lock-set-keywords-hook nil)
          (org-roam-organize-mode nil))
     (unwind-protect
         (progn
           (org-roam-organize-mode 1)
           (should (memq #'org-roam-organize--cite-export-filter
                         org-export-filter-parse-tree-functions))
+          (should
+           (memq #'org-roam-organize-cite-display--font-lock-setup
+                 org-font-lock-set-keywords-hook))
           (should
            (advice-member-p
             #'org-roam-organize--filter-bibliography-files
@@ -1666,6 +1674,9 @@
           (org-roam-organize-mode -1)
           (should-not (memq #'org-roam-organize--cite-export-filter
                             org-export-filter-parse-tree-functions))
+          (should-not
+           (memq #'org-roam-organize-cite-display--font-lock-setup
+                 org-font-lock-set-keywords-hook))
           (should-not
            (advice-member-p
             #'org-roam-organize--filter-bibliography-files
