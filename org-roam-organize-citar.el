@@ -2,10 +2,10 @@
 
 ;;; Commentary:
 
-;; This optional adapter lets Citar select and act on bibliography citekeys
-;; while Org files continue to store managed literature node UUIDs as Org Cite
-;; keys.  Loading this library does not load Citar; adapter setup loads Citar
-;; only when the Citar backend is enabled.
+;; This optional adapter lets Citar select, activate, and act on bibliography
+;; citekeys while Org files continue to store managed literature node UUIDs as
+;; Org Cite keys.  Loading this library does not load Citar; adapter setup
+;; loads Citar only when the Citar backend is enabled.
 
 ;;; Code:
 
@@ -14,12 +14,14 @@
 
 (declare-function citar-key-at-point "citar" ())
 (declare-function citar-citation-at-point "citar" ())
+(declare-function citar-get-entries "citar" ())
 (declare-function citar-run-default-action "citar" (citekeys))
 (declare-function citar-register-notes-source "citar" (name config))
 (declare-function citar-remove-notes-source "citar" (name))
 (declare-function citar-create-note "citar" (key &optional entry))
 (declare-function citar-format--entry
                   "citar-format" (format entry &optional width &rest options))
+(declare-function citar-org-cite-basic-activate "citar-org" (citation))
 (declare-function org-roam-node-from-id "org-roam-node" (id))
 (declare-function org-roam-node-visit
                   "org-roam-node" (node &optional other-window force))
@@ -27,6 +29,7 @@
 (declare-function org-roam-db-update-file
                   "org-roam-db" (&optional file-path deprecated-arg))
 
+(defvar citar--entries)
 (defvar citar-notes-source)
 (defvar citar-notes-sources)
 
@@ -36,12 +39,15 @@
 This value documents the compatibility baseline used by maintainers.  Setup
 does not compare installed package versions because Citar does not expose a
 portable runtime version API; actual compatibility is validated through
-`org-roam-organize-citar--capability-alist'.")
+`org-roam-organize-citar--capability-alist' and adapter integration tests.")
 
 (defconst org-roam-organize-citar--capability-alist
   '((citar-at-point-function . variable)
+    (citar--entries . variable)
     (citar-notes-source . variable)
     (citar-notes-sources . variable)
+    (citar-get-entry . function)
+    (citar-get-entries . function)
     (citar-key-at-point . function)
     (citar-citation-at-point . function)
     (citar-run-default-action . function)
@@ -54,6 +60,7 @@ portable runtime version API; actual compatibility is validated through
     (citar-org-insert-citation . function)
     (citar-org-select-key . function)
     (citar-org-follow . function)
+    (citar-org-cite-basic-activate . function)
     (org-roam-node-from-id . function)
     (org-roam-node-visit . function)
     (org-roam-ref-add . function)
@@ -63,8 +70,9 @@ portable runtime version API; actual compatibility is validated through
 Each entry maps a Citar symbol to the capability type accepted by
 `org-roam-organize--check-capabilities'.  Setup checks the table only after
 loading `citar' and `citar-org'.  It includes the functions called or advised
-by the adapter and the public Citar boundaries whose behavior the adapter is
-intended to preserve.")
+by the adapter, the public Citar boundaries whose behavior the adapter is
+intended to preserve, and the internal `citar--entries' dynamic-binding
+contract exercised by activation integration tests.")
 
 (defconst org-roam-organize-citar--uuid-regexp
   (rx string-start
@@ -546,23 +554,24 @@ silently choosing a node would make insertion nondeterministic."
         "; ")))
     (nreverse uuids)))
 
-(defun org-roam-organize-citar--uuids-to-citekeys (keys)
-  "Replace managed UUIDs in KEYS with their external citekeys.
+(defun org-roam-organize-citar--uuid-citekey-table (keys)
+  "Return managed UUID-to-citekey candidates for KEYS.
 
-Return a list that preserves the order and multiplicity of KEYS.  Ordinary
-non-UUID citation keys are returned unchanged.  Signal `user-error' when a
-UUID-shaped key has no managed cite ref or when a managed UUID declares
-multiple cite refs, or when `org-roam-organize-mode' is disabled.  The function
-reads the Org-roam database and does not modify it or the current buffer.
+Return an `equal'-tested hash table whose keys are managed literature UUIDs
+present in KEYS and whose values are deduplicated external citekey lists in
+database row order.  UUIDs without a managed citation ref are absent.  Signal
+`user-error' when `org-roam-organize-mode' is disabled or the citation registry
+record is invalid.  This function reads the Org-roam database and does not
+modify KEYS, buffers, or files.
 
-Implementation notes: One `org-roam-db-query' joins `refs', `tags', and
-level-0 `nodes' for the configured citation record tag.  An in-memory table
-then replaces mapped UUIDs while preserving ordinary citekeys for mixed
-citations.
+Implementation notes: One `org-roam-db-query' joins cite `refs', the citation
+record's `tags', and level-0 `nodes', restricted to KEYS.  Keeping every
+candidate lets strict action translation reject ambiguity while activation
+projection can conservatively omit an ambiguous alias.
 
-Rationale: Citar actions operate on external bibliography keys, while source
-Org citations retain stable Org-roam UUIDs.  Unmapped UUID-shaped keys fail
-clearly instead of being passed to Citar as if they were external citekeys."
+Rationale: UUID lookup policy differs between interactive actions and passive
+Font Lock activation, but both boundaries must derive mappings from the same
+managed-node query."
   (org-roam-organize-citar--ensure-mode)
   (let* ((tag (org-roam-organize-citar--cite-record-tag))
          (rows
@@ -579,20 +588,44 @@ clearly instead of being passed to Citar as if they were external citekeys."
                                   (in r:node_id $v2)))
              tag
              (vconcat keys))))
-         (table (make-hash-table :test 'equal))
-         missing
-         ambiguous
-         citekeys)
+         (table (make-hash-table :test 'equal)))
     (dolist (row rows)
       (let ((uuid (nth 0 row))
             (citekey (nth 1 row)))
         (puthash uuid
                  (cons citekey (gethash uuid table))
                  table)))
+    (maphash
+     (lambda (uuid citekeys)
+       (puthash uuid
+                (org-roam-organize-citar--unique-values
+                 (nreverse citekeys))
+                table))
+     table)
+    table))
+
+(defun org-roam-organize-citar--uuids-to-citekeys (keys)
+  "Replace managed UUIDs in KEYS with their external citekeys.
+
+Return a list that preserves the order and multiplicity of KEYS.  Ordinary
+non-UUID citation keys are returned unchanged.  Signal `user-error' when a
+UUID-shaped key has no managed cite ref or when a managed UUID declares
+multiple cite refs, or when `org-roam-organize-mode' is disabled.  The function
+reads the Org-roam database and does not modify it or the current buffer.
+
+Implementation notes: `org-roam-organize-citar--uuid-citekey-table' loads all
+managed candidates in one database query.  This function then applies the
+strict action policy while preserving ordinary citekeys for mixed citations.
+
+Rationale: Citar actions operate on external bibliography keys, while source
+Org citations retain stable Org-roam UUIDs.  Unmapped UUID-shaped keys fail
+clearly instead of being passed to Citar as if they were external citekeys."
+  (let* ((table (org-roam-organize-citar--uuid-citekey-table keys))
+         missing
+         ambiguous
+         citekeys)
     (dolist (key keys)
-      (let ((matches
-             (org-roam-organize-citar--unique-values
-              (nreverse (gethash key table)))))
+      (let ((matches (gethash key table)))
         (cond
          ((null matches)
           (if (string-match-p org-roam-organize-citar--uuid-regexp key)
@@ -618,6 +651,91 @@ clearly instead of being passed to Citar as if they were external citekeys."
         (nreverse ambiguous)
         "; ")))
     (nreverse citekeys)))
+
+(defun org-roam-organize-citar--project-activation-entries (citation)
+  "Return Citar entries extended for managed UUIDs in CITATION.
+
+Return a copied hash table containing Citar's active bibliography entries plus
+UUID aliases for unambiguous managed references in CITATION.  Each alias maps
+to the entry belonging to the corresponding external citekey.  Return nil
+when CITATION contains no UUID-shaped key or no alias can be resolved.  The
+original Citar entries table and Org citation object are not modified.
+
+Implementation notes: UUID candidates come from `org-cite-get-references'.
+`org-roam-organize-citar--uuid-citekey-table' restricts the database query to
+those candidates.  `citar-get-entries' is copied lazily only after both a
+single citekey mapping and its bibliography entry have been found.  No
+projection is retained after activation, so later fontification observes
+current Org-roam mappings and Citar entries.
+
+Rationale: Citar's basic activation validates keys and formats tooltips through
+its active entries table.  Temporary UUID aliases let that implementation
+operate unchanged without presenting UUIDs as external keys to Citar actions,
+file sources, link sources, or notes sources."
+  (let (uuid-keys)
+    (dolist (reference (org-cite-get-references citation))
+      (let ((key (org-element-property :key reference)))
+        (when (and (stringp key)
+                   (string-match-p
+                    org-roam-organize-citar--uuid-regexp key))
+          (push key uuid-keys))))
+    (setq uuid-keys (delete-dups (nreverse uuid-keys)))
+    (when uuid-keys
+      (let* ((table
+              (org-roam-organize-citar--uuid-citekey-table uuid-keys))
+             (entries (citar-get-entries))
+             projected-entries)
+        (when (hash-table-p entries)
+          (dolist (uuid uuid-keys)
+            (let ((citekeys (gethash uuid table)))
+              (when (and citekeys (null (cdr citekeys)))
+                (when-let* ((entry (gethash (car citekeys) entries)))
+                  (unless projected-entries
+                    (setq projected-entries (copy-hash-table entries)))
+                  (puthash uuid entry projected-entries))))))
+        projected-entries))))
+
+(defun org-roam-organize-citar--activate-with-projected-entries
+    (function citation)
+  "Call Citar activation FUNCTION with UUID aliases for CITATION.
+
+When the Citar adapter and `org-roam-organize-mode' are active in an Org
+buffer, dynamically bind `citar--entries' to a copied entry table containing
+managed UUID aliases, then call FUNCTION with CITATION.  Otherwise call
+FUNCTION unchanged.  Mapping or projection errors emit a warning and fall
+back to unchanged Citar activation.  Return FUNCTION's value and call it
+exactly once.  Do not modify source text or CITATION.
+
+Implementation notes: This function is installed as `:around' advice on
+`citar-org-cite-basic-activate'.  The dynamic binding follows Citar's
+documented internal contract for `citar--entries'; both `citar-get-entries'
+and the `citar-get-entry' path used by tooltip formatting observe the same
+temporary projection.
+
+Rationale: Passive Font Lock activation must degrade to Citar's ordinary
+invalid-key presentation when Org-roam data is unavailable instead of
+interrupting editing.  Restricting the projection to basic activation keeps
+Citar's citation-level keymap and all non-activation identity boundaries
+unchanged."
+  (if (not (and org-roam-organize-mode
+                org-roam-organize-citar--installed-p
+                (derived-mode-p 'org-mode)))
+      (funcall function citation)
+    (let ((entries
+           (condition-case err
+               (org-roam-organize-citar--project-activation-entries
+                citation)
+             (error
+              (message
+               (concat
+                "[WARNING] Org-roam Organize Citar activation aliases "
+                "are unavailable: %s")
+               (error-message-string err))
+              nil))))
+      (if entries
+          (let ((citar--entries entries))
+            (funcall function citation))
+        (funcall function citation)))))
 
 (defun org-roam-organize-citar--filter-org-insert-args (args)
   "Return Citar Org insertion ARGS with citekeys replaced by UUIDs.
@@ -723,8 +841,9 @@ stable Org-roam UUIDs without reimplementing Citar's action system."
 
 Require `org-roam-organize-mode' to be enabled.  Install insertion advice for
 both `citar-insert-citation' in Org buffers and the Citar processor used by
-`org-cite-insert'.  Register and select the managed Citar notes source, and set
-the default value of `citar-at-point-function' to
+`org-cite-insert'.  Install activation advice that exposes managed UUIDs as
+temporary Citar entry aliases.  Register and select the managed Citar notes
+source, and set the default value of `citar-at-point-function' to
 `org-roam-organize-citar-dwim'.  Repeated calls are idempotent and return
 non-nil after successful installation.  Signal `user-error'
 when Citar or its Org integration cannot be loaded, when no valid citation
@@ -740,9 +859,11 @@ function before registering `org-roam-organize-citar--notes-config'.  It
 advises `citar-org-insert-citation' with
 `org-roam-organize-citar--filter-org-insert-args' and
 `citar-org-select-key' with
-`org-roam-organize-citar--filter-selected-key'.  Failed installation removes
-any advice and notes source added during the attempt and restores all saved
-values.
+`org-roam-organize-citar--filter-selected-key'.  It advises
+`citar-org-cite-basic-activate' with
+`org-roam-organize-citar--activate-with-projected-entries'.  Failed
+installation removes any advice and notes source added during the attempt and
+restores all saved values.
 
 Rationale: Explicit installation during Org-roam Organize mode setup provides
 a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
@@ -796,6 +917,10 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
              'citar-org-select-key
              :filter-return
              #'org-roam-organize-citar--filter-selected-key)
+            (advice-add
+             'citar-org-cite-basic-activate
+             :around
+             #'org-roam-organize-citar--activate-with-projected-entries)
             (set-default 'citar-at-point-function
                          #'org-roam-organize-citar-dwim)
             (setq citar-notes-source
@@ -808,6 +933,9 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
          (advice-remove
           'citar-org-select-key
           #'org-roam-organize-citar--filter-selected-key)
+         (advice-remove
+          'citar-org-cite-basic-activate
+          #'org-roam-organize-citar--activate-with-projected-entries)
          (when notes-source-registered
            (citar-remove-notes-source
             org-roam-organize-citar--notes-source))
@@ -823,7 +951,7 @@ a deterministic lifecycle without deferred `with-eval-after-load' callbacks."
 (defun org-roam-organize-citar-teardown ()
   "Remove UUID and notes integration from Citar.
 
-Remove both insertion advice functions installed by
+Remove the insertion and activation advice functions installed by
 `org-roam-organize-citar-setup'.  Remove the managed notes source and restore
 the saved `citar-notes-source' only while the registered source still has this
 adapter's configuration.  Restore the saved default value of
@@ -847,6 +975,9 @@ configuration."
     (advice-remove
      'citar-org-select-key
      #'org-roam-organize-citar--filter-selected-key)
+    (advice-remove
+     'citar-org-cite-basic-activate
+     #'org-roam-organize-citar--activate-with-projected-entries)
     ;; Restore only the value installed by this adapter.  A different current
     ;; value belongs to the user or another integration.
     (when (eq (default-value 'citar-at-point-function)
