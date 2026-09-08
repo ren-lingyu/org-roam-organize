@@ -313,10 +313,11 @@ must keep that hook installed."
 
 Use this command after literature node titles or managed membership change.
 Require `org-roam-organize-mode' in an Org-derived buffer.  Clear the local
-title cache and owned overlays, rebuild Org Font Lock defaults, and eagerly
-fontify the complete buffer.  Preserve any narrowing active when the command
-was invoked.  The command does not toggle `font-lock-mode'.  Source text and
-its modified state are unchanged.
+title cache and owned overlays, and rebuild Org Font Lock defaults.  When
+`font-lock-mode' is enabled, eagerly fontify the complete buffer; otherwise
+leave citation presentation cleared until Font Lock runs again.  Preserve any
+narrowing active when the command was invoked.  The command does not toggle
+`font-lock-mode'.  Source text and its modified state are unchanged.
 
 Rationale: Database updates do not automatically invalidate presentation
 caches in every open buffer; an explicit refresh keeps the first version
@@ -330,8 +331,9 @@ independent of Org-roam database update internals."
     (widen)
     (org-roam-organize-cite-display--clear)
     (org-roam-organize-cite-display--refresh-font-lock)
-    (font-lock-flush (point-min) (point-max))
-    (font-lock-ensure (point-min) (point-max))))
+    (when font-lock-mode
+      (font-lock-flush (point-min) (point-max))
+      (font-lock-ensure (point-min) (point-max)))))
 
 (defun org-roam-organize-cite-display--setup ()
   "Install managed citation title presentation.

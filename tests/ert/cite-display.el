@@ -146,7 +146,11 @@ logically enabled and citation display installed in the current buffer."
         (font-lock-ensure (point-min) (point-max))
         (should (= query-count 1))
         (setq title "Second Title")
-        (org-roam-organize-cite-display-refresh)
+        (let ((font-lock-mode t))
+          (cl-letf (((symbol-function
+                      'org-roam-organize-cite-display--refresh-font-lock)
+                     #'ignore))
+            (org-roam-organize-cite-display-refresh)))
         (should (= query-count 2))
         (should
          (equal
@@ -177,7 +181,11 @@ logically enabled and citation display installed in the current buffer."
         (narrow-to-region narrow-beginning narrow-end)
         (let ((saved-point-min (point-min))
               (saved-point-max (point-max)))
-          (org-roam-organize-cite-display-refresh)
+          (let ((font-lock-mode t))
+            (cl-letf (((symbol-function
+                        'org-roam-organize-cite-display--refresh-font-lock)
+                       #'ignore))
+              (org-roam-organize-cite-display-refresh)))
           (should (buffer-narrowed-p))
           (should (= (point-min) saved-point-min))
           (should (= (point-max) saved-point-max)))
@@ -251,6 +259,42 @@ logically enabled and citation display installed in the current buffer."
          (org-roam-organize-cite-display--refresh-font-lock))
         (should defaults-called)
         (should refresh-called)))))
+
+(ert-deftest org-roam-organize-cite-display-test-refresh-respects-font-lock-state ()
+  (with-temp-buffer
+    (insert "[cite:@ref-a]")
+    (org-mode)
+    (let ((org-roam-organize-mode t)
+          (refresh-count 0)
+          flush-called
+          ensure-called)
+      (let ((overlay
+             (org-roam-organize-cite-display--make-overlay
+              (point-min) (1+ (point-min)) "Reference A")))
+        (setq org-roam-organize-cite-display--title-cache
+              (make-hash-table :test 'equal))
+        (cl-letf (((symbol-function
+                    'org-roam-organize-cite-display--refresh-font-lock)
+                   (lambda ()
+                     (setq refresh-count (1+ refresh-count))))
+                  ((symbol-function 'font-lock-flush)
+                   (lambda (&rest _arguments)
+                     (setq flush-called t)))
+                  ((symbol-function 'font-lock-ensure)
+                   (lambda (&rest _arguments)
+                     (setq ensure-called t))))
+          (let ((font-lock-mode nil))
+            (org-roam-organize-cite-display-refresh)
+            (should (= refresh-count 1))
+            (should-not flush-called)
+            (should-not ensure-called)
+            (should-not (overlay-buffer overlay))
+            (should-not org-roam-organize-cite-display--title-cache))
+          (let ((font-lock-mode t))
+            (org-roam-organize-cite-display-refresh)
+            (should (= refresh-count 2))
+            (should flush-called)
+            (should ensure-called)))))))
 
 (ert-deftest org-roam-organize-cite-display-test-capabilities-exist ()
   (let ((result
