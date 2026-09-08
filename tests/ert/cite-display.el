@@ -155,6 +155,51 @@ logically enabled and citation display installed in the current buffer."
            'display)
           "Second Title"))))))
 
+(ert-deftest org-roam-organize-cite-display-test-refresh-preserves-narrowing ()
+  (let ((source
+         (concat
+          "[cite:@ref-a]\n\n"
+          "[cite:@ref-b]\n\n"
+          "[cite:@ref-c]")))
+    (org-roam-organize-cite-display-test--with-buffer
+        source
+        '((:id "ref-a" :title "Reference A")
+          (:id "ref-b" :title "Reference B")
+          (:id "ref-c" :title "Reference C"))
+      (should (= (length
+                  (org-roam-organize-cite-display-test--overlays))
+                 3))
+      (goto-char (point-min))
+      (search-forward "[cite:@ref-b]")
+      (let* ((narrow-end (point))
+             (narrow-beginning
+              (- narrow-end (length "[cite:@ref-b]"))))
+        (narrow-to-region narrow-beginning narrow-end)
+        (let ((saved-point-min (point-min))
+              (saved-point-max (point-max)))
+          (org-roam-organize-cite-display-refresh)
+          (should (buffer-narrowed-p))
+          (should (= (point-min) saved-point-min))
+          (should (= (point-max) saved-point-max)))
+        (widen))
+      (should (= (length
+                  (org-roam-organize-cite-display-test--overlays))
+                 3))
+      (should (equal (buffer-string) source)))))
+
+(ert-deftest org-roam-organize-cite-display-test-major-mode-change-cleans-overlay ()
+  (org-roam-organize-cite-display-test--with-buffer
+      "[cite:@ref-a]"
+      '((:id "ref-a" :title "Reference A"))
+    (let ((overlay (car (org-roam-organize-cite-display-test--overlays))))
+      (should (overlay-buffer overlay))
+      (should
+       (memq #'org-roam-organize-cite-display--clear
+             change-major-mode-hook))
+      (fundamental-mode)
+      (should-not (overlay-buffer overlay))
+      (should (equal (buffer-string) "[cite:@ref-a]")))))
+
 (ert-deftest org-roam-organize-cite-display-test-setup-and-teardown-lifecycle ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
@@ -173,11 +218,17 @@ logically enabled and citation display installed in the current buffer."
                (= (length
                    (org-roam-organize-cite-display-test--overlays))
                   1))
+              (should
+               (memq #'org-roam-organize-cite-display--clear
+                     change-major-mode-hook))
               (setq org-roam-organize-mode nil)
               (should-not (org-roam-organize-cite-display--teardown))
               (should-not
                (org-roam-organize-cite-display-test--overlays))
-              (should-not org-roam-organize-cite-display--title-cache))
+              (should-not org-roam-organize-cite-display--title-cache)
+              (should-not
+               (memq #'org-roam-organize-cite-display--clear
+                     change-major-mode-hook)))
           (org-roam-organize-cite-display--teardown))))))
 
 (ert-deftest org-roam-organize-cite-display-test-refresh-preserves-font-lock-state ()

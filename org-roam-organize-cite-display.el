@@ -16,7 +16,8 @@
 (defvar org-font-lock-set-keywords-hook)
 
 (defconst org-roam-organize-cite-display--capability-alist
-  '((font-lock-ensure . function)
+  '((change-major-mode-hook . variable)
+    (font-lock-ensure . function)
     (font-lock-flush . function)
     (font-lock-refresh-defaults . function)
     (org-cite-get-references . function)
@@ -220,18 +221,25 @@ styles, prefixes, suffixes, separators, and citation keys."
       t)))
 
 (defun org-roam-organize-cite-display--font-lock-setup ()
-  "Append managed citation title activation to Org Font Lock keywords.
+  "Set up managed citation title presentation in the current Org buffer.
 
 This function is called in each Org buffer by
-`org-font-lock-set-keywords-hook'.  It changes only the buffer's
-`org-font-lock-extra-keywords' value and safely avoids duplicate entries.
+`org-font-lock-set-keywords-hook'.  Append the activation matcher to the
+buffer's `org-font-lock-extra-keywords' and install buffer-local major-mode
+change cleanup.  Repeated calls safely avoid duplicate entries and hooks.
 
 Rationale: An extra Font Lock matcher composes with the selected Org Cite
 activation processor instead of replacing the single
-`org-cite-activate-processor' setting."
+`org-cite-activate-processor' setting.  Major-mode cleanup runs before local
+ownership state is discarded, preventing citation overlays from becoming
+orphaned when an Org buffer changes mode."
   (add-to-list 'org-font-lock-extra-keywords
                '(org-roam-organize-cite-display--activate)
-               t))
+               t)
+  (add-hook 'change-major-mode-hook
+            #'org-roam-organize-cite-display--clear
+            nil
+            t))
 
 (defun org-roam-organize-cite-display--refresh-font-lock ()
   "Rebuild and refresh Org Font Lock in the current buffer.
@@ -268,7 +276,9 @@ keywords were initialized before the mode lifecycle transition."
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (when (derived-mode-p 'org-mode)
-          (org-roam-organize-cite-display--refresh-font-lock)))))
+          (save-restriction
+            (widen)
+            (org-roam-organize-cite-display--refresh-font-lock))))))
   nil)
 
 (defun org-roam-organize-cite-display--clear ()
@@ -281,6 +291,22 @@ source text, text properties, or third-party overlays."
   (setq org-roam-organize-cite-display--title-cache nil)
   nil)
 
+(defun org-roam-organize-cite-display--teardown-buffer ()
+  "Remove citation presentation state from the current Org buffer.
+
+Remove the buffer-local major-mode change hook, delete all owned title
+overlays, and reset the title cache.  Return nil.  Calling this function
+repeatedly is safe and preserves source text and narrowing.
+
+Rationale: Global mode teardown must remove the local lifecycle hook itself,
+whereas `org-roam-organize-cite-display--clear' is also used by refresh and
+must keep that hook installed."
+  (remove-hook 'change-major-mode-hook
+               #'org-roam-organize-cite-display--clear
+               t)
+  (org-roam-organize-cite-display--clear)
+  nil)
+
 ;;;###autoload
 (defun org-roam-organize-cite-display-refresh ()
   "Refresh managed citation title display in the current Org buffer.
@@ -288,8 +314,9 @@ source text, text properties, or third-party overlays."
 Use this command after literature node titles or managed membership change.
 Require `org-roam-organize-mode' in an Org-derived buffer.  Clear the local
 title cache and owned overlays, rebuild Org Font Lock defaults, and eagerly
-fontify the accessible buffer.  The command does not toggle `font-lock-mode'.
-Source text and its modified state are unchanged.
+fontify the complete buffer.  Preserve any narrowing active when the command
+was invoked.  The command does not toggle `font-lock-mode'.  Source text and
+its modified state are unchanged.
 
 Rationale: Database updates do not automatically invalidate presentation
 caches in every open buffer; an explicit refresh keeps the first version
@@ -299,10 +326,12 @@ independent of Org-roam database update internals."
     (user-error "Org-roam Organize mode must be enabled"))
   (unless (derived-mode-p 'org-mode)
     (user-error "Citation display refresh requires an Org buffer"))
-  (org-roam-organize-cite-display--clear)
-  (org-roam-organize-cite-display--refresh-font-lock)
-  (font-lock-flush (point-min) (point-max))
-  (font-lock-ensure (point-min) (point-max)))
+  (save-restriction
+    (widen)
+    (org-roam-organize-cite-display--clear)
+    (org-roam-organize-cite-display--refresh-font-lock)
+    (font-lock-flush (point-min) (point-max))
+    (font-lock-ensure (point-min) (point-max))))
 
 (defun org-roam-organize-cite-display--setup ()
   "Install managed citation title presentation.
@@ -350,8 +379,10 @@ and therefore leaves Org, Citar, and other packages' overlays untouched."
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (when (derived-mode-p 'org-mode)
-          (org-roam-organize-cite-display--clear)
-          (org-roam-organize-cite-display--refresh-font-lock)))))
+          (save-restriction
+            (widen)
+            (org-roam-organize-cite-display--teardown-buffer)
+            (org-roam-organize-cite-display--refresh-font-lock))))))
   nil)
 
 (provide 'org-roam-organize-cite-display)
