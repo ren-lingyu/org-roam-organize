@@ -1218,6 +1218,88 @@
         (should-not
          (org-roam-organize--cite-reference-refs-valid-p result))))))
 
+(ert-deftest org-roam-organize-test-cite-identity-map-data-preserves-candidates ()
+  (let* ((result
+          (org-roam-organize--cite-identity-map-data-from-rows
+           '(("ref-a" "key-a")
+             ("ref-a" "key-a")
+             ("ref-b" "key-a")
+             ("ref-a" "key-b"))))
+         (uuid-to-citekeys (plist-get result :uuid-to-citekeys))
+         (citekey-to-uuids (plist-get result :citekey-to-uuids)))
+    (should (equal (gethash "ref-a" uuid-to-citekeys)
+                   '("key-a" "key-b")))
+    (should (equal (gethash "ref-b" uuid-to-citekeys)
+                   '("key-a")))
+    (should (equal (gethash "key-a" citekey-to-uuids)
+                   '("ref-a" "ref-b")))
+    (should (equal (gethash "key-b" citekey-to-uuids)
+                   '("ref-a")))))
+
+(ert-deftest org-roam-organize-test-cite-reference-map-data-preserves-duplicate-rows ()
+  (cl-letf (((symbol-function 'org-roam-db-query)
+             (lambda (&rest _arguments)
+               '(("ref-a" "key-a")
+                 ("ref-a" "key-a")))))
+    (let ((result
+           (org-roam-organize--cite-reference-map-data
+            '((:id "ref-a" :title "Ref A")))))
+      (should
+       (equal (plist-get result :multiple)
+              '((:id "ref-a"
+                 :title "Ref A"
+                 :refs ("key-a" "key-a")))))
+      (should-not
+       (org-roam-organize--cite-reference-refs-valid-p result)))))
+
+(ert-deftest org-roam-organize-test-cite-managed-identity-map-data-selectors ()
+  (let (calls)
+    (cl-letf (((symbol-function 'org-roam-db-query)
+               (lambda (query &rest arguments)
+                 (push (list query arguments) calls)
+                 nil)))
+      (org-roam-organize--cite-managed-identity-map-data
+       "ref" 'all)
+      (org-roam-organize--cite-managed-identity-map-data
+       "ref" 'uuid '("ref-a"))
+      (org-roam-organize--cite-managed-identity-map-data
+       "ref" 'citekey '("key-a"))
+      (org-roam-organize--cite-managed-identity-map-data
+       "ref" 'uuid nil))
+    (setq calls (nreverse calls))
+    (should (= (length calls) 3))
+    (dolist (call calls)
+      (should (vectorp (car call)))
+      (should (vectorp (aref (car call) 1))))
+    (should (equal (cadr (nth 0 calls)) '("ref")))
+    (should (equal (cadr (nth 1 calls)) '("ref" ["ref-a"])))
+    (should (equal (cadr (nth 2 calls)) '("ref" ["key-a"])))
+    (let ((where-clauses
+           (mapcar
+            (lambda (call)
+              (let* ((query (car call))
+                     (position (cl-position :where query)))
+                (should position)
+                (should (< (1+ position) (length query)))
+                (aref query (1+ position))))
+            calls)))
+      (should
+       (equal
+        (nth 0 where-clauses)
+        '(and (= r:type "cite") (= t:tag $s1))))
+      (should
+       (equal
+        (nth 1 where-clauses)
+        '(and (= r:type "cite")
+              (= t:tag $s1)
+              (in r:node_id $v2))))
+      (should
+       (equal
+        (nth 2 where-clauses)
+        '(and (= r:type "cite")
+              (= t:tag $s1)
+              (in r:ref $v2)))))))
+
 (ert-deftest org-roam-organize-test-cite-reference-map-bijective-p ()
   (should
    (org-roam-organize--cite-reference-map-bijective-p

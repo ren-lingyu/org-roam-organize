@@ -205,6 +205,104 @@ per-reference hash table."
      ref-to-citing-list)
     (list :alist (nreverse alist))))
 
+(defun org-roam-organize--cite-identity-map-data-from-rows
+    (rows &optional preserve-duplicates)
+  "Return bidirectional citation identity maps built from ROWS.
+
+Each element of ROWS must contain a managed node UUID followed by an external
+citekey.  Return a plist containing `:uuid-to-citekeys' and
+`:citekey-to-uuids' hash tables.  Each table value is a candidate list in
+first-occurrence row order.  By default, remove duplicate identity pairs; when
+PRESERVE-DUPLICATES is non-nil, retain every row so callers can diagnose
+duplicate database declarations.  The function does not modify ROWS or access
+the database.
+
+Implementation notes: Both directions retain candidate lists instead of
+assuming a bijection.  Duplicate preservation is symmetric so both indexes
+continue to describe the same database snapshot.  Citation boundaries can
+therefore apply strict, tolerant, plural, or diagnostic lookup policies.
+
+Rationale: Mapping acquisition is backend-independent, while deciding whether
+missing or ambiguous identities are errors belongs to insertion, action,
+activation, notes, export, and consistency-check callers."
+  (let ((uuid-to-citekeys (make-hash-table :test 'equal))
+        (citekey-to-uuids (make-hash-table :test 'equal)))
+    (dolist (row rows)
+      (let ((uuid (nth 0 row))
+            (citekey (nth 1 row)))
+        (when (or preserve-duplicates
+                  (not (member citekey (gethash uuid uuid-to-citekeys))))
+          (puthash uuid
+                   (cons citekey (gethash uuid uuid-to-citekeys))
+                   uuid-to-citekeys))
+        (when (or preserve-duplicates
+                  (not (member uuid (gethash citekey citekey-to-uuids))))
+          (puthash citekey
+                   (cons uuid (gethash citekey citekey-to-uuids))
+                   citekey-to-uuids))))
+    (maphash
+     (lambda (uuid citekeys)
+       (puthash uuid (nreverse citekeys) uuid-to-citekeys))
+     uuid-to-citekeys)
+    (maphash
+     (lambda (citekey uuids)
+       (puthash citekey (nreverse uuids) citekey-to-uuids))
+     citekey-to-uuids)
+    (list :uuid-to-citekeys uuid-to-citekeys
+          :citekey-to-uuids citekey-to-uuids)))
+
+(defun org-roam-organize--cite-managed-identity-map-data
+    (tag selector &optional keys)
+  "Return managed citation identity mapping data for TAG.
+
+SELECTOR must be `all', `uuid', or `citekey'.  With `all', include every
+level-0 node carrying TAG and ignore KEYS.  With `uuid' or `citekey', restrict
+the result to KEYS in that identity namespace.  An empty KEYS value for a
+restricted selector returns empty maps without querying the database.  Signal
+an error for any other SELECTOR.  The function does not modify buffers, files,
+or KEYS.
+
+Implementation notes: One `org-roam-db-query' joins cite `refs', TAG's
+managed level-0 `nodes', and their `tags'.  The query vector is constructed
+with `vector'; only its `:where' expression and argument count vary by
+SELECTOR.  `org-roam-organize--cite-identity-map-data-from-rows' builds both
+lookup directions from the resulting `(UUID CITEKEY)' rows.
+
+Rationale: Consumers need different query scopes but must share the same
+managed-node boundary, deduplication, and bidirectional identity model."
+  (let* ((where
+          (pcase selector
+            ('all
+             '(and (= r:type "cite")
+                   (= t:tag $s1)))
+            ('uuid
+             '(and (= r:type "cite")
+                   (= t:tag $s1)
+                   (in r:node_id $v2)))
+            ('citekey
+             '(and (= r:type "cite")
+                   (= t:tag $s1)
+                   (in r:ref $v2)))
+            (_
+             (error "Unknown citation identity selector: %S" selector))))
+         (query
+          (vector :select (vector 'r:node_id 'r:ref)
+                  :from '(as refs r)
+                  :join '(as tags t)
+                  :on '(= t:node_id r:node_id)
+                  :join '(as nodes n)
+                  :on '(and (= n:id r:node_id) (= n:level 0))
+                  :where where))
+         (rows
+          (cond
+           ((eq selector 'all)
+            (org-roam-db-query query tag))
+           ((null keys)
+            nil)
+           (t
+            (org-roam-db-query query tag (vconcat keys))))))
+    (org-roam-organize--cite-identity-map-data-from-rows rows)))
+
 (defun org-roam-organize--cite-reference-map-data (ref-nodes)
   "Return cite reference mapping data for REF-NODES.
 
@@ -235,21 +333,18 @@ citation operations from applying a narrower policy."
                      :where '(and (= r:type "cite")
                                   (in r:node_id $v1)))
              (vconcat ref-node-ids))))
-         (node-ref-table (make-hash-table :test 'equal))
+         (identity-map-data
+          (org-roam-organize--cite-identity-map-data-from-rows rows t))
+         (node-ref-table
+          (plist-get identity-map-data :uuid-to-citekeys))
          (uuid-to-citekey (make-hash-table :test 'equal))
          (citekey-to-uuids (make-hash-table :test 'equal))
          missing
          multiple
          duplicate-citekeys)
-    (dolist (row rows)
-      (let ((node-id (nth 0 row))
-            (ref (nth 1 row)))
-        (puthash node-id
-                 (cons ref (gethash node-id node-ref-table))
-                 node-ref-table)))
     (dolist (node ref-nodes)
       (let* ((node-id (plist-get node :id))
-             (refs (nreverse (gethash node-id node-ref-table))))
+             (refs (gethash node-id node-ref-table)))
         (cond
          ((null refs)
           (push node missing))

@@ -163,8 +163,8 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
       (cl-letf (((symbol-function 'org-roam-db-query)
                  (lambda (_query &rest arguments)
                    (setq query-arguments arguments)
-                   `(("key-b" ,org-roam-organize-cite-citar-test--uuid-b)
-                     ("key-a" ,org-roam-organize-cite-citar-test--uuid-a)))))
+                   `((,org-roam-organize-cite-citar-test--uuid-b "key-b")
+                     (,org-roam-organize-cite-citar-test--uuid-a "key-a")))))
         (should
          (equal
           (org-roam-organize-cite-citar--citekeys-to-uuids
@@ -298,9 +298,9 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
   (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments)
-                 `(("key-a" ,org-roam-organize-cite-citar-test--uuid-a)
-                   ("key-a" ,org-roam-organize-cite-citar-test--uuid-a)
-                   ("key-a" ,org-roam-organize-cite-citar-test--uuid-b)))))
+                 `((,org-roam-organize-cite-citar-test--uuid-a "key-a")
+                   (,org-roam-organize-cite-citar-test--uuid-a "key-a")
+                   (,org-roam-organize-cite-citar-test--uuid-b "key-a")))))
       (let ((notes (org-roam-organize-cite-citar--get-notes '("key-a"))))
         (should
          (equal (gethash "key-a" notes)
@@ -670,8 +670,8 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
   (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments)
-                 `(("key-a" ,org-roam-organize-cite-citar-test--uuid-a)
-                   ("key-a" ,org-roam-organize-cite-citar-test--uuid-b)))))
+                 `((,org-roam-organize-cite-citar-test--uuid-a "key-a")
+                   (,org-roam-organize-cite-citar-test--uuid-b "key-a")))))
       (org-roam-organize-cite-citar-test--should-user-error
           (rx "Citekey mapping is ambiguous")
         (org-roam-organize-cite-citar--citekeys-to-uuids '("key-a"))))))

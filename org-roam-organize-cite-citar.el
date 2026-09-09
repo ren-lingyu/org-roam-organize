@@ -134,13 +134,6 @@ default, so a later user change is preserved.")
 Teardown restores this value only while the adapter still owns both its
 registered source configuration and `citar-notes-source'.")
 
-(defun org-roam-organize-cite-citar--unique-values (values)
-  "Return VALUES without duplicates while preserving their order.
-
-The returned list is a copy, and VALUES is not modified.  Equality follows the
-`delete-dups' comparison semantics."
-  (delete-dups (copy-sequence values)))
-
 (defun org-roam-organize-cite-citar--notes-source-owned-p ()
   "Return non-nil when Citar retains this adapter's notes source config.
 
@@ -221,42 +214,22 @@ without discarding distinct nodes for an ambiguous citekey.  Signal
 record is invalid.  This function reads the Org-roam database and does not
 modify buffers or files.
 
-Implementation notes: One `org-roam-db-query' joins cite `refs', the citation
-record's `tags', and level-0 `nodes'.  UUID lists preserve database row order
-after duplicate removal.
+Implementation notes:
+`org-roam-organize--cite-managed-identity-map-data' queries the citation
+record's managed level-0 nodes and constructs both lookup directions.  This
+function returns its citekey-to-UUID table directly.
 
 Rationale: Citar's `:items' callback must represent missing and multiple notes
 instead of enforcing the stricter single-result contract used when inserting a
 citation."
   (org-roam-organize-cite-citar--ensure-mode)
   (let* ((tag (org-roam-organize-cite-citar--cite-record-tag))
-         (query
-          `[:select [r:ref r:node_id]
-            :from (as refs r)
-            :join (as tags t)
-            :on (= t:node_id r:node_id)
-            :join (as nodes n)
-            :on (and (= n:id r:node_id) (= n:level 0))
-            :where (and (= r:type "cite")
-                        (= t:tag $s1)
-                        ,@(when citekeys
-                            '((in r:ref $v2))))])
-         (rows
-          (if citekeys
-              (org-roam-db-query query tag (vconcat citekeys))
-            (org-roam-db-query query tag)))
-         (notes (make-hash-table :test 'equal)))
-    (dolist (row rows)
-      (let* ((citekey (nth 0 row))
-             (uuid (nth 1 row))
-             (uuids (gethash citekey notes)))
-        (unless (member uuid uuids)
-          (puthash citekey (cons uuid uuids) notes))))
-    (maphash
-     (lambda (citekey uuids)
-       (puthash citekey (nreverse uuids) notes))
-     notes)
-    notes))
+         (map-data
+          (org-roam-organize--cite-managed-identity-map-data
+           tag
+           (if citekeys 'citekey 'all)
+           citekeys)))
+    (plist-get map-data :citekey-to-uuids)))
 
 (defun org-roam-organize-cite-citar--has-notes ()
   "Return a predicate that tests whether a citekey has managed notes.
@@ -497,9 +470,10 @@ than one managed node declares a citekey or when `org-roam-organize-mode' is
 disabled.  The function reads the Org-roam database and does not modify it or
 the current buffer.
 
-Implementation notes: One `org-roam-db-query' joins `refs', `tags', and
-level-0 `nodes' for the configured citation record tag.  An in-memory table
-then restores input order and detects missing or ambiguous reverse mappings.
+Implementation notes:
+`org-roam-organize--cite-managed-identity-map-data' loads both directions for
+the selected external citekeys in one database query.  This function restores
+input order and applies the strict insertion policy.
 
 Rationale: Citar selects external citekeys, but Org-roam Organize stores UUIDs
 in Org citations.  Reverse mapping must reject duplicate citekeys because
@@ -508,34 +482,15 @@ silently choosing a node would make insertion nondeterministic."
   (let* ((record (org-roam-organize-cite-citar--cite-record))
          (record-name (org-roam-organize--record-name record))
          (tag (org-roam-organize-cite-citar--cite-record-tag))
-         (rows
-          (when citekeys
-            (org-roam-db-query
-             (vector :select (vector 'r:ref 'r:node_id)
-                     :from '(as refs r)
-                     :join '(as tags t)
-                     :on '(= t:node_id r:node_id)
-                     :join '(as nodes n)
-                     :on '(and (= n:id r:node_id) (= n:level 0))
-                     :where '(and (= r:type "cite")
-                                  (= t:tag $s1)
-                                  (in r:ref $v2)))
-             tag
-             (vconcat citekeys))))
-         (table (make-hash-table :test 'equal))
+         (map-data
+          (org-roam-organize--cite-managed-identity-map-data
+           tag 'citekey citekeys))
+         (table (plist-get map-data :citekey-to-uuids))
          missing
          ambiguous
          uuids)
-    (dolist (row rows)
-      (let ((citekey (nth 0 row))
-            (uuid (nth 1 row)))
-        (puthash citekey
-                 (cons uuid (gethash citekey table))
-                 table)))
     (dolist (citekey citekeys)
-      (let ((matches
-             (org-roam-organize-cite-citar--unique-values
-              (nreverse (gethash citekey table)))))
+      (let ((matches (gethash citekey table)))
         (cond
          ((null matches)
           (push citekey missing))
@@ -571,8 +526,9 @@ database row order.  UUIDs without a managed citation ref are absent.  Signal
 record is invalid.  This function reads the Org-roam database and does not
 modify KEYS, buffers, or files.
 
-Implementation notes: One `org-roam-db-query' joins cite `refs', the citation
-record's `tags', and level-0 `nodes', restricted to KEYS.  Keeping every
+Implementation notes:
+`org-roam-organize--cite-managed-identity-map-data' queries both directions
+for KEYS and this function returns its UUID-to-citekey table.  Keeping every
 candidate lets strict action translation reject ambiguity while activation
 projection can conservatively omit an ambiguous alias.
 
@@ -581,35 +537,10 @@ Font Lock activation, but both boundaries must derive mappings from the same
 managed-node query."
   (org-roam-organize-cite-citar--ensure-mode)
   (let* ((tag (org-roam-organize-cite-citar--cite-record-tag))
-         (rows
-          (when keys
-            (org-roam-db-query
-             (vector :select (vector 'r:node_id 'r:ref)
-                     :from '(as refs r)
-                     :join '(as tags t)
-                     :on '(= t:node_id r:node_id)
-                     :join '(as nodes n)
-                     :on '(and (= n:id r:node_id) (= n:level 0))
-                     :where '(and (= r:type "cite")
-                                  (= t:tag $s1)
-                                  (in r:node_id $v2)))
-             tag
-             (vconcat keys))))
-         (table (make-hash-table :test 'equal)))
-    (dolist (row rows)
-      (let ((uuid (nth 0 row))
-            (citekey (nth 1 row)))
-        (puthash uuid
-                 (cons citekey (gethash uuid table))
-                 table)))
-    (maphash
-     (lambda (uuid citekeys)
-       (puthash uuid
-                (org-roam-organize-cite-citar--unique-values
-                 (nreverse citekeys))
-                table))
-     table)
-    table))
+         (map-data
+          (org-roam-organize--cite-managed-identity-map-data
+           tag 'uuid keys)))
+    (plist-get map-data :uuid-to-citekeys)))
 
 (defun org-roam-organize-cite-citar--uuids-to-citekeys (keys)
   "Replace managed UUIDs in KEYS with their external citekeys.
