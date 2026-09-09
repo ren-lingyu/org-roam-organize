@@ -1846,7 +1846,7 @@
          (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
          messages
          displayed-buffer)
-    (when-let ((buffer (get-buffer org-roam-organize--report-buffer-name)))
+    (when-let* ((buffer (get-buffer org-roam-organize--report-buffer-name)))
       (kill-buffer buffer))
     (cl-letf (((symbol-function 'message)
                (lambda (format-string &rest args)
@@ -1879,7 +1879,7 @@
          (org-roam-organize-moc-managed-node-count-property "MOC_MANAGED_NODE_COUNT")
          messages
          display-called)
-    (when-let ((buffer (get-buffer org-roam-organize--report-buffer-name)))
+    (when-let* ((buffer (get-buffer org-roam-organize--report-buffer-name)))
       (kill-buffer buffer))
     (cl-letf (((symbol-function 'message)
                (lambda (format-string &rest args)
