@@ -1,4 +1,4 @@
-;;; org-roam-organize-citar-test.el --- Tests for the Citar adapter -*- lexical-binding: t; -*-
+;;; org-roam-organize-cite-citar-test.el --- Tests for the Citar adapter -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,32 +9,33 @@
 (require 'ert)
 (require 'cl-lib)
 (require 'rx)
-(require 'org-roam-organize-citar)
+(require 'org-roam-organize)
+(require 'org-roam-organize-cite-citar)
 
 (declare-function citar-org-local-bib-files "citar-org" ())
 (defvar citar-major-mode-functions)
 
-(defconst org-roam-organize-citar-test--uuid-a
+(defconst org-roam-organize-cite-citar-test--uuid-a
   "11111111-1111-1111-1111-111111111111"
   "A UUID used by Citar adapter tests.")
 
-(defconst org-roam-organize-citar-test--uuid-b
+(defconst org-roam-organize-cite-citar-test--uuid-b
   "22222222-2222-2222-2222-222222222222"
   "A second UUID used by Citar adapter tests.")
 
-(defconst org-roam-organize-citar-test--uuid-c
+(defconst org-roam-organize-cite-citar-test--uuid-c
   "33333333-3333-3333-3333-333333333333"
   "A UUID used for an unmanaged database distractor.")
 
-(defconst org-roam-organize-citar-test--uuid-d
+(defconst org-roam-organize-cite-citar-test--uuid-d
   "44444444-4444-4444-4444-444444444444"
   "A UUID used for nested database distractors.")
 
-(defconst org-roam-organize-citar-test--uuid-e
+(defconst org-roam-organize-cite-citar-test--uuid-e
   "55555555-5555-5555-5555-555555555555"
   "A UUID used for a newly created managed citation node.")
 
-(defmacro org-roam-organize-citar-test--with-adapter-context (&rest body)
+(defmacro org-roam-organize-cite-citar-test--with-adapter-context (&rest body)
   "Evaluate BODY with a valid, enabled citation adapter context.
 
 The context enables `org-roam-organize-mode' dynamically and configures one
@@ -51,7 +52,7 @@ BODY does so."
              :backend citar))))
      ,@body))
 
-(defmacro org-roam-organize-citar-test--with-database (&rest body)
+(defmacro org-roam-organize-cite-citar-test--with-database (&rest body)
   "Evaluate BODY with managed literature nodes in a temporary database.
 
 Create a temporary Org-roam root containing two level-0 nodes tagged `ref'.
@@ -61,7 +62,7 @@ cite node so tests can verify the managed query boundary.  Synchronize a
 temporary SQLite database before evaluating BODY."
   (declare (indent 0) (debug t))
   `(let* ((root (file-name-as-directory
-                 (make-temp-file "org-roam-organize-citar-test-" t)))
+                 (make-temp-file "org-roam-organize-cite-citar-test-" t)))
           (literature-directory (expand-file-name "literature" root))
           (org-roam-directory root)
           (org-roam-organize-directory root)
@@ -79,7 +80,7 @@ temporary SQLite database before evaluating BODY."
                ":END:\n"
                "#+TITLE: Reference A\n"
                "#+FILETAGS: :ref:\n")
-       org-roam-organize-citar-test--uuid-a)
+       org-roam-organize-cite-citar-test--uuid-a)
       nil
       (expand-file-name "reference-a.org" literature-directory)
       nil
@@ -93,7 +94,7 @@ temporary SQLite database before evaluating BODY."
                ":END:\n"
                "#+TITLE: Reference B\n"
                "#+FILETAGS: :ref:\n")
-       org-roam-organize-citar-test--uuid-b)
+       org-roam-organize-cite-citar-test--uuid-b)
       nil
       (expand-file-name "reference-b.org" literature-directory)
       nil
@@ -106,7 +107,7 @@ temporary SQLite database before evaluating BODY."
                ":END:\n"
                "#+TITLE: Unmanaged Reference\n"
                "#+FILETAGS: :other:\n")
-       org-roam-organize-citar-test--uuid-c)
+       org-roam-organize-cite-citar-test--uuid-c)
       nil
       (expand-file-name "wrong-tag.org" literature-directory)
       nil
@@ -120,7 +121,7 @@ temporary SQLite database before evaluating BODY."
                ":ID: %s\n"
                ":ROAM_REFS: @nested-key\n"
                ":END:\n")
-       org-roam-organize-citar-test--uuid-d)
+       org-roam-organize-cite-citar-test--uuid-d)
       nil
       (expand-file-name "nested.org" literature-directory)
       nil
@@ -128,7 +129,7 @@ temporary SQLite database before evaluating BODY."
      (org-roam-db-sync)
      ,@body))
 
-(defmacro org-roam-organize-citar-test--should-user-error (regexp form)
+(defmacro org-roam-organize-cite-citar-test--should-user-error (regexp form)
   "Assert that FORM signals `user-error' with a message matching REGEXP.
 
 Evaluate FORM once.  Return non-nil when ERT observes the expected error type
@@ -138,67 +139,67 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
      (should
       (string-match-p ,regexp (error-message-string error-data)))))
 
-(ert-deftest org-roam-organize-citar-test-requires-organize-mode ()
+(ert-deftest org-roam-organize-cite-citar-test-requires-organize-mode ()
   (let ((org-roam-organize-mode nil))
     (should-error
-     (org-roam-organize-citar--citekeys-to-uuids '("key-a"))
+     (org-roam-organize-cite-citar--citekeys-to-uuids '("key-a"))
      :type 'user-error)))
 
-(ert-deftest org-roam-organize-citar-test-requires-one-valid-cite-record ()
+(ert-deftest org-roam-organize-cite-citar-test-requires-one-valid-cite-record ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry nil))
-    (org-roam-organize-citar-test--should-user-error
+    (org-roam-organize-cite-citar-test--should-user-error
         (rx "No :cite t registry record")
-      (org-roam-organize-citar--cite-record-tag)))
+      (org-roam-organize-cite-citar--cite-record-tag)))
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
          '((:name "literature" :tag nil :cite t))))
-    (org-roam-organize-citar-test--should-user-error (rx "no valid tag")
-      (org-roam-organize-citar--cite-record-tag))))
+    (org-roam-organize-cite-citar-test--should-user-error (rx "no valid tag")
+      (org-roam-organize-cite-citar--cite-record-tag))))
 
-(ert-deftest org-roam-organize-citar-test-maps-citekeys-to-uuids-in-order ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-maps-citekeys-to-uuids-in-order ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (let (query-arguments)
       (cl-letf (((symbol-function 'org-roam-db-query)
                  (lambda (_query &rest arguments)
                    (setq query-arguments arguments)
-                   `(("key-b" ,org-roam-organize-citar-test--uuid-b)
-                     ("key-a" ,org-roam-organize-citar-test--uuid-a)))))
+                   `(("key-b" ,org-roam-organize-cite-citar-test--uuid-b)
+                     ("key-a" ,org-roam-organize-cite-citar-test--uuid-a)))))
         (should
          (equal
-          (org-roam-organize-citar--citekeys-to-uuids
+          (org-roam-organize-cite-citar--citekeys-to-uuids
            '("key-a" "key-b" "key-a"))
-          (list org-roam-organize-citar-test--uuid-a
-                org-roam-organize-citar-test--uuid-b
-                org-roam-organize-citar-test--uuid-a)))
+          (list org-roam-organize-cite-citar-test--uuid-a
+                org-roam-organize-cite-citar-test--uuid-b
+                org-roam-organize-cite-citar-test--uuid-a)))
         (should
          (equal query-arguments
                 (list "ref" ["key-a" "key-b" "key-a"])))))))
 
-(ert-deftest org-roam-organize-citar-test-database-integration ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--with-database
+(ert-deftest org-roam-organize-cite-citar-test-database-integration ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--with-database
       (should
        (equal
-        (org-roam-organize-citar--citekeys-to-uuids
+        (org-roam-organize-cite-citar--citekeys-to-uuids
          '("key-b" "key-a" "key-b"))
-        (list org-roam-organize-citar-test--uuid-b
-              org-roam-organize-citar-test--uuid-a
-              org-roam-organize-citar-test--uuid-b)))
+        (list org-roam-organize-cite-citar-test--uuid-b
+              org-roam-organize-cite-citar-test--uuid-a
+              org-roam-organize-cite-citar-test--uuid-b)))
       (should
        (equal
-        (org-roam-organize-citar--uuids-to-citekeys
-         (list org-roam-organize-citar-test--uuid-a
+        (org-roam-organize-cite-citar--uuids-to-citekeys
+         (list org-roam-organize-cite-citar-test--uuid-a
                "ordinary-key"
-               org-roam-organize-citar-test--uuid-b))
+               org-roam-organize-cite-citar-test--uuid-b))
         '("key-a" "ordinary-key" "key-b")))
       (require 'citar)
       (require 'citar-org)
-      (org-roam-organize-citar-teardown)
+      (org-roam-organize-cite-citar--teardown)
       (unwind-protect
           (progn
             (org-roam-organize--setup-cite-integration)
-            (org-roam-organize-citar-setup)
+            (org-roam-organize-cite-citar--setup)
             (with-temp-buffer
               (org-mode)
               (should
@@ -212,12 +213,12 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
               (should
                (string-match-p
                 (rx-to-string
-                 `(seq "@" ,org-roam-organize-citar-test--uuid-a))
+                 `(seq "@" ,org-roam-organize-cite-citar-test--uuid-a))
                 (buffer-string)))
               (should
                (string-match-p
                 (rx-to-string
-                 `(seq "@" ,org-roam-organize-citar-test--uuid-b))
+                 `(seq "@" ,org-roam-organize-cite-citar-test--uuid-b))
                 (buffer-string)))
               (should-not (string-match-p (rx (or "key-a" "key-b"))
                                           (buffer-string))))
@@ -229,39 +230,39 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                   (org-mode)
                   (insert
                    (format "[cite:@%s]"
-                           org-roam-organize-citar-test--uuid-a))
+                           org-roam-organize-cite-citar-test--uuid-a))
                   (goto-char (point-min))
-                  (search-forward org-roam-organize-citar-test--uuid-a)
-                  (org-roam-organize-citar-dwim))
+                  (search-forward org-roam-organize-cite-citar-test--uuid-a)
+                  (org-roam-organize-cite-citar--dwim))
                 (should (equal action-keys '("key-a"))))))
-        (org-roam-organize-citar-teardown)
+        (org-roam-organize-cite-citar--teardown)
         (org-roam-organize--teardown-cite-integration)))))
 
-(ert-deftest org-roam-organize-citar-test-notes-config-uses-managed-callbacks ()
-  (should (eq org-roam-organize-citar--notes-source
-              'org-roam-organize-citar))
+(ert-deftest org-roam-organize-cite-citar-test-notes-config-uses-managed-callbacks ()
+  (should (eq org-roam-organize-cite-citar--notes-source
+              'org-roam-organize-cite-citar))
   (should
-   (equal org-roam-organize-citar--notes-config
+   (equal org-roam-organize-cite-citar--notes-config
           '(:name "Org-roam Organize Notes"
             :category org-roam-node
-            :items org-roam-organize-citar--get-notes
-            :hasitems org-roam-organize-citar--has-notes
-            :open org-roam-organize-citar--open-note
-            :create org-roam-organize-citar--create-note))))
+            :items org-roam-organize-cite-citar--get-notes
+            :hasitems org-roam-organize-cite-citar--has-notes
+            :open org-roam-organize-cite-citar--open-note
+            :create org-roam-organize-cite-citar--create-note))))
 
-(ert-deftest org-roam-organize-citar-test-citar-create-note-dispatches-callback ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-citar-create-note-dispatches-callback ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((entry '(("title" . "Dispatched Reference")))
           received-citekey
           received-entry)
       (unwind-protect
           (progn
-            (org-roam-organize-citar-setup)
+            (org-roam-organize-cite-citar--setup)
             (cl-letf (((symbol-function
-                        'org-roam-organize-citar--create-note)
+                        'org-roam-organize-cite-citar--create-note)
                        (lambda (citekey callback-entry)
                          (setq received-citekey citekey
                                received-entry callback-entry)
@@ -270,72 +271,72 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                           'created)))
             (should (equal received-citekey "dispatch-key"))
             (should (eq received-entry entry)))
-        (org-roam-organize-citar-teardown)))))
+        (org-roam-organize-cite-citar--teardown)))))
 
-(ert-deftest org-roam-organize-citar-test-get-notes-filters-managed-database-nodes ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--with-database
-      (let ((notes (org-roam-organize-citar--get-notes)))
+(ert-deftest org-roam-organize-cite-citar-test-get-notes-filters-managed-database-nodes ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--with-database
+      (let ((notes (org-roam-organize-cite-citar--get-notes)))
         (should (= (hash-table-count notes) 2))
         (should
          (equal (gethash "key-a" notes)
-                (list org-roam-organize-citar-test--uuid-a)))
+                (list org-roam-organize-cite-citar-test--uuid-a)))
         (should
          (equal (gethash "key-b" notes)
-                (list org-roam-organize-citar-test--uuid-b)))
+                (list org-roam-organize-cite-citar-test--uuid-b)))
         (should-not (gethash "wrong-tag" notes))
         (should-not (gethash "nested-key" notes)))
       (let ((notes
-             (org-roam-organize-citar--get-notes
+             (org-roam-organize-cite-citar--get-notes
               '("key-b" "wrong-tag" "nested-key" "missing"))))
         (should (= (hash-table-count notes) 1))
         (should
          (equal (gethash "key-b" notes)
-                (list org-roam-organize-citar-test--uuid-b)))))))
+                (list org-roam-organize-cite-citar-test--uuid-b)))))))
 
-(ert-deftest org-roam-organize-citar-test-get-notes-preserves-ambiguous-nodes ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-get-notes-preserves-ambiguous-nodes ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments)
-                 `(("key-a" ,org-roam-organize-citar-test--uuid-a)
-                   ("key-a" ,org-roam-organize-citar-test--uuid-a)
-                   ("key-a" ,org-roam-organize-citar-test--uuid-b)))))
-      (let ((notes (org-roam-organize-citar--get-notes '("key-a"))))
+                 `(("key-a" ,org-roam-organize-cite-citar-test--uuid-a)
+                   ("key-a" ,org-roam-organize-cite-citar-test--uuid-a)
+                   ("key-a" ,org-roam-organize-cite-citar-test--uuid-b)))))
+      (let ((notes (org-roam-organize-cite-citar--get-notes '("key-a"))))
         (should
          (equal (gethash "key-a" notes)
-                (list org-roam-organize-citar-test--uuid-a
-                      org-roam-organize-citar-test--uuid-b)))))))
+                (list org-roam-organize-cite-citar-test--uuid-a
+                      org-roam-organize-cite-citar-test--uuid-b)))))))
 
-(ert-deftest org-roam-organize-citar-test-has-notes-uses-one-database-snapshot ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--with-database
-      (let ((predicate (org-roam-organize-citar--has-notes)))
+(ert-deftest org-roam-organize-cite-citar-test-has-notes-uses-one-database-snapshot ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--with-database
+      (let ((predicate (org-roam-organize-cite-citar--has-notes)))
         (should predicate)
         (should (funcall predicate "key-a"))
         (should (funcall predicate "key-b"))
         (should-not (funcall predicate "missing"))))))
 
-(ert-deftest org-roam-organize-citar-test-has-notes-returns-nil-when-empty ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-has-notes-returns-nil-when-empty ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments) nil)))
-      (should-not (org-roam-organize-citar--has-notes)))))
+      (should-not (org-roam-organize-cite-citar--has-notes)))))
 
-(ert-deftest org-roam-organize-citar-test-open-note-visits-node-by-uuid ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--with-database
+(ert-deftest org-roam-organize-cite-citar-test-open-note-visits-node-by-uuid ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--with-database
       (let (visited-node)
         (cl-letf (((symbol-function 'org-roam-node-visit)
                    (lambda (node &rest _arguments)
                      (setq visited-node node)
                      'visited)))
           (should
-           (eq (org-roam-organize-citar--open-note
-                org-roam-organize-citar-test--uuid-a)
+           (eq (org-roam-organize-cite-citar--open-note
+                org-roam-organize-cite-citar-test--uuid-a)
                'visited))
           (should
            (equal (org-roam-node-id visited-node)
-                  org-roam-organize-citar-test--uuid-a))
+                  org-roam-organize-cite-citar-test--uuid-a))
           (should
            (equal (file-truename (org-roam-node-file visited-node))
                   (file-truename
@@ -343,16 +344,16 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                     "literature/reference-a.org"
                     org-roam-directory)))))))))
 
-(ert-deftest org-roam-organize-citar-test-open-note-rejects-missing-node ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-open-note-rejects-missing-node ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-node-from-id)
                (lambda (_uuid) nil)))
-      (org-roam-organize-citar-test--should-user-error
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "No Org-roam node for Citar note ID")
-        (org-roam-organize-citar--open-note
-         org-roam-organize-citar-test--uuid-a)))))
+        (org-roam-organize-cite-citar--open-note
+         org-roam-organize-cite-citar-test--uuid-a)))))
 
-(ert-deftest org-roam-organize-citar-test-creation-request-uses-default-title ()
+(ert-deftest org-roam-organize-cite-citar-test-creation-request-uses-default-title ()
   (let ((record '(:backend citar))
         received-format
         received-entry)
@@ -364,14 +365,14 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
       (let ((entry '(("title" . "Reference Title"))))
         (should
          (equal
-          (org-roam-organize-citar--creation-request record "key-a" entry)
+          (org-roam-organize-cite-citar--creation-request record "key-a" entry)
           '(:title "Reference Title" :info nil)))
         (should
          (equal received-format
-                org-roam-organize-citar--default-title-format))
+                org-roam-organize-cite-citar--default-title-format))
         (should (eq received-entry entry))))))
 
-(ert-deftest org-roam-organize-citar-test-creation-request-formats-title-and-info ()
+(ert-deftest org-roam-organize-cite-citar-test-creation-request-formats-title-and-info ()
   (let ((record
          '(:backend
            (citar
@@ -389,7 +390,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                    ("${author editor:%etal}" "Doe & Roe")))))
       (let* ((entry '(("title" . "Reference")))
              (request
-              (org-roam-organize-citar--creation-request
+              (org-roam-organize-cite-citar--creation-request
                record "key-a" entry)))
         (should
          (equal request
@@ -401,7 +402,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                  (lambda (call) (eq (nth 1 call) entry))
                  calls))))))
 
-(ert-deftest org-roam-organize-citar-test-creation-request-uses-citar-formatting ()
+(ert-deftest org-roam-organize-cite-citar-test-creation-request-uses-citar-formatting ()
   (require 'citar)
   (let* ((record
           '(:backend
@@ -413,42 +414,42 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             ("author" . "Doe, Jane and Roe, Richard")
             ("title" . "Reference Title")))
          (request
-          (org-roam-organize-citar--creation-request
+          (org-roam-organize-cite-citar--creation-request
            record "key-a" entry)))
     (should
      (equal request
             '(:title "Doe & Roe, Reference Title"
               :info (:reference-key "key-a"))))))
 
-(ert-deftest org-roam-organize-citar-test-creation-request-falls-back-to-citekey ()
+(ert-deftest org-roam-organize-cite-citar-test-creation-request-falls-back-to-citekey ()
   (cl-letf (((symbol-function 'citar-format--entry)
              (lambda (&rest _arguments) "  ")))
     (should
      (equal
-      (org-roam-organize-citar--creation-request
+      (org-roam-organize-cite-citar--creation-request
        '(:backend citar) "key-a" nil)
       '(:title "key-a" :info nil)))))
 
-(ert-deftest org-roam-organize-citar-test-creation-request-rejects-non-string-title ()
+(ert-deftest org-roam-organize-cite-citar-test-creation-request-rejects-non-string-title ()
   (cl-letf (((symbol-function 'citar-format--entry)
              (lambda (&rest _arguments) nil)))
-    (org-roam-organize-citar-test--should-user-error
+    (org-roam-organize-cite-citar-test--should-user-error
         (rx "Citar formatted node title must be a string")
-      (org-roam-organize-citar--creation-request
+      (org-roam-organize-cite-citar--creation-request
        '(:backend citar) "key-a" nil))))
 
-(ert-deftest org-roam-organize-citar-test-creation-request-rejects-non-string-info ()
+(ert-deftest org-roam-organize-cite-citar-test-creation-request-rejects-non-string-info ()
   (cl-letf (((symbol-function 'citar-format--entry)
              (lambda (format-string _entry)
                (if (equal format-string "${title}") "Reference" nil))))
-    (org-roam-organize-citar-test--should-user-error
+    (org-roam-organize-cite-citar-test--should-user-error
         (rx "Citar formatted capture info for :author must be a string")
-      (org-roam-organize-citar--creation-request
+      (org-roam-organize-cite-citar--creation-request
        '(:backend (citar :info (:author "${author}")))
        "key-a"
        nil))))
 
-(ert-deftest org-roam-organize-citar-test-rejects-invalid-backend-options ()
+(ert-deftest org-roam-organize-cite-citar-test-rejects-invalid-backend-options ()
   (dolist
       (case
        '(((citar :unknown t) "Unknown Citar backend option")
@@ -463,12 +464,12 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
          ((citar :info (:field 1))
           "Citar backend :info format for :field must be a string")))
     (let ((record (list :backend (nth 0 case))))
-      (org-roam-organize-citar-test--should-user-error
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx-to-string `(seq ,(nth 1 case)))
-        (org-roam-organize-citar--validate-backend-options record)))))
+        (org-roam-organize-cite-citar--validate-backend-options record)))))
 
-(ert-deftest org-roam-organize-citar-test-create-note-delegates-managed-capture ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-create-note-delegates-managed-capture ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (let* ((record
             '(:name "literature"
               :tag "ref"
@@ -481,9 +482,9 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
            (notes (make-hash-table :test 'equal))
            captured-arguments
            stored-citekey)
-      (cl-letf (((symbol-function 'org-roam-organize-citar--cite-record)
+      (cl-letf (((symbol-function 'org-roam-organize-cite-citar--cite-record)
                  (lambda () record))
-                ((symbol-function 'org-roam-organize-citar--get-notes)
+                ((symbol-function 'org-roam-organize-cite-citar--get-notes)
                  (lambda (citekeys)
                    (should (equal citekeys '("new-key")))
                    notes))
@@ -502,11 +503,11 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                  (lambda (&rest arguments)
                    (setq captured-arguments arguments)
                    'capturing))
-                ((symbol-function 'org-roam-organize-citar--store-cite-ref)
+                ((symbol-function 'org-roam-organize-cite-citar--store-cite-ref)
                  (lambda (citekey)
                    (setq stored-citekey citekey))))
         (should
-         (eq (org-roam-organize-citar--create-note
+         (eq (org-roam-organize-cite-citar--create-note
               "new-key"
               '(("title" . "New Reference")))
              'capturing))
@@ -522,49 +523,49 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (funcall (nth 5 captured-arguments))
         (should (equal stored-citekey "new-key"))))))
 
-(ert-deftest org-roam-organize-citar-test-create-note-rejects-existing-nodes ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-create-note-rejects-existing-nodes ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (let ((notes (make-hash-table :test 'equal))
           capture-called)
       (puthash "key-a"
-               (list org-roam-organize-citar-test--uuid-a)
+               (list org-roam-organize-cite-citar-test--uuid-a)
                notes)
-      (cl-letf (((symbol-function 'org-roam-organize-citar--get-notes)
+      (cl-letf (((symbol-function 'org-roam-organize-cite-citar--get-notes)
                  (lambda (_citekeys) notes))
                 ((symbol-function 'org-roam-organize--capture-node)
                  (lambda (&rest _arguments)
                    (setq capture-called t))))
-        (org-roam-organize-citar-test--should-user-error
+        (org-roam-organize-cite-citar-test--should-user-error
             (rx "already exists for citekey key-a")
-          (org-roam-organize-citar--create-note "key-a" nil))
+          (org-roam-organize-cite-citar--create-note "key-a" nil))
         (should-not capture-called)
         (puthash "key-a"
-                 (list org-roam-organize-citar-test--uuid-a
-                       org-roam-organize-citar-test--uuid-b)
+                 (list org-roam-organize-cite-citar-test--uuid-a
+                       org-roam-organize-cite-citar-test--uuid-b)
                  notes)
-        (org-roam-organize-citar-test--should-user-error
+        (org-roam-organize-cite-citar-test--should-user-error
             (rx "Multiple managed nodes for citation record \"literature\""
                 " already exist"
                 (* anychar)
                 "key-a")
-          (org-roam-organize-citar--create-note "key-a" nil))
+          (org-roam-organize-cite-citar--create-note "key-a" nil))
         (should-not capture-called)))))
 
-(ert-deftest org-roam-organize-citar-test-create-note-rejects-invalid-template ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-create-note-rejects-invalid-template ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (let ((notes (make-hash-table :test 'equal)))
-      (cl-letf (((symbol-function 'org-roam-organize-citar--get-notes)
+      (cl-letf (((symbol-function 'org-roam-organize-cite-citar--get-notes)
                  (lambda (_citekeys) notes))
                 ((symbol-function
                   'org-roam-organize--record-node-capture-template)
                  (lambda (_record) nil)))
-        (org-roam-organize-citar-test--should-user-error
+        (org-roam-organize-cite-citar-test--should-user-error
             (rx "Cannot create a managed node for citation record")
-          (org-roam-organize-citar--create-note "new-key" nil))))))
+          (org-roam-organize-cite-citar--create-note "new-key" nil))))))
 
-(ert-deftest org-roam-organize-citar-test-create-note-finalize-persists-cite-ref ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--with-database
+(ert-deftest org-roam-organize-cite-citar-test-create-note-finalize-persists-cite-ref ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--with-database
       (let* ((file (expand-file-name
                     "literature/new-reference.org"
                     org-roam-directory))
@@ -578,13 +579,13 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                   ":END:\n"
                   "#+TITLE: New Reference\n"
                   "#+FILETAGS: :ref:\n")
-          org-roam-organize-citar-test--uuid-e)
+          org-roam-organize-cite-citar-test--uuid-e)
          nil file nil 'silent)
         (org-roam-db-update-file file)
         (setq buffer (find-file-noselect file))
         (unwind-protect
             (cl-letf (((symbol-function
-                        'org-roam-organize-citar--get-notes)
+                        'org-roam-organize-cite-citar--get-notes)
                        (lambda (_citekeys) notes))
                       ((symbol-function
                         'org-roam-organize--record-node-capture-template)
@@ -602,13 +603,13 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                            (funcall success-function))
                          'created)))
               (should
-               (eq (org-roam-organize-citar--create-note
+               (eq (org-roam-organize-cite-citar--create-note
                     "new-key" '(("title" . "New Reference")))
                    'created))
               (should
                (equal
-                (org-roam-organize-citar--citekeys-to-uuids '("new-key"))
-                (list org-roam-organize-citar-test--uuid-e)))
+                (org-roam-organize-cite-citar--citekeys-to-uuids '("new-key"))
+                (list org-roam-organize-cite-citar-test--uuid-e)))
               (with-temp-buffer
                 (insert-file-contents file)
                 (should
@@ -618,15 +619,15 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
           (when (buffer-live-p buffer)
             (kill-buffer buffer)))))))
 
-(ert-deftest org-roam-organize-citar-test-create-note-rejects-empty-citekey ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--should-user-error
+(ert-deftest org-roam-organize-cite-citar-test-create-note-rejects-empty-citekey ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--should-user-error
         (rx "Citar citekey cannot be empty")
-      (org-roam-organize-citar--create-note "  " nil))))
+      (org-roam-organize-cite-citar--create-note "  " nil))))
 
-(ert-deftest org-roam-organize-citar-test-store-cite-ref-saves-and-updates-database ()
-  (org-roam-organize-citar-test--with-adapter-context
-    (org-roam-organize-citar-test--with-database
+(ert-deftest org-roam-organize-cite-citar-test-store-cite-ref-saves-and-updates-database ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
+    (org-roam-organize-cite-citar-test--with-database
       (let* ((file (expand-file-name
                     "literature/reference-a.org"
                     org-roam-directory))
@@ -635,7 +636,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             (with-current-buffer buffer
               (org-mode)
               (goto-char (point-min))
-              (org-roam-organize-citar--store-cite-ref "key-extra")
+              (org-roam-organize-cite-citar--store-cite-ref "key-extra")
               (should-not (buffer-modified-p))
               (should
                (member
@@ -644,7 +645,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                  #'car
                  (org-roam-db-query
                   [:select ref :from refs :where (= node-id $s1)]
-                  org-roam-organize-citar-test--uuid-a))))
+                  org-roam-organize-cite-citar-test--uuid-a))))
               (with-temp-buffer
                 (insert-file-contents file)
                 (should
@@ -654,70 +655,70 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
           (when (buffer-live-p buffer)
             (kill-buffer buffer)))))))
 
-(ert-deftest org-roam-organize-citar-test-rejects-missing-citekey-mapping ()
+(ert-deftest org-roam-organize-cite-citar-test-rejects-missing-citekey-mapping ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
          '((:name "references" :tag "ref" :cite t :backend citar))))
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments) nil)))
-      (org-roam-organize-citar-test--should-user-error
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "No managed node for citation record \"references\""
               " and citekey")
-        (org-roam-organize-citar--citekeys-to-uuids '("missing"))))))
+        (org-roam-organize-cite-citar--citekeys-to-uuids '("missing"))))))
 
-(ert-deftest org-roam-organize-citar-test-rejects-ambiguous-citekey-mapping ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-rejects-ambiguous-citekey-mapping ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments)
-                 `(("key-a" ,org-roam-organize-citar-test--uuid-a)
-                   ("key-a" ,org-roam-organize-citar-test--uuid-b)))))
-      (org-roam-organize-citar-test--should-user-error
+                 `(("key-a" ,org-roam-organize-cite-citar-test--uuid-a)
+                   ("key-a" ,org-roam-organize-cite-citar-test--uuid-b)))))
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "Citekey mapping is ambiguous")
-        (org-roam-organize-citar--citekeys-to-uuids '("key-a"))))))
+        (org-roam-organize-cite-citar--citekeys-to-uuids '("key-a"))))))
 
-(ert-deftest org-roam-organize-citar-test-maps-uuids-and-preserves-ordinary-keys ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-maps-uuids-and-preserves-ordinary-keys ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments)
-                 `((,org-roam-organize-citar-test--uuid-b "key-b")
-                   (,org-roam-organize-citar-test--uuid-a "key-a")))))
+                 `((,org-roam-organize-cite-citar-test--uuid-b "key-b")
+                   (,org-roam-organize-cite-citar-test--uuid-a "key-a")))))
       (should
        (equal
-        (org-roam-organize-citar--uuids-to-citekeys
-         (list org-roam-organize-citar-test--uuid-a
+        (org-roam-organize-cite-citar--uuids-to-citekeys
+         (list org-roam-organize-cite-citar-test--uuid-a
                "ordinary-key"
-               org-roam-organize-citar-test--uuid-b))
+               org-roam-organize-cite-citar-test--uuid-b))
         '("key-a" "ordinary-key" "key-b"))))))
 
-(ert-deftest org-roam-organize-citar-test-rejects-unmapped-uuid ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-rejects-unmapped-uuid ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments) nil)))
-      (org-roam-organize-citar-test--should-user-error
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "No external citekey for managed UUID")
-        (org-roam-organize-citar--uuids-to-citekeys
-         (list org-roam-organize-citar-test--uuid-a))))))
+        (org-roam-organize-cite-citar--uuids-to-citekeys
+         (list org-roam-organize-cite-citar-test--uuid-a))))))
 
-(ert-deftest org-roam-organize-citar-test-rejects-ambiguous-uuid-mapping ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-rejects-ambiguous-uuid-mapping ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'org-roam-db-query)
                (lambda (&rest _arguments)
-                 `((,org-roam-organize-citar-test--uuid-a "key-a")
-                   (,org-roam-organize-citar-test--uuid-a "key-b")))))
-      (org-roam-organize-citar-test--should-user-error
+                 `((,org-roam-organize-cite-citar-test--uuid-a "key-a")
+                   (,org-roam-organize-cite-citar-test--uuid-a "key-b")))))
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "UUID mapping is ambiguous")
-        (org-roam-organize-citar--uuids-to-citekeys
-         (list org-roam-organize-citar-test--uuid-a))))))
+        (org-roam-organize-cite-citar--uuids-to-citekeys
+         (list org-roam-organize-cite-citar-test--uuid-a))))))
 
-(ert-deftest org-roam-organize-citar-test-activation-projects-entry-aliases ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-activation-projects-entry-aliases ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
     (with-temp-buffer
       (org-mode)
       (insert
        (format "[cite:@%s; @ordinary-key]"
-               org-roam-organize-citar-test--uuid-a))
+               org-roam-organize-cite-citar-test--uuid-a))
       (let* ((source (buffer-string))
              (citation
               (org-element-map (org-element-parse-buffer) 'citation
@@ -728,7 +729,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                                ("title" . "Ordinary Reference")))
              (base-entries (make-hash-table :test 'equal))
              (citar--entries base-entries)
-             (org-roam-organize-citar--installed-p t)
+             (org-roam-organize-cite-citar--installed-p t)
              (call-count 0))
         (puthash "key-a" managed-entry base-entries)
         (puthash "ordinary-key" ordinary-entry base-entries)
@@ -738,12 +739,12 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                      (should
                       (equal keys
                              (vector
-                              org-roam-organize-citar-test--uuid-a)))
-                     `((,org-roam-organize-citar-test--uuid-a
+                              org-roam-organize-cite-citar-test--uuid-a)))
+                     `((,org-roam-organize-cite-citar-test--uuid-a
                         "key-a")))))
           (should
            (eq
-            (org-roam-organize-citar--activate-with-projected-entries
+            (org-roam-organize-cite-citar--activate-with-projected-entries
              (lambda (received-citation)
                (setq call-count (1+ call-count))
                (should (eq received-citation citation))
@@ -751,7 +752,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                (should (= (hash-table-count (citar-get-entries)) 3))
                (should
                 (eq (citar-get-entry
-                     org-roam-organize-citar-test--uuid-a)
+                     org-roam-organize-cite-citar-test--uuid-a)
                     managed-entry))
                (should
                 (eq (citar-get-entry "ordinary-key") ordinary-entry))
@@ -761,18 +762,18 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (should (= call-count 1))
         (should (eq citar--entries base-entries))
         (should-not
-         (gethash org-roam-organize-citar-test--uuid-a base-entries))
+         (gethash org-roam-organize-cite-citar-test--uuid-a base-entries))
         (should (equal (buffer-string) source))))))
 
-(ert-deftest org-roam-organize-citar-test-activation-restores-citar-presentation ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-activation-restores-citar-presentation ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
     (with-temp-buffer
       (org-mode)
       (insert
        (format "[cite:@%s]"
-               org-roam-organize-citar-test--uuid-a))
+               org-roam-organize-cite-citar-test--uuid-a))
       (let* ((source (buffer-string))
              (citation
               (org-element-map (org-element-parse-buffer) 'citation
@@ -783,22 +784,22 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                       ("title" . "Reference A")))
              (entries (make-hash-table :test 'equal))
              (citar--entries entries)
-             (org-roam-organize-citar--installed-p t))
+             (org-roam-organize-cite-citar--installed-p t))
         (puthash "key-a" entry entries)
         (cl-letf (((symbol-function 'org-roam-db-query)
                    (lambda (&rest _arguments)
-                     `((,org-roam-organize-citar-test--uuid-a
+                     `((,org-roam-organize-cite-citar-test--uuid-a
                         "key-a"))))
                   ((symbol-function 'citar-format-reference)
                    (lambda (keys)
                      (should
                       (equal keys
                              (list
-                              org-roam-organize-citar-test--uuid-a)))
+                              org-roam-organize-cite-citar-test--uuid-a)))
                      (should
                       (eq (citar-get-entry (car keys)) entry))
                      "Reference A")))
-          (org-roam-organize-citar--activate-with-projected-entries
+          (org-roam-organize-cite-citar--activate-with-projected-entries
            #'citar-org-cite-basic-activate citation))
         (let* ((face (get-text-property (car bounds) 'face))
                (faces (if (listp face) face (list face))))
@@ -809,24 +810,24 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                 "Reference A"))
         (should
          (equal (org-element-property :key reference)
-                org-roam-organize-citar-test--uuid-a))
+                org-roam-organize-cite-citar-test--uuid-a))
         (should (equal (buffer-string) source))))))
 
-(ert-deftest org-roam-organize-citar-test-activation-falls-back-on-query-error ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-activation-falls-back-on-query-error ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
     (with-temp-buffer
       (org-mode)
       (insert
        (format "[cite:@%s]"
-               org-roam-organize-citar-test--uuid-a))
+               org-roam-organize-cite-citar-test--uuid-a))
       (let* ((citation
               (org-element-map (org-element-parse-buffer) 'citation
                 #'identity nil t))
              (entries (make-hash-table :test 'equal))
              (citar--entries entries)
-             (org-roam-organize-citar--installed-p t)
+             (org-roam-organize-cite-citar--installed-p t)
              (call-count 0)
              warning)
         (cl-letf (((symbol-function 'org-roam-db-query)
@@ -838,7 +839,7 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                            (apply #'format format-string arguments)))))
           (should
            (eq
-            (org-roam-organize-citar--activate-with-projected-entries
+            (org-roam-organize-cite-citar--activate-with-projected-entries
              (lambda (received-citation)
                (setq call-count (1+ call-count))
                (should (eq received-citation citation))
@@ -853,79 +854,79 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
               "are unavailable: Test database failure")
           warning))))))
 
-(ert-deftest org-roam-organize-citar-test-filter-insert-args-preserves-tail ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-filter-insert-args-preserves-tail ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function
-                'org-roam-organize-citar--citekeys-to-uuids)
+                'org-roam-organize-cite-citar--citekeys-to-uuids)
                (lambda (citekeys)
                  (should (equal citekeys '("key-a")))
-                 (list org-roam-organize-citar-test--uuid-a))))
+                 (list org-roam-organize-cite-citar-test--uuid-a))))
       (should
        (equal
-        (org-roam-organize-citar--filter-org-insert-args
+        (org-roam-organize-cite-citar--filter-org-insert-args
          '(("key-a") prefix suffix))
-        (list (list org-roam-organize-citar-test--uuid-a)
+        (list (list org-roam-organize-cite-citar-test--uuid-a)
               'prefix
               'suffix))))))
 
-(ert-deftest org-roam-organize-citar-test-filter-selected-key-preserves-shape ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-filter-selected-key-preserves-shape ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function
-                'org-roam-organize-citar--citekeys-to-uuids)
+                'org-roam-organize-cite-citar--citekeys-to-uuids)
                (lambda (citekeys)
                  (mapcar
                   (lambda (citekey)
                     (if (equal citekey "key-a")
-                        org-roam-organize-citar-test--uuid-a
-                      org-roam-organize-citar-test--uuid-b))
+                        org-roam-organize-cite-citar-test--uuid-a
+                      org-roam-organize-cite-citar-test--uuid-b))
                   citekeys))))
-      (should-not (org-roam-organize-citar--filter-selected-key nil))
+      (should-not (org-roam-organize-cite-citar--filter-selected-key nil))
       (should
-       (equal (org-roam-organize-citar--filter-selected-key "key-a")
-              org-roam-organize-citar-test--uuid-a))
+       (equal (org-roam-organize-cite-citar--filter-selected-key "key-a")
+              org-roam-organize-cite-citar-test--uuid-a))
       (should
-       (equal (org-roam-organize-citar--filter-selected-key
+       (equal (org-roam-organize-cite-citar--filter-selected-key
                '("key-a" "key-b"))
-              (list org-roam-organize-citar-test--uuid-a
-                    org-roam-organize-citar-test--uuid-b)))
-      (org-roam-organize-citar-test--should-user-error
+              (list org-roam-organize-cite-citar-test--uuid-a
+                    org-roam-organize-cite-citar-test--uuid-b)))
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "Unexpected Citar Org selection result")
-        (org-roam-organize-citar--filter-selected-key 1)))))
+        (org-roam-organize-cite-citar--filter-selected-key 1)))))
 
-(ert-deftest org-roam-organize-citar-test-dwim-translates-before-action ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-dwim-translates-before-action ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (let (action-keys citation-called)
       (cl-letf (((symbol-function 'citar-key-at-point)
-                 (lambda () org-roam-organize-citar-test--uuid-a))
+                 (lambda () org-roam-organize-cite-citar-test--uuid-a))
                 ((symbol-function 'citar-citation-at-point)
                  (lambda ()
                    (setq citation-called t)
                    nil))
                 ((symbol-function
-                  'org-roam-organize-citar--uuids-to-citekeys)
+                  'org-roam-organize-cite-citar--uuids-to-citekeys)
                  (lambda (keys)
                    (should
                     (equal keys
-                           (list org-roam-organize-citar-test--uuid-a)))
+                           (list org-roam-organize-cite-citar-test--uuid-a)))
                    '("key-a")))
                 ((symbol-function 'citar-run-default-action)
                  (lambda (keys)
                    (setq action-keys keys))))
-        (org-roam-organize-citar-dwim)
+        (org-roam-organize-cite-citar--dwim)
         (should (equal action-keys '("key-a")))
         (should-not citation-called)))))
 
-(ert-deftest org-roam-organize-citar-test-dwim-falls-back-to-org-cite ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-dwim-falls-back-to-org-cite ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (let (action-keys)
       (cl-letf (((symbol-function 'citar-key-at-point) (lambda () nil))
                 ((symbol-function 'citar-citation-at-point) (lambda () nil))
                 ((symbol-function
-                  'org-roam-organize-citar--uuids-to-citekeys)
+                  'org-roam-organize-cite-citar--uuids-to-citekeys)
                  (lambda (keys)
                    (should
                     (equal keys
-                           (list org-roam-organize-citar-test--uuid-a)))
+                           (list org-roam-organize-cite-citar-test--uuid-a)))
                    '("key-a")))
                 ((symbol-function 'citar-run-default-action)
                  (lambda (keys)
@@ -933,33 +934,33 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
         (with-temp-buffer
           (org-mode)
           (insert (format "[cite:@%s]"
-                          org-roam-organize-citar-test--uuid-a))
+                          org-roam-organize-cite-citar-test--uuid-a))
           (goto-char (point-min))
-          (search-forward org-roam-organize-citar-test--uuid-a)
-          (org-roam-organize-citar-dwim))
+          (search-forward org-roam-organize-cite-citar-test--uuid-a)
+          (org-roam-organize-cite-citar--dwim))
         (should (equal action-keys '("key-a")))))))
 
-(ert-deftest org-roam-organize-citar-test-dwim-rejects-missing-citation ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-dwim-rejects-missing-citation ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (cl-letf (((symbol-function 'citar-key-at-point) (lambda () nil))
               ((symbol-function 'citar-citation-at-point) (lambda () nil)))
-      (org-roam-organize-citar-test--should-user-error
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "No citation keys found")
-        (org-roam-organize-citar-dwim)))))
+        (org-roam-organize-cite-citar--dwim)))))
 
-(ert-deftest org-roam-organize-citar-test-runtime-capabilities-exist ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-runtime-capabilities-exist ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
     (let ((result
            (org-roam-organize--check-capabilities
-            org-roam-organize-citar--capability-alist)))
+            org-roam-organize-cite-citar--capability-alist)))
       (ert-info ((cdr result))
         (should (car result))))))
 
-(ert-deftest org-roam-organize-citar-test-mode-degrades-on-source-collision ()
+(ert-deftest org-roam-organize-cite-citar-test-mode-degrades-on-source-collision ()
   (let* ((root (file-name-as-directory
-                (make-temp-file "org-roam-organize-citar-test-" t)))
+                (make-temp-file "org-roam-organize-cite-citar-test-" t)))
          (default-directory temporary-file-directory)
          (org-roam-directory root)
          (org-roam-organize-directory root)
@@ -985,10 +986,10 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
     (make-directory (expand-file-name "literature" root) t)
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (unwind-protect
         (progn
-          (push (cons org-roam-organize-citar--notes-source foreign-config)
+          (push (cons org-roam-organize-cite-citar--notes-source foreign-config)
                 citar-notes-sources)
           (cl-letf (((symbol-function 'message)
                      (lambda (format-string &rest arguments)
@@ -997,10 +998,10 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             (org-roam-organize-mode 1)
             (should org-roam-organize-mode)
             (should-not org-roam-organize--active-cite-backend)
-            (should-not org-roam-organize-citar--installed-p)
+            (should-not org-roam-organize-cite-citar--installed-p)
             (should
              (equal
-              (cdr (assq org-roam-organize-citar--notes-source
+              (cdr (assq org-roam-organize-cite-citar--notes-source
                          citar-notes-sources))
               foreign-config))
             (should
@@ -1012,15 +1013,15 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
               'org-cite-list-bibliography-files))
             (should-not
              (advice-member-p
-              #'org-roam-organize-citar--filter-org-insert-args
+              #'org-roam-organize-cite-citar--filter-org-insert-args
               'citar-org-insert-citation))
             (should-not
              (advice-member-p
-              #'org-roam-organize-citar--filter-selected-key
+              #'org-roam-organize-cite-citar--filter-selected-key
               'citar-org-select-key))
             (should-not
              (advice-member-p
-              #'org-roam-organize-citar--activate-with-projected-entries
+              #'org-roam-organize-cite-citar--activate-with-projected-entries
               'citar-org-cite-basic-activate))
             (should
              (seq-some
@@ -1031,63 +1032,63 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                  message-text))
               messages))))
       (org-roam-organize-mode -1)
-      (org-roam-organize-citar-teardown)
+      (org-roam-organize-cite-citar--teardown)
       (setq citar-notes-sources
-            (assq-delete-all org-roam-organize-citar--notes-source
+            (assq-delete-all org-roam-organize-cite-citar--notes-source
                              citar-notes-sources)))))
 
-(ert-deftest org-roam-organize-citar-test-setup-and-teardown-own-global-state ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-setup-and-teardown-own-global-state ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source)
           (previous-major-mode-functions
            (copy-tree citar-major-mode-functions)))
       (unwind-protect
           (progn
-            (should (org-roam-organize-citar-setup))
-            (should (org-roam-organize-citar-setup))
-            (should org-roam-organize-citar--installed-p)
+            (should (org-roam-organize-cite-citar--setup))
+            (should (org-roam-organize-cite-citar--setup))
+            (should org-roam-organize-cite-citar--installed-p)
             (should
              (advice-member-p
-              #'org-roam-organize-citar--filter-org-insert-args
+              #'org-roam-organize-cite-citar--filter-org-insert-args
               'citar-org-insert-citation))
             (should
              (advice-member-p
-              #'org-roam-organize-citar--filter-selected-key
+              #'org-roam-organize-cite-citar--filter-selected-key
               'citar-org-select-key))
             (should
              (advice-member-p
-              #'org-roam-organize-citar--activate-with-projected-entries
+              #'org-roam-organize-cite-citar--activate-with-projected-entries
               'citar-org-cite-basic-activate))
             (should
              (eq (default-value 'citar-at-point-function)
-                 #'org-roam-organize-citar-dwim))
+                 #'org-roam-organize-cite-citar--dwim))
             (should
              (eq citar-notes-source
-                 org-roam-organize-citar--notes-source))
+                 org-roam-organize-cite-citar--notes-source))
             (should (equal citar-major-mode-functions
                            previous-major-mode-functions))
             (should
              (equal
-              (cdr (assq org-roam-organize-citar--notes-source
+              (cdr (assq org-roam-organize-cite-citar--notes-source
                          citar-notes-sources))
-              org-roam-organize-citar--notes-config)))
-        (org-roam-organize-citar-teardown))
-      (should-not org-roam-organize-citar--installed-p)
+              org-roam-organize-cite-citar--notes-config)))
+        (org-roam-organize-cite-citar--teardown))
+      (should-not org-roam-organize-cite-citar--installed-p)
       (should-not
        (advice-member-p
-        #'org-roam-organize-citar--filter-org-insert-args
+        #'org-roam-organize-cite-citar--filter-org-insert-args
         'citar-org-insert-citation))
       (should-not
        (advice-member-p
-        #'org-roam-organize-citar--filter-selected-key
+        #'org-roam-organize-cite-citar--filter-selected-key
         'citar-org-select-key))
       (should-not
        (advice-member-p
-        #'org-roam-organize-citar--activate-with-projected-entries
+        #'org-roam-organize-cite-citar--activate-with-projected-entries
         'citar-org-cite-basic-activate))
       (should
        (eq (default-value 'citar-at-point-function)
@@ -1096,98 +1097,98 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
       (should (equal citar-major-mode-functions
                      previous-major-mode-functions))
       (should-not
-       (assq org-roam-organize-citar--notes-source
+       (assq org-roam-organize-cite-citar--notes-source
              citar-notes-sources)))))
 
-(ert-deftest org-roam-organize-citar-test-teardown-preserves-later-user-value ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-teardown-preserves-later-user-value ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source)
           (user-at-point (lambda () 'user-value))
           (user-notes-source 'user-notes))
       (unwind-protect
           (progn
-            (org-roam-organize-citar-setup)
+            (org-roam-organize-cite-citar--setup)
             (set-default 'citar-at-point-function user-at-point)
             (setq citar-notes-source user-notes-source)
-            (org-roam-organize-citar-teardown)
+            (org-roam-organize-cite-citar--teardown)
             (should
              (eq (default-value 'citar-at-point-function)
                  user-at-point))
             (should (eq citar-notes-source user-notes-source))
             (should-not
-             (assq org-roam-organize-citar--notes-source
+             (assq org-roam-organize-cite-citar--notes-source
                    citar-notes-sources)))
-        (org-roam-organize-citar-teardown)
+        (org-roam-organize-cite-citar--teardown)
         (set-default 'citar-at-point-function previous-at-point)
         (setq citar-notes-source previous-notes-source)))))
 
-(ert-deftest org-roam-organize-citar-test-teardown-preserves-replaced-source ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-teardown-preserves-replaced-source ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source)
           (foreign-config '(:name "Replacement Notes")))
       (unwind-protect
           (progn
-            (org-roam-organize-citar-setup)
-            (setcdr (assq org-roam-organize-citar--notes-source
+            (org-roam-organize-cite-citar--setup)
+            (setcdr (assq org-roam-organize-cite-citar--notes-source
                           citar-notes-sources)
                     foreign-config)
-            (org-roam-organize-citar-teardown)
-            (should-not org-roam-organize-citar--installed-p)
+            (org-roam-organize-cite-citar--teardown)
+            (should-not org-roam-organize-cite-citar--installed-p)
             (should
              (eq citar-notes-source
-                 org-roam-organize-citar--notes-source))
+                 org-roam-organize-cite-citar--notes-source))
             (should
              (equal
-              (cdr (assq org-roam-organize-citar--notes-source
+              (cdr (assq org-roam-organize-cite-citar--notes-source
                          citar-notes-sources))
               foreign-config)))
-        (org-roam-organize-citar-teardown)
+        (org-roam-organize-cite-citar--teardown)
         (setq citar-notes-sources
-              (assq-delete-all org-roam-organize-citar--notes-source
+              (assq-delete-all org-roam-organize-cite-citar--notes-source
                                citar-notes-sources))
         (set-default 'citar-at-point-function previous-at-point)
         (setq citar-notes-source previous-notes-source)))))
 
-(ert-deftest org-roam-organize-citar-test-setup-rejects-notes-source-collision ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-setup-rejects-notes-source-collision ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-notes-source citar-notes-source)
           (foreign-config '(:name "Foreign Notes")))
       (unwind-protect
           (progn
-            (push (cons org-roam-organize-citar--notes-source
+            (push (cons org-roam-organize-cite-citar--notes-source
                         foreign-config)
                   citar-notes-sources)
-            (org-roam-organize-citar-test--should-user-error
+            (org-roam-organize-cite-citar-test--should-user-error
                 (rx "Citar notes source is already registered")
-              (org-roam-organize-citar-setup))
-            (should-not org-roam-organize-citar--installed-p)
+              (org-roam-organize-cite-citar--setup))
+            (should-not org-roam-organize-cite-citar--installed-p)
             (should (eq citar-notes-source previous-notes-source))
             (should
              (equal
-              (cdr (assq org-roam-organize-citar--notes-source
+              (cdr (assq org-roam-organize-cite-citar--notes-source
                          citar-notes-sources))
               foreign-config)))
         (setq citar-notes-sources
               (assq-delete-all
-               org-roam-organize-citar--notes-source
+               org-roam-organize-cite-citar--notes-source
                citar-notes-sources))))))
 
-(ert-deftest org-roam-organize-citar-test-setup-rolls-back-notes-source-on-error ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-setup-rolls-back-notes-source-on-error ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source)
           (original-advice-add (symbol-function 'advice-add)))
@@ -1198,76 +1199,76 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
                   (error "Test advice installation failure")
                 (apply original-advice-add
                        symbol where function properties)))))
-        (should-error (org-roam-organize-citar-setup)))
-      (should-not org-roam-organize-citar--installed-p)
+        (should-error (org-roam-organize-cite-citar--setup)))
+      (should-not org-roam-organize-cite-citar--installed-p)
       (should (eq citar-notes-source previous-notes-source))
       (should
        (eq (default-value 'citar-at-point-function)
            previous-at-point))
       (should-not
-       (assq org-roam-organize-citar--notes-source
+       (assq org-roam-organize-cite-citar--notes-source
              citar-notes-sources))
       (should-not
        (advice-member-p
-        #'org-roam-organize-citar--filter-org-insert-args
+        #'org-roam-organize-cite-citar--filter-org-insert-args
         'citar-org-insert-citation))
       (should-not
        (advice-member-p
-        #'org-roam-organize-citar--filter-selected-key
+        #'org-roam-organize-cite-citar--filter-selected-key
         'citar-org-select-key))
       (should-not
        (advice-member-p
-        #'org-roam-organize-citar--activate-with-projected-entries
+        #'org-roam-organize-cite-citar--activate-with-projected-entries
         'citar-org-cite-basic-activate))
-      (should-not org-roam-organize-citar--previous-notes-source)
-      (should-not org-roam-organize-citar--previous-at-point-function))))
+      (should-not org-roam-organize-cite-citar--previous-notes-source)
+      (should-not org-roam-organize-cite-citar--previous-at-point-function))))
 
-(ert-deftest org-roam-organize-citar-test-restores-other-notes-source ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-restores-other-notes-source ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((citar-notes-source 'citar-org-roam)
           (citar-notes-sources
            (cons '(citar-org-roam :name "Org-Roam Notes")
                  citar-notes-sources)))
       (unwind-protect
           (progn
-            (org-roam-organize-citar-setup)
+            (org-roam-organize-cite-citar--setup)
             (should
              (eq citar-notes-source
-                 org-roam-organize-citar--notes-source))
-            (org-roam-organize-citar-teardown)
+                 org-roam-organize-cite-citar--notes-source))
+            (org-roam-organize-cite-citar--teardown)
             (should (eq citar-notes-source 'citar-org-roam))
             (should (assq 'citar-org-roam citar-notes-sources))
             (should-not
-             (assq org-roam-organize-citar--notes-source
+             (assq org-roam-organize-cite-citar--notes-source
                    citar-notes-sources)))
-        (org-roam-organize-citar-teardown)))))
+        (org-roam-organize-cite-citar--teardown)))))
 
-(ert-deftest org-roam-organize-citar-test-capability-failure-leaves-uninstalled ()
-  (org-roam-organize-citar-test--with-adapter-context
+(ert-deftest org-roam-organize-cite-citar-test-capability-failure-leaves-uninstalled ()
+  (org-roam-organize-cite-citar-test--with-adapter-context
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source))
       (cl-letf (((symbol-function 'org-roam-organize--check-capabilities)
                  (lambda (_capabilities)
                    (cons nil "missing test capability"))))
-        (org-roam-organize-citar-test--should-user-error
+        (org-roam-organize-cite-citar-test--should-user-error
             (rx "capability check failed")
-          (org-roam-organize-citar-setup)))
-      (should-not org-roam-organize-citar--installed-p)
+          (org-roam-organize-cite-citar--setup)))
+      (should-not org-roam-organize-cite-citar--installed-p)
       (should
        (eq (default-value 'citar-at-point-function)
            previous-at-point))
       (should (eq citar-notes-source previous-notes-source))
       (should-not
-       (assq org-roam-organize-citar--notes-source
+       (assq org-roam-organize-cite-citar--notes-source
              citar-notes-sources)))))
 
-(ert-deftest org-roam-organize-citar-test-invalid-options-leave-uninstalled ()
+(ert-deftest org-roam-organize-cite-citar-test-invalid-options-leave-uninstalled ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
          '((:name "literature"
@@ -1276,20 +1277,20 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
             :backend (citar :unknown t)))))
     (require 'citar)
     (require 'citar-org)
-    (org-roam-organize-citar-teardown)
+    (org-roam-organize-cite-citar--teardown)
     (let ((previous-at-point (default-value 'citar-at-point-function))
           (previous-notes-source citar-notes-source))
-      (org-roam-organize-citar-test--should-user-error
+      (org-roam-organize-cite-citar-test--should-user-error
           (rx "Unknown Citar backend option")
-        (org-roam-organize-citar-setup))
-      (should-not org-roam-organize-citar--installed-p)
+        (org-roam-organize-cite-citar--setup))
+      (should-not org-roam-organize-cite-citar--installed-p)
       (should
        (eq (default-value 'citar-at-point-function)
            previous-at-point))
       (should (eq citar-notes-source previous-notes-source))
       (should-not
-       (assq org-roam-organize-citar--notes-source
+       (assq org-roam-organize-cite-citar--notes-source
              citar-notes-sources)))))
 
-(provide 'org-roam-organize-citar-test)
-;;; org-roam-organize-citar-test.el ends here
+(provide 'org-roam-organize-cite-citar-test)
+;;; org-roam-organize-cite-citar-test.el ends here

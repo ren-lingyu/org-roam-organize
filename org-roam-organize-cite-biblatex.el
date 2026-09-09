@@ -1,4 +1,4 @@
-;;; org-roam-organize-biblatex.el --- BibLaTeX export compatibility for Org-roam Organize -*- lexical-binding: t; -*-
+;;; org-roam-organize-cite-biblatex.el --- BibLaTeX export compatibility for Org-roam Organize -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -10,7 +10,10 @@
 ;;; Code:
 
 (require 'rx)
-(require 'org-roam-organize)
+(require 'org-roam-organize-core)
+(require 'org-roam-organize-cite)
+
+(defvar org-roam-organize-mode)
 
 (declare-function org-cite-bibliography-style "oc" (info))
 (declare-function org-cite-biblatex--package-options
@@ -19,7 +22,7 @@
 
 (defvar org-cite-biblatex-options)
 
-(defconst org-roam-organize-biblatex--package-regexp
+(defconst org-roam-organize-cite-biblatex--package-regexp
   (rx "\\"
       (or "usepackage" "RequirePackage")
       (opt "[" (*? nonl) "]")
@@ -31,7 +34,7 @@ Both LaTeX document declarations and package-level declarations are accepted.
 Indirect loading through another class or package is intentionally not
 inferred from the generated document.")
 
-(defun org-roam-organize-biblatex--export-p (backend info)
+(defun org-roam-organize-cite-biblatex--export-p (backend info)
   "Return non-nil when BACKEND and INFO describe BibLaTeX export.
 
 BACKEND is the backend passed to an Org final-output filter.  INFO is the
@@ -48,7 +51,7 @@ in the Org-roam Organize registry."
   (and (org-export-derived-backend-p backend 'latex)
        (eq (car-safe (plist-get info :cite-export)) 'biblatex)))
 
-(defun org-roam-organize-biblatex--managed-bibliography-present-p (files)
+(defun org-roam-organize-cite-biblatex--managed-bibliography-present-p (files)
   "Return non-nil when FILES contains a managed bibliography.
 
 FILES is the bibliography list stored in the Org export communication
@@ -63,7 +66,7 @@ because its global minor mode is enabled."
   (let ((managed-files (org-roam-organize--bibliography-files)))
     (seq-some (lambda (file) (member file managed-files)) files)))
 
-(defun org-roam-organize-biblatex--package-declaration (info)
+(defun org-roam-organize-cite-biblatex--package-declaration (info)
   "Return a BibLaTeX package declaration derived from INFO.
 
 INFO is the Org export communication channel.  Preserve the configured
@@ -88,14 +91,14 @@ silently diverge from Org Cite behavior."
           (org-cite-bibliography-style info))))
     (format "\\usepackage%s{biblatex}\n" (or options ""))))
 
-(defun org-roam-organize-biblatex--resource-declaration (file)
+(defun org-roam-organize-cite-biblatex--resource-declaration (file)
   "Return a BibLaTeX resource declaration for FILE.
 
 FILE is inserted as received from Org Cite.  The function does not normalize,
 escape, read, or validate the path."
   (format "\\addbibresource{%s}" file))
 
-(defun org-roam-organize-biblatex--filter-final-output
+(defun org-roam-organize-cite-biblatex--filter-final-output
     (output backend info)
   "Add missing managed BibLaTeX metadata to OUTPUT.
 
@@ -117,11 +120,11 @@ registering no finalizer.  An output-based, idempotent fallback repairs that
 narrow gap and automatically becomes a no-op when upstream emits the expected
 metadata."
   (if (not (and org-roam-organize-mode
-                (org-roam-organize-biblatex--export-p backend info)))
+                (org-roam-organize-cite-biblatex--export-p backend info)))
       output
     (let ((files (plist-get info :bibliography)))
       (if (not (and files
-                    (org-roam-organize-biblatex--managed-bibliography-present-p
+                    (org-roam-organize-cite-biblatex--managed-bibliography-present-p
                      files)))
           output
         (let* ((missing-files
@@ -129,7 +132,7 @@ metadata."
                  (lambda (file)
                    (not
                     (string-search
-                     (org-roam-organize-biblatex--resource-declaration file)
+                     (org-roam-organize-cite-biblatex--resource-declaration file)
                      output)))
                  files))
                (document-position
@@ -141,11 +144,11 @@ metadata."
                    (concat
                     (unless
                         (string-match-p
-                         org-roam-organize-biblatex--package-regexp
+                         org-roam-organize-cite-biblatex--package-regexp
                          output)
-                      (org-roam-organize-biblatex--package-declaration info))
+                      (org-roam-organize-cite-biblatex--package-declaration info))
                     (mapconcat
-                     #'org-roam-organize-biblatex--resource-declaration
+                     #'org-roam-organize-cite-biblatex--resource-declaration
                      missing-files
                      "\n")
                     "\n")))
@@ -153,7 +156,7 @@ metadata."
                       metadata
                       (substring output document-position)))))))))
 
-(defun org-roam-organize-biblatex--setup ()
+(defun org-roam-organize-cite-biblatex--setup ()
   "Install the BibLaTeX final-output compatibility filter.
 
 Return non-nil after adding the global filter.  Repeated calls are idempotent.
@@ -163,16 +166,16 @@ Implementation notes: `org-roam-organize--setup-cite-integration' owns this
 function's lifecycle and calls the matching teardown function during mode
 disable or setup rollback."
   (add-hook 'org-export-filter-final-output-functions
-            #'org-roam-organize-biblatex--filter-final-output)
+            #'org-roam-organize-cite-biblatex--filter-final-output)
   t)
 
-(defun org-roam-organize-biblatex--teardown ()
+(defun org-roam-organize-cite-biblatex--teardown ()
   "Remove the BibLaTeX final-output compatibility filter.
 
 Return nil.  Calling this function when the filter is absent is safe."
   (remove-hook 'org-export-filter-final-output-functions
-               #'org-roam-organize-biblatex--filter-final-output)
+               #'org-roam-organize-cite-biblatex--filter-final-output)
   nil)
 
-(provide 'org-roam-organize-biblatex)
-;;; org-roam-organize-biblatex.el ends here
+(provide 'org-roam-organize-cite-biblatex)
+;;; org-roam-organize-cite-biblatex.el ends here

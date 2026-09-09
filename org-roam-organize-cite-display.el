@@ -9,8 +9,9 @@
 ;;; Code:
 
 (require 'subr-x)
-(require 'org-roam-organize)
+(require 'org-roam-organize-core)
 
+(defvar org-roam-organize-mode)
 (defvar org-element-citation-prefix-re)
 (defvar org-font-lock-extra-keywords)
 (defvar org-font-lock-set-keywords-hook)

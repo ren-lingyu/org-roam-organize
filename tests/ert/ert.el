@@ -1669,7 +1669,7 @@
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
           (should
-           (memq #'org-roam-organize-biblatex--filter-final-output
+           (memq #'org-roam-organize-cite-biblatex--filter-final-output
                  org-export-filter-final-output-functions))
           (org-roam-organize-mode -1)
           (should-not (memq #'org-roam-organize--cite-export-filter
@@ -1682,7 +1682,7 @@
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
           (should-not
-           (memq #'org-roam-organize-biblatex--filter-final-output
+           (memq #'org-roam-organize-cite-biblatex--filter-final-output
                  org-export-filter-final-output-functions)))
       (org-roam-organize-mode -1))))
 
@@ -1711,7 +1711,7 @@
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
           (should-not
-           (memq #'org-roam-organize-biblatex--filter-final-output
+           (memq #'org-roam-organize-cite-biblatex--filter-final-output
                  org-export-filter-final-output-functions)))
       (org-roam-organize-mode -1))))
 

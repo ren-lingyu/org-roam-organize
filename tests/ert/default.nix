@@ -24,17 +24,17 @@ in {
     testFile = ./ert.el;
   };
 
-  ert-citar = mkErtCheck {
-    name = "org-roam-organize-citar-ert";
-    testFile = ./citar.el;
+  ert-cite-citar = mkErtCheck {
+    name = "org-roam-organize-cite-citar-ert";
+    testFile = ./cite-citar.el;
     extraPackages = ps_ : [
       ps_.citar
     ];
   };
 
-  ert-biblatex = mkErtCheck {
-    name = "org-roam-organize-biblatex-ert";
-    testFile = ./biblatex.el;
+  ert-cite-biblatex = mkErtCheck {
+    name = "org-roam-organize-cite-biblatex-ert";
+    testFile = ./cite-biblatex.el;
   };
 
   ert-cite-display = mkErtCheck {

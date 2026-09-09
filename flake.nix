@@ -22,9 +22,14 @@
         root = ./.;
         fileset = pkgs.lib.fileset.unions [
           ./org-roam-organize.el
-          ./org-roam-organize-biblatex.el
+          ./org-roam-organize-core.el
+          ./org-roam-organize-capture.el
+          ./org-roam-organize-entry.el
+          ./org-roam-organize-moc.el
+          ./org-roam-organize-cite.el
+          ./org-roam-organize-cite-biblatex.el
           ./org-roam-organize-cite-display.el
-          ./org-roam-organize-citar.el
+          ./org-roam-organize-cite-citar.el
           ./README.org
           ./LICENSE
         ];
