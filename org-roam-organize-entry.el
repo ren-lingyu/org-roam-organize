@@ -1,4 +1,4 @@
-;;; org-roam-organize-entry.el --- Managed entries for Org-roam Organize -*- lexical-binding: t; -*-
+;;; org-roam-organize-entry.el --- Managed entries for Org-roam Organize -*- lexical-binding: t; package-lint-main-file: "org-roam-organize.el"; -*-
 
 ;;; Commentary:
 

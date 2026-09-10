@@ -1,4 +1,4 @@
-;;; org-roam-organize-cite-display.el --- Citation display for Org-roam Organize -*- lexical-binding: t; -*-
+;;; org-roam-organize-cite-display.el --- Citation display for Org-roam Organize -*- lexical-binding: t; package-lint-main-file: "org-roam-organize.el"; -*-
 
 ;;; Commentary:
 

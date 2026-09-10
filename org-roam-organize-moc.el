@@ -1,4 +1,4 @@
-;;; org-roam-organize-moc.el --- MOC management for Org-roam Organize -*- lexical-binding: t; -*-
+;;; org-roam-organize-moc.el --- MOC management for Org-roam Organize -*- lexical-binding: t; package-lint-main-file: "org-roam-organize.el"; -*-
 
 ;;; Commentary:
 

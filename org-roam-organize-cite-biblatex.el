@@ -1,4 +1,4 @@
-;;; org-roam-organize-cite-biblatex.el --- BibLaTeX export compatibility for Org-roam Organize -*- lexical-binding: t; -*-
+;;; org-roam-organize-cite-biblatex.el --- BibLaTeX export compatibility for Org-roam Organize -*- lexical-binding: t; package-lint-main-file: "org-roam-organize.el"; -*-
 
 ;;; Commentary:
 

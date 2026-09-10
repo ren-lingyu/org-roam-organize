@@ -1,4 +1,4 @@
-;;; org-roam-organize-capture.el --- Managed capture for Org-roam Organize -*- lexical-binding: t; -*-
+;;; org-roam-organize-capture.el --- Managed capture for Org-roam Organize -*- lexical-binding: t; package-lint-main-file: "org-roam-organize.el"; -*-
 
 ;;; Commentary:
 
