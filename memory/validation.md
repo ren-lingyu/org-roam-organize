@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical ERT and passing-check reports cover real temporary-database lookup/open, duplicate creation refusal, successful-finalize ref persistence, abort/error cleanup and source registration rollback. A public citar-create-note dispatch test closes the gap between testing a callback directly and testing the upstream entry point.
+Historical passing checks and formatting-failure ERT supersede the supplied TODO file's unchecked final test item. The release metadata is aligned to v0.7.0. Static review in a handoff is not itself runtime certification; the original conversation provides the historical test reports.
 
-Source scope: 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e and inherited citation material; Citar notes-source handoff.
+Source scope: 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e and inherited citation material; Citar TODO and handoff references.
 
 ## Continuing validation limits
 
-The historical suite exercises real database scope and public creation dispatch as well as callbacks. Successful finalize is distinct from capture-call return. A source/style commit inheriting a dispatch test must not be described as the commit that added that test.
+Historical core/adapter checks cover formatting, invalid specifications and backend errors. All planned Citar note-creation stages are represented; the old unchecked TODO is not a current blocker. Future backend compatibility and arbitrary post-install state edits remain outside the tested contract.

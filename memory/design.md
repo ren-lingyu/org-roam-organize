@@ -2,7 +2,7 @@
 
 ## Package interface
 
-The v0.6 baseline declares Emacs 30.1, Org 9.5 and Org-roam 2.3.1, with source and Nix metadata aligned. The dependency declaration is conservative rather than proof of every older supported combination. Removed legacy interfaces have no aliases; keybindings are examples owned by users.
+Source and Nix package metadata declare v0.7.0, with Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Citar remains optional; 1.4.0 is the documented minimum tested backend version, with capability checks rather than a guarantee of future compatibility. Removed legacy interfaces have no aliases; user bindings remain examples.
 
 ## Organization
 
@@ -57,3 +57,9 @@ Both insertion paths translate external keys to UUIDs; at-point actions translat
 Creation consumes Citar's (citekey entry) callback directly, never reselecting the key or invoking the ordinary registry provider. Existing single matches are refused rather than silently opened/modified; multiple matches are ambiguous. The managed capture template must carry the citation tag and must not manually write ROAM_REFS. A successful-finalize callback adds the cite ref, saves and updates the database; abort/failure does not register an incomplete note. Core capture runs success callbacks in the capture buffer and removes temporary hooks on errors.
 
 Setup rejects a notes-source name collision. Teardown unregisters owned state and restores prior source/at-point selection only while the adapter still owns those settings. It does not promise to repair arbitrary user mutations after installation. Public dispatch is capability-checked and tested through citar-create-note.
+
+## Citar formatting
+
+The citation record's :backend accepts a symbol or a tagged (citar OPTION VALUE...) specification. Core accessors separate backend identity from options; only Citar interprets :title and :info formatting. Options reject malformed, unknown or duplicate keys rather than silently guessing.
+
+With the simple citar symbol, title defaults to the entry title and falls back to citekey when blank. Tagged :info maps user-chosen keywords to Citar format strings; no fixed author/year/DOI schema is imposed. Citar formatting uses the callback entry and its configured available fields. Provider-style :title/:info is then passed to managed capture, leaving the success-finalize ROAM_REFS contract intact. Backend formatting and ordinary :provider selection are separate paths.
