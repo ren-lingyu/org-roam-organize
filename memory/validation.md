@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation records passing flake checks and an isolated GUI inspection of the report buffer. Collection was refactored before display so loop iterations cannot overwrite earlier diagnostics. The user subsequently reviewed the GUI result; no GUI is started by this reconstruction.
+Historical flake results and adapter ERT cover at-point conversion, both insertion paths, temporary database mapping and optional-backend degradation. The earlier global duplicate-key warning policy is tightened for cite-check only; UUID sync/export retain their direction-specific behavior.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, report collection/buffer and release interval.
+Source scope: 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e and inherited material in the two later citation conversations; Citar handoff.
 
 ## Continuing validation limits
 
-Historical flake reports and isolated GUI review support report presentation. This changes diagnostics delivery, not the underlying organizing or citation contracts. A later nixpkgs switch is dependency maintenance rather than a new application capability.
+Historical adapter tests cover mapping and lifecycle behavior, including preserving core functionality after optional failure. They do not certify future Citar versions or a full interactive user-driven capture round trip. Managed Citar note creation is not yet part of this state.

@@ -1,8 +1,8 @@
-# Org-roam Organize: Collected diagnostics and one final report per command
+# Org-roam Organize: Optional Citar integration and directional mapping policy
 
 ## State and objective
 
-The v0.6 baseline makes multi-item checks and sync diagnostics inspectable without changing registry, capture or citation identity semantics.
+Citar becomes an optional interactive adapter selected by the citation record, while the core keeps its backend-independent UUID sync/export behavior.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Optional Citar integration and directional mapping policy.
+Next phase: Managed Citar notes with successful-finalize semantics.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical flake reports and isolated GUI review support report presentation. This changes diagnostics delivery, not the underlying organizing or citation contracts. A later nixpkgs switch is dependency maintenance rather than a new application capability.
+Historical adapter tests cover mapping and lifecycle behavior, including preserving core functionality after optional failure. They do not certify future Citar versions or a full interactive user-driven capture round trip. Managed Citar note creation is not yet part of this state.

@@ -32,17 +32,13 @@ The preface hook creates directories only after placeholders expand. Cleanup tra
 
 ## Testing architecture
 
-The root flake composes a filtered source tree, packaged Emacs dependencies and test modules. Tests do not infer a parent-repository layout or depend on personal directories. ERT loads the installed package with real Org-roam; targeted function mocks remain useful without substituting a fake Org-roam object system.
-
-The flake defines package build, ERT, package-lint and a development shell. Compilation warnings are errors. Nixpkgs is temporarily pinned to the revision containing the GNU ELPA Org hash-mismatch repair; the unstable URL remains commented for a later switch. That pin addresses a dependency fetch failure, not an application test failure.
+The root flake injects a filtered source tree, installed package and Emacs environments into independent test modules. ERT uses real Org-roam, temporary databases and targeted mocks. Separate core and Citar ERT environments keep the optional backend optional. Package build, lint and development shell are wired explicitly; compilation warnings remain errors. Nixpkgs has returned to unstable after the earlier Org-fetch workaround.
 
 ## Citation model
 
-Org source stores literature node UUID citations, with each literature node's single cite-type ROAM_REFS declaring its external bibliography key. Sync uses the UUID relationship; export changes only managed citation-reference keys in the parse tree and preserves source text and native processors.
+Org source stores literature UUID citations; cite-type ROAM_REFS supplies each node's external bibliography key. Sync derives citing-node entries by UUID. Export maps only the managed UUIDs present in the export parse tree, preserving source text, ordinary citations and native processors.
 
-The explicit cite-check command validates the global managed reference set without editing Org files. Cite-sync uses global relationship data and diagnostics. Missing/multiple refs block these operations; duplicate external keys remain nonblocking warnings at this stage.
-
-Export first collects citation-reference keys from the actual export tree, intersects them with managed UUIDs, and validates/maps only that subset. Unrelated invalid literature must not block export. Non-managed external citations remain unchanged. Batch loading of mapping data avoids one database query per citation. A real export-pipeline ERT verifies downstream filters observe the converted key.
+Mapping must preserve multiplicity until a consumer applies its own rule. Global cite-check now requires a bijection: every managed literature node has exactly one cite ref and every external key belongs to at most one node. Cite-sync may still report duplicate external keys as nonblocking when UUID relationships are unambiguous. Export validates only cited managed nodes. Do not substitute one direction's uniqueness rule for all consumers.
 
 ## Literature storage
 
@@ -51,3 +47,11 @@ The default literature example adopts a fixed ref.org inside the unique UUID bun
 ## Derived citation entries
 
 Citation sync reconciles #+ROAM_CITING_NODE: ID-link keywords in managed literature notes through the shared MOC/ID-link machinery. It visits all managed references to remove stale entries, refreshes titles, preserves/reports duplicates and inserts missing citing nodes under the configured Inbox. Count distinct citing nodes rather than citation occurrences. The earlier ROAM_CITED_BY spelling was a proposal, not the adopted keyword.
+
+## Citar adapter
+
+The unique :cite record selects :backend citar; no backend or nil leaves Citar integration uninstalled. The previous separate backend custom variable is removed. Capability validation and dispatch remain distinct from merely reading registry selection.
+
+At-point actions translate UUIDs to external keys before handing control to Citar. Citar insertion and its Org Cite insert processor require distinct adaptation boundaries so both produce UUID source citations. Missing/ambiguous mappings error explicitly; ordinary non-UUID citations keep standard behavior. Citar's own key-at-point parser is not repurposed to rewrite stored identity.
+
+Mode setup/teardown owns the adapter. Setup validates selected configuration and Citar capabilities, rolls back partially installed advice/state on failure, and degrades to core-only operation rather than disabling successful core setup or removing its export filter. Citar is not a mandatory core dependency.
