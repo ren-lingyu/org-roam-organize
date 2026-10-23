@@ -1,8 +1,8 @@
-# Org-roam Organize: Provider requests and native structured capture templates
+# Org-roam Organize: Citation keyword reconciliation and asynchronous capture cleanup
 
 ## State and objective
 
-Metadata acquisition is pluggable while the core retains control over managed node identity, paths, targets and capture lifecycle.
+The v0.4 baseline reconciles MOC and citing-node entries through shared keyword machinery and fixes cleanup after an interactive capture ends.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Citation keyword reconciliation and asynchronous capture cleanup.
+Next phase: Configurable paths stay inside managed UUID bundles.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-The tracked tests now cover provider requests, MOC request reuse and native dynamic expansion. They do not yet establish the asynchronous finalize cleanup fix or the unfinished citation-sync replacement.
+The dependency-backed suite and historical reports support this v0.4 completion state. Deletion is intentionally deferred: preserving :delete t is not destructive deletion, and the absence of a new deletion command is not an unfinished release requirement.

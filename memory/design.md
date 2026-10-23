@@ -22,14 +22,20 @@ Duplicate entries are all synchronized and reported, not silently deduplicated. 
 
 ## Capture and templates
 
-An ordinary provider receives its registry record and returns (:title TITLE :info INFO), or nil to cancel. Missing/nil :provider selects the built-in default provider. The core constructs the Org-roam node and owns paths, target, template and directory lifecycle; providers do not return arbitrary nodes or control filesystem placement.
+Providers return (:title TITLE :info INFO) or nil to cancel; missing/nil :provider uses the default. The core owns node construction, targets, templates and directory lifecycle. MOCs use their own internal provider with the same request protocol.
 
-Structured template sections separate properties from keywords. Property drawers and file keywords are serialized into capture text. Native ${field} expansion consumes provider :info, and %<FORMAT> expands at capture time. Do not build a second interpolation engine or freeze dates during configuration evaluation. MOCs use an internal provider implementing the same request protocol, independently of the record's ordinary custom provider.
+Templates separate properties and keywords. Native Org-roam ${field} and Org %<FORMAT> handle dynamic capture data; structured fixed values use narrow serialization, not a parallel interpolation language. Ordinary paths remain <directory>/${id}/${slug}.org; MOCs have fixed configured destinations.
 
-Ordinary targets remain <directory>/${id}/${slug}.org, and MOCs retain configured destinations. Temporary templates are passed directly to capture, not registered globally. The earlier dynamically scoped cleanup hook is still a known lifecycle limitation.
+A closure-backed, self-removing after-finalize hook now survives the capture call, schedules empty-directory cleanup when capture actually ends, and is removed on error. Do not assume the return from org-roam-capture- means capture has finalized.
 
 ## Testing architecture
 
 The root flake composes a filtered source tree, packaged Emacs dependencies and test modules. Tests do not infer a parent-repository layout or depend on personal directories. ERT loads the installed package with real Org-roam; targeted function mocks remain useful without substituting a fake Org-roam object system.
 
 The flake defines package build, ERT, package-lint and a development shell. Compilation warnings are errors. Nixpkgs is temporarily pinned to the revision containing the GNU ELPA Org hash-mismatch repair; the unstable URL remains commented for a later switch. That pin addresses a dependency fetch failure, not an application test failure.
+
+## Citation model
+
+One :cite registry record identifies managed literature file nodes. Citation synchronization computes their citing-node relationships from external cite refs and Org-roam citation rows, then reconciles #+ROAM_CITING_NODE: ID-link keywords under the configured Inbox. It visits all managed references so formerly cited nodes can lose stale entries.
+
+MOC and citation synchronization share ID-link keyword parsing and reconciliation. Count distinct citing nodes rather than equating citation occurrence count with backlink count. Duplicate/malformed entries and ambiguous external keys produce diagnostics rather than arbitrary selection. Citation source keys are still external citekeys at this stage.
