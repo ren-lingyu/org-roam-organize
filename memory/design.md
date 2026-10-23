@@ -77,3 +77,11 @@ Mode-owned filter-return advice appends managed paths to org-cite-list-bibliogra
 A separate org-roam-organize-biblatex module provides a mode-owned final-output filter. It applies only to LaTeX-derived exports using the biblatex citation processor and at least one managed bibliography. It adds only missing direct package/resource declarations before begin{document}; body-only output and unrelated exports remain unchanged.
 
 The fallback inspects actual final output after Org Cite, rather than guessing from version numbers or a private finalizer name. Existing upstream declarations make it a no-op. Options/style merging is delegated to Org's option helper, preserving bracket semantics. The compatibility layer does not add printbibliography, replace processor selection or repair arbitrary document configuration. Its lifecycle is gated together with managed bibliography discovery.
+
+## Citation display
+
+The backend-independent org-roam-organize-cite-display module displays titles for recognized managed UUID citation keys using owned overlays. Source text, modified state and citation prefix/suffix structure remain intact. It composes through Org's extra Font Lock keywords rather than replacing org-cite-activate-processor. It activates with the core mode and a :cite record, independently of bibliography opt-in or Citar.
+
+Per-buffer title caching avoids repeated database queries. An explicit refresh clears caches/owned overlays after node titles or membership change; there is no automatic cross-buffer database invalidation contract. Global setup rebuilds Font Lock defaults in existing Org buffers as well as registering future-buffer hooks. Refresh widens for full cleanup/fontification and restores narrowing, point and buffer state.
+
+Changing major mode removes local ownership state before it is lost. Teardown removes only this module's overlays/hooks. Buffers with Font Lock disabled remain disabled: defaults may be rebuilt, but eager fontification runs only when enabled. The disabled state must not be inferred solely from batch-mode behavior.

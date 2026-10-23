@@ -30,10 +30,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation isolates an Org 9.8-pre export path that emits citation commands without a registered finalizer. Historical checks include a separate BibLaTeX ERT suite; option double-bracketing and a malformed test binding were corrected. Earlier processor/configuration diagnoses were revised after real export tracing, and are not retained as current conclusions.
+Historical ERT failures exposed missing rebuilt Font Lock defaults and misleading batch-mode assumptions. Subsequent reviews/tests cover existing buffers, narrowing, major-mode changes and disabled Font Lock. Passing check reports follow those corrections; the initial overlay implementation is not the final supported lifecycle.
 
-Source scope: 01a05d45-57f4-7403-a93e-4fdb3f873fbc and shared continuation in 01a080d5-7d4d-7dc0-ada1-06b59934832d, bibliography/export interval.
+Source scope: Shared citation-display interval of 01a05d45-57f4-7403-a93e-4fdb3f873fbc and 01a080d5-7d4d-7dc0-ada1-06b59934832d.
 
 ## Continuing validation limits
 
-Historical flake reports cover core, Citar and BibLaTeX suites. Bibliography discovery, UUID conversion, processor selection and final LaTeX resource declarations are separate responsibilities. Compatibility is bounded by capabilities and output shape, not a promise that every Org version or external PDF toolchain works.
+Historical core/adapter/display/BibLaTeX checks pass after lifecycle corrections. Presentation caching needs explicit refresh when indexed titles change. Extra parsing cost was discussed but no speculative optimization or new cache invalidation service was adopted.
