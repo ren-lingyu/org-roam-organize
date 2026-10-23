@@ -6,9 +6,9 @@ The v0.4 development interface declares Emacs 30.1, Org 9.5 and Org-roam 2.3.1. 
 
 ## Organization
 
-Registry records describe tag membership, MOC identity and node directories without hardcoded category names. Org files remain authoritative, with the database and MOC views derived from them. A basic record requires a directory; directory-bearing non-basic records are now allowed. Ordinary creatable records are selected by a usable directory, not by :basic alone.
+Registry records describe tag membership, MOC identity and relative node directories without hardcoded category names. Org files are authoritative; the Org-roam database and MOC views are derived. Names are safe short identifiers, exactly one :moc record identifies the map-of-maps role, and at most one :cite record identifies literature. A :basic record requires a directory; non-basic records may also have one. A usable directory selects ordinary creatable records.
 
-MOC paths/titles are resolved from registry data without modifying it. Fixed fleeting/permanent semantics and the old move/delete interface remain removed. No replacement destructive deletion command has been adopted.
+The organizing root must stay inside org-roam-directory. Record paths are resolved inside that root without mutating user configuration. MOC destinations can be explicitly configured or derived from record names. Removed move/delete commands and aliases stay removed; :delete t remains a reserved marker, not an action.
 
 ## Setup and diagnostics
 
@@ -22,11 +22,11 @@ Duplicate entries are all synchronized and reported, not silently deduplicated. 
 
 ## Capture and templates
 
-Providers return (:title TITLE :info INFO) or nil to cancel; missing/nil :provider uses the default. The core owns node construction, targets, templates and directory lifecycle. MOCs use their own internal provider with the same request protocol.
+Ordinary providers receive a registry record and return (:title TITLE :info INFO), or nil to cancel. Missing/nil :provider uses the default. MOCs use a separate internal provider with the same request protocol. The core constructs nodes and controls paths, targets, templates and lifecycle.
 
-Templates separate properties and keywords. Native Org-roam ${field} and Org %<FORMAT> handle dynamic capture data; structured fixed values use narrow serialization, not a parallel interpolation language. Ordinary paths remain <directory>/${id}/${slug}.org; MOCs have fixed configured destinations.
+Structured :template sections include path, properties and keywords. Native ${field} and %<FORMAT> expand at capture time. The path is relative inside <directory>/${id}/, defaults to ${slug}.org, may contain nested directories, must end in .org and must remain lexically inside that UUID bundle. MOC destinations use their own path rule and do not accept ordinary node path overrides.
 
-A closure-backed, self-removing after-finalize hook now survives the capture call, schedules empty-directory cleanup when capture actually ends, and is removed on error. Do not assume the return from org-roam-capture- means capture has finalized.
+The preface hook creates directories only after placeholders expand. Cleanup tracks the UUID bundle root rather than the final target's immediate parent. Empty abandoned bundles are removed; removing a nonempty abandoned bundle requires confirmation. Self-removing finalize hooks outlive the capture call and are removed on errors.
 
 ## Testing architecture
 
@@ -36,6 +36,6 @@ The flake defines package build, ERT, package-lint and a development shell. Comp
 
 ## Citation model
 
-One :cite registry record identifies managed literature file nodes. Citation synchronization computes their citing-node relationships from external cite refs and Org-roam citation rows, then reconciles #+ROAM_CITING_NODE: ID-link keywords under the configured Inbox. It visits all managed references so formerly cited nodes can lose stale entries.
+One :cite registry record identifies literature file nodes. Each managed literature node must have exactly one cite-type ref before global citation sync proceeds. Missing/multiple refs block sync, preventing partial relationship maintenance on invalid data. External citekeys still identify citations at this stage; UUID storage has not yet been adopted.
 
-MOC and citation synchronization share ID-link keyword parsing and reconciliation. Count distinct citing nodes rather than equating citation occurrence count with backlink count. Duplicate/malformed entries and ambiguous external keys produce diagnostics rather than arbitrary selection. Citation source keys are still external citekeys at this stage.
+Derived citing-node entries use #+ROAM_CITING_NODE: ID-link keywords and shared reconciliation with MOCs. Count distinct citing nodes, preserve/report duplicates, and remove stale entries through global sync.

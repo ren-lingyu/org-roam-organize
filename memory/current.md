@@ -1,8 +1,8 @@
-# Org-roam Organize: Citation keyword reconciliation and asynchronous capture cleanup
+# Org-roam Organize: Configurable paths stay inside managed UUID bundles
 
 ## State and objective
 
-The v0.4 baseline reconciles MOC and citing-node entries through shared keyword machinery and fixes cleanup after an interactive capture ends.
+Capture gains flexible filenames and subdirectories without transferring path ownership to providers. Citation sync validates each managed reference before modifying derived entries.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Configurable paths stay inside managed UUID bundles.
+Next phase: Stable internal UUID citations and export-time conversion.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-The dependency-backed suite and historical reports support this v0.4 completion state. Deletion is intentionally deferred: preserving :delete t is not destructive deletion, and the absence of a new deletion command is not an unfinished release requirement.
+Historical checks support capture-path and per-node ref validation changes. Validation does not establish arbitrary filesystem race resistance, a deletion workflow, or UUID-based citation storage, which remains the next design transition.

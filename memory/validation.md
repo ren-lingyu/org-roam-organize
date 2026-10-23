@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation records flake checks and capture-cleanup investigation. It explicitly defers real deletion beyond v0.4. Source inspection confirms the self-removing finalize hook and the implemented ROAM_CITING_NODE spelling; an earlier ROAM_CITED_BY proposal was not the adopted API.
+The conversation reports flake checks around configurable capture paths and reference cardinality. Native capture expansion happens before directory creation. Extra machinery for speculative symlink races in newly generated UUID bundles was not adopted; this is not a claim of safety for arbitrary preexisting bundles.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, citation-sync and v0.4 completion interval.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, bundle path and cite-ref validation interval; UUID-citation reference material.
 
 ## Continuing validation limits
 
-The dependency-backed suite and historical reports support this v0.4 completion state. Deletion is intentionally deferred: preserving :delete t is not destructive deletion, and the absence of a new deletion command is not an unfinished release requirement.
+Historical checks support capture-path and per-node ref validation changes. Validation does not establish arbitrary filesystem race resistance, a deletion workflow, or UUID-based citation storage, which remains the next design transition.
