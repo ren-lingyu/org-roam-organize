@@ -1,8 +1,8 @@
-# Org-roam Organize: Standard package interface and compatibility baseline
+# Org-roam Organize: Deprecation boundary for fixed file organization
 
 ## State and objective
 
-The package has a conventional loading and configuration interface while retaining the original MOC and file-organization workflow. Compatibility aliases must preserve values assigned before package loading.
+The release boundary is intentionally limited to retiring the old workflow safely; a replacement ownership or directory model has not yet been adopted.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Deprecation boundary for fixed file organization.
+Next phase: Registry replaces the retired organizing interface.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Source and README were inspected statically. No tracked automated suite exists at this point. Package-lint needs the actual dependency packages available, rather than treating every missing Org-roam symbol as a source defect. The old movement target's ID/path inconsistency remains an unverified historical concern.
+Historical stub-based tests support the narrow deprecation and setup-check work only. They do not establish real Org-roam integration or safe deletion. No tracked reproducible suite is present in the inspected snapshot.

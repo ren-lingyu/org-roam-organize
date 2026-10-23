@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The first conversation records dependency-environment and package-lint investigation, including the failure to find Org-roam during compilation. The later review identifies and fixes alias declaration order. These are historical records, not checks rerun here.
+The conversation reports small ERT runs against local stubs during deprecation, ending with eight passing tests. Those files were not retained in the committed baseline and are not equivalent to the later real dependency-backed test suite. A proposed blanket rejection of empty string variables was withdrawn.
 
-Source scope: 019f45a2-cfd1-7fe1-8332-f877cbc91b4a; opening interval of 019f8966-0fcf-7732-814e-f1a6f35c5bc6.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, early deprecation and setup-check interval.
 
 ## Continuing validation limits
 
-Source and README were inspected statically. No tracked automated suite exists at this point. Package-lint needs the actual dependency packages available, rather than treating every missing Org-roam symbol as a source defect. The old movement target's ID/path inconsistency remains an unverified historical concern.
+Historical stub-based tests support the narrow deprecation and setup-check work only. They do not establish real Org-roam integration or safe deletion. No tracked reproducible suite is present in the inspected snapshot.
