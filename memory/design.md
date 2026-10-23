@@ -36,6 +36,16 @@ The flake defines package build, ERT, package-lint and a development shell. Comp
 
 ## Citation model
 
-One :cite registry record identifies literature file nodes. Each managed literature node must have exactly one cite-type ref before global citation sync proceeds. Missing/multiple refs block sync, preventing partial relationship maintenance on invalid data. External citekeys still identify citations at this stage; UUID storage has not yet been adopted.
+Org source stores [cite:@<literature-node-uuid>]. Each managed literature node declares its current external bibliography key as a cite-type ROAM_REFS value. Stable identity therefore survives changes to bibliography keys, title formatting or filename conventions without rewriting every citation.
 
-Derived citing-node entries use #+ROAM_CITING_NODE: ID-link keywords and shared reconciliation with MOCs. Count distinct citing nodes, preserve/report duplicates, and remove stale entries through global sync.
+Sync joins citation keys to literature node IDs, rather than treating source citation keys as external bibliography keys. Mapping data retains UUID-to-key and key-to-UUID-list directions. Missing or multiple refs per literature node block mapping; repeated external keys across different nodes are reported as nonblocking data-quality warnings because UUID-based sync can still identify the intended node.
+
+An Org export parse-tree filter changes managed citation-reference keys to external citekeys in the export tree only. Source buffers and native citation processor responsibilities are preserved; ordinary external citations are left alone. The current export path validates all managed reference nodes, so unrelated bad literature data can still block an otherwise unrelated export.
+
+## Literature storage
+
+The default literature example adopts a fixed ref.org inside the unique UUID bundle. Mutable bibliography keys or transliterated titles need not also serve as filenames. This is a useful convention enabled by configurable paths, not an instruction to rename every existing note or a universal filename requirement.
+
+## Derived citation entries
+
+Citation sync reconciles #+ROAM_CITING_NODE: ID-link keywords in managed literature notes through the shared MOC/ID-link machinery. It visits all managed references to remove stale entries, refreshes titles, preserves/reports duplicates and inserts missing citing nodes under the configured Inbox. Count distinct citing nodes rather than citation occurrences. The earlier ROAM_CITED_BY spelling was a proposal, not the adopted keyword.

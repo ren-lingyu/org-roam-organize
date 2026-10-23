@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation reports flake checks around configurable capture paths and reference cardinality. Native capture expansion happens before directory creation. Extra machinery for speculative symlink races in newly generated UUID bundles was not adopted; this is not a claim of safety for arbitrary preexisting bundles.
+Historical flake checks and isolated Org-roam database/export experiments are reported. They support UUID parsing and downstream visibility of converted keys. The first implementation validates the global managed reference set during export; the resulting overbroad failure scope has not yet been corrected.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, bundle path and cite-ref validation interval; UUID-citation reference material.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, UUID citation design/implementation interval; UUID-citation reference material.
 
 ## Continuing validation limits
 
-Historical checks support capture-path and per-node ref validation changes. Validation does not establish arbitrary filesystem race resistance, a deletion workflow, or UUID-based citation storage, which remains the next design transition.
+Historical flake and isolated integration reports support UUID citation mapping. Global export validation is still overbroad. Repeated external keys are not yet a blocking global-check error; do not import the later Citar bijection rule into this state.

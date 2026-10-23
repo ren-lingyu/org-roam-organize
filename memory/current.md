@@ -1,8 +1,8 @@
-# Org-roam Organize: Configurable paths stay inside managed UUID bundles
+# Org-roam Organize: Stable internal UUID citations and export-time conversion
 
 ## State and objective
 
-Capture gains flexible filenames and subdirectories without transferring path ownership to providers. Citation sync validates each managed reference before modifying derived entries.
+Internal literature identity is decoupled from mutable bibliography keys and filenames. Org source stores literature UUID citations; conversion is deferred to export.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Stable internal UUID citations and export-time conversion.
+Next phase: Global diagnostics and local export validation.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical checks support capture-path and per-node ref validation changes. Validation does not establish arbitrary filesystem race resistance, a deletion workflow, or UUID-based citation storage, which remains the next design transition.
+Historical flake and isolated integration reports support UUID citation mapping. Global export validation is still overbroad. Repeated external keys are not yet a blocking global-check error; do not import the later Citar bijection rule into this state.
