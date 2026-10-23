@@ -1,8 +1,8 @@
-# Org-roam Organize: Deprecation boundary for fixed file organization
+# Org-roam Organize: Registry replaces the retired organizing interface
 
 ## State and objective
 
-The release boundary is intentionally limited to retiring the old workflow safely; a replacement ownership or directory model has not yet been adopted.
+The obsolete interface is removed and registry records become the canonical organization description. Configuration migration is intentionally breaking, without compatibility aliases for the removed model.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Registry replaces the retired organizing interface.
+Next phase: MOC synchronization preserves human outline structure.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical stub-based tests support the narrow deprecation and setup-check work only. They do not establish real Org-roam integration or safe deletion. No tracked reproducible suite is present in the inspected snapshot.
+Static inspection confirms registry validation/resolution and removal of the old interface. Historical local tests and database checks are not a certification of all capture or synchronization paths. A general attachment deletion workflow is still undesigned.

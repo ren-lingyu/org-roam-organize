@@ -2,15 +2,15 @@
 
 ## Package interface
 
-The package is at the v0.3.0 compatibility boundary, declaring Emacs 30.1, Org 9.5 and Org-roam 2.2.0. Standard metadata, runtime requirements, autoloads and hyphenated variables remain. Old aliases are retained where applicable; default command bindings are examples owned by users.
+The v0.4 development interface declares Emacs 30.1, Org 9.5 and Org-roam 2.2.0. Standard metadata, runtime requirements and autoloads remain. Removed legacy commands and variables have no compatibility aliases. Keybindings remain user-owned examples.
 
 ## Organization
 
-The fixed fleeting-to-permanent move command, headline deletion, related directories and movement variables are obsolete. They remain for compatibility in v0.3.0 and are planned for removal in v0.4.0. Deprecated directory settings no longer gate setup or automatic directory creation. Fleeting notes need not be unfinished permanent notes.
+The old move/delete commands, deprecated variables and slash aliases are removed. Do not carry their historical target-path defect forward as an open defect in the replacement interface. Org files hold semantic facts; the Org-roam database is their query index, and MOCs are derived views.
 
-Deletion was deprecated rather than redesigned: without a clear ownership model, removing a note file alone may leave attachments, while recursively deleting its directory may remove unrelated content. A replacement directory/MOC model is deferred.
+The registry is a list of plists describing organizing records rather than a set of hardcoded tag meanings. Names are safe short identifiers; membership uses the configured tag. Exactly one :moc record identifies the map-of-maps role. Basic records declare directories; at this stage non-basic records do not. MOC paths/titles can be overridden or resolved from record names and the MOC directory without mutating the user's registry.
 
-MOC-tagged file nodes declare the tag they manage in properties, allowing database discovery of tag-to-MOC-ID mappings. Configuration supplies tag/title pairs and a creation template; the top MOC opens by file path. MOC maintenance writes counts and appends missing members as headlines. Literature completion appends citing-node headlines using external citekeys. Neither comprehensively removes stale entries.
+org-roam-organize-directory is the organizing root and must remain inside org-roam-directory. The separate allow-outside-root switch has been removed. MOC capture is invoked with its own template, rather than relying on installing that template globally. Metadata formatting remains a small structured facility; this is not yet a general provider protocol.
 
 ## Setup and diagnostics
 

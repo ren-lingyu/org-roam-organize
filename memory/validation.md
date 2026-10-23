@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation reports small ERT runs against local stubs during deprecation, ending with eight passing tests. Those files were not retained in the committed baseline and are not equivalent to the later real dependency-backed test suite. A proposed blanket rejection of empty string variables was withdrawn.
+The conversation records 16 passing local ERT tests and temporary database-query checks during this transition. They are historical development results; the committed state still does not contain the later reproducible suite.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, early deprecation and setup-check interval.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, registry design and configuration-refactor interval.
 
 ## Continuing validation limits
 
-Historical stub-based tests support the narrow deprecation and setup-check work only. They do not establish real Org-roam integration or safe deletion. No tracked reproducible suite is present in the inspected snapshot.
+Static inspection confirms registry validation/resolution and removal of the old interface. Historical local tests and database checks are not a certification of all capture or synchronization paths. A general attachment deletion workflow is still undesigned.
