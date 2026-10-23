@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical flake checks and isolated Org-roam database/export experiments are reported. They support UUID parsing and downstream visibility of converted keys. The first implementation validates the global managed reference set during export; the resulting overbroad failure scope has not yet been corrected.
+The conversation reports an isolated library containing a valid cited note and an unrelated note lacking cite refs: global checking reports the bad note while export of the valid citation succeeds. A tracked ERT invokes the real org-export-as pipeline with a downstream filter. These historical results are not reproduced here.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, UUID citation design/implementation interval; UUID-citation reference material.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, global cite-check and local-export correction interval.
 
 ## Continuing validation limits
 
-Historical flake and isolated integration reports support UUID citation mapping. Global export validation is still overbroad. Repeated external keys are not yet a blocking global-check error; do not import the later Citar bijection rule into this state.
+The v0.5 candidate has historical flake and isolated real-export reports, plus a tracked export-pipeline ERT. Export-local validation and library-wide diagnostics have different scopes; a clean export does not certify the whole library.

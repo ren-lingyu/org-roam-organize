@@ -2,7 +2,7 @@
 
 ## Package interface
 
-The v0.4 development interface declares Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Org-roam's capture target behavior is an explicit dependency; the declaration is conservative rather than a measured minimum across older releases. Removed legacy commands and variables have no aliases; keybindings remain user-owned examples.
+The v0.5 baseline declares Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Source and Nix package versions are aligned. Dependency declarations are conservative support boundaries, not measured minimum compatibility. Removed legacy commands and variables have no aliases; keybindings remain user-owned examples.
 
 ## Organization
 
@@ -36,11 +36,11 @@ The flake defines package build, ERT, package-lint and a development shell. Comp
 
 ## Citation model
 
-Org source stores [cite:@<literature-node-uuid>]. Each managed literature node declares its current external bibliography key as a cite-type ROAM_REFS value. Stable identity therefore survives changes to bibliography keys, title formatting or filename conventions without rewriting every citation.
+Org source stores literature node UUID citations, with each literature node's single cite-type ROAM_REFS declaring its external bibliography key. Sync uses the UUID relationship; export changes only managed citation-reference keys in the parse tree and preserves source text and native processors.
 
-Sync joins citation keys to literature node IDs, rather than treating source citation keys as external bibliography keys. Mapping data retains UUID-to-key and key-to-UUID-list directions. Missing or multiple refs per literature node block mapping; repeated external keys across different nodes are reported as nonblocking data-quality warnings because UUID-based sync can still identify the intended node.
+The explicit cite-check command validates the global managed reference set without editing Org files. Cite-sync uses global relationship data and diagnostics. Missing/multiple refs block these operations; duplicate external keys remain nonblocking warnings at this stage.
 
-An Org export parse-tree filter changes managed citation-reference keys to external citekeys in the export tree only. Source buffers and native citation processor responsibilities are preserved; ordinary external citations are left alone. The current export path validates all managed reference nodes, so unrelated bad literature data can still block an otherwise unrelated export.
+Export first collects citation-reference keys from the actual export tree, intersects them with managed UUIDs, and validates/maps only that subset. Unrelated invalid literature must not block export. Non-managed external citations remain unchanged. Batch loading of mapping data avoids one database query per citation. A real export-pipeline ERT verifies downstream filters observe the converted key.
 
 ## Literature storage
 

@@ -1,8 +1,8 @@
-# Org-roam Organize: Stable internal UUID citations and export-time conversion
+# Org-roam Organize: Global diagnostics and local export validation
 
 ## State and objective
 
-Internal literature identity is decoupled from mutable bibliography keys and filenames. Org source stores literature UUID citations; conversion is deferred to export.
+The v0.5 baseline separates library-wide data hygiene from the requirements of one export, preventing unrelated malformed literature from blocking it.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Global diagnostics and local export validation.
+Next phase: Collected diagnostics and one final report per command.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical flake and isolated integration reports support UUID citation mapping. Global export validation is still overbroad. Repeated external keys are not yet a blocking global-check error; do not import the later Citar bijection rule into this state.
+The v0.5 candidate has historical flake and isolated real-export reports, plus a tracked export-pipeline ERT. Export-local validation and library-wide diagnostics have different scopes; a clean export does not certify the whole library.
