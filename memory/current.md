@@ -1,8 +1,8 @@
-# Org-roam Organize: Managed bibliography discovery and first Citar consumer
+# Org-roam Organize: Org Cite bibliography policy and narrow BibLaTeX fallback
 
 ## State and objective
 
-Literature nodes become self-describing bibliography sources. Discovery is backend-neutral, while the first consumer is Citar's local bibliography interface.
+Bibliography discovery moves to the common Org Cite boundary and becomes opt-in, independent of Citar selection. A narrow final-output fallback handles missing upstream BibLaTeX declarations.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -13,7 +13,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Org Cite bibliography policy and narrow BibLaTeX fallback.
+Next phase: Citation title presentation with complete buffer lifecycle.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -21,4 +21,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical integration checks use real temporary databases and Citar. The discovery helper does not certify bibliography content or guarantee a complete LaTeX toolchain. Manual bibliography/processor experiments are distinct from package-level automated tests. Sidecar file synchronization has not been adopted.
+Historical flake reports cover core, Citar and BibLaTeX suites. Bibliography discovery, UUID conversion, processor selection and final LaTeX resource declarations are separate responsibilities. Compatibility is bounded by capabilities and output shape, not a promise that every Org version or external PDF toolchain works.

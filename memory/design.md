@@ -66,8 +66,14 @@ With the simple citar symbol, title defaults to the entry title and falls back t
 
 ## Bibliography
 
-Managed level-0 literature nodes declare a BIBLIOGRAPHY property. Discovery queries their indexed node properties and resolves each path relative to the note file, deduplicating and lexically sorting the result. Each request queries current database data without retaining an extra cache. Discovery does not inspect, validate, create or synchronize the referenced files; the database must reflect saved property changes.
+Only literal :bibliography t on the unique :cite registry record enables managed bibliography integration; missing/nil leaves existing discovery unchanged. Restart the mode after changing this setup-time option. Bibliography policy is independent of :backend citar and does not control UUID sync/export identity.
 
-At this stage Citar's Org local-bibliography callback appends managed paths while retaining its previous callback results. Setup/teardown owns that change rather than globally replacing citar-bibliography. Consumers must respect Citar's actual major-mode callback data structure. A file literally named .bib may not be recognized as having a bib extension; a conventional name such as reference.bib avoids that trap.
+The BIBLIOGRAPHY property on managed level-0 literature nodes supplies paths relative to each note file. Each enabled discovery request queries indexed nodes.properties, resolves paths, deduplicates and sorts without another persistent cache. It neither reads nor validates bibliography files and does not create/synchronize sidecars. Saved property changes require database synchronization before discovery sees them.
 
-Making bibliographies visible to Citar does not by itself configure Org's export processor or print a bibliography. Org export still needs its bibliography discovery input and an enabled citation processor.
+Mode-owned filter-return advice appends managed paths to org-cite-list-bibliography-files, preserving existing first-occurrence order/precedence. Citar and export processors consume that common result; the former Citar-specific local-bibliography override is retired. The package does not select a citation export processor, overwrite citar-bibliography or insert print_bibliography for users.
+
+## BibLaTeX compatibility
+
+A separate org-roam-organize-biblatex module provides a mode-owned final-output filter. It applies only to LaTeX-derived exports using the biblatex citation processor and at least one managed bibliography. It adds only missing direct package/resource declarations before begin{document}; body-only output and unrelated exports remain unchanged.
+
+The fallback inspects actual final output after Org Cite, rather than guessing from version numbers or a private finalizer name. Existing upstream declarations make it a no-op. Options/style merging is delegated to Org's option helper, preserving bracket semantics. The compatibility layer does not add printbibliography, replace processor selection or repair arbitrary document configuration. Its lifecycle is gated together with managed bibliography discovery.
