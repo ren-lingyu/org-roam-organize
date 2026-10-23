@@ -28,6 +28,21 @@ inspection unless original exact-snapshot provenance is explicitly established.
 No project build, test, GUI or dependency/network command is run by this
 reconstruction. GAW checks validate protocol/workspace state, not project behavior.
 
+## Reading earlier reconstructed states
+
+Early snapshots describe superseded project models, including the fixed
+file-organization workflow. Interpret their APIs, configuration and outstanding
+work within their own evidence horizon; current project knowledge begins at
+`memory/current.md`. Static observations made during retrospective review are
+separate from decisions and runtime results documented in the original sessions.
+
+The citation conversations share inherited material and later diverge. Their
+start times do not establish development order: project ancestry places module
+splitting before identity refactoring. The reconstruction preserves consequential
+knowledge changes rather than treating each session or project commit as a
+separate durable state. An ancestry relationship alone does not establish the
+exact project baseline of a historical operation.
+
 ## Evidence for the represented transition
 
 The final conversation reports passing nix flake check path:. --no-update-lock-file after the runner changes. An earlier suggestion to keep shell construction behind mkEmacsCheck was a proposal; the adopted implementation is executable Guile templates via replaceVarsWith. Static inspection of the final source/README/tests confirms the remembered contracts; no project checks were rerun during reconstruction.
