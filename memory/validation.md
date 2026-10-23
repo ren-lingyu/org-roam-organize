@@ -30,10 +30,16 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation records full checks during the refactor and user-reported success after Emacs 31 test cleanup. Review replaced a brittle fixed SQL-vector index assertion with lookup of :where. Mapping construction avoids mutating input row lists; known eager construction of both directions is documented rather than treated as an unresolved release blocker.
+The final conversation reports passing nix flake check path:. --no-update-lock-file after the runner changes. An earlier suggestion to keep shell construction behind mkEmacsCheck was a proposal; the adopted implementation is executable Guile templates via replaceVarsWith. Static inspection of the final source/README/tests confirms the remembered contracts; no project checks were rerun during reconstruction.
 
-Source scope: Unique identity-refactor tail of 01a05d45-57f4-7403-a93e-4fdb3f873fbc, ordered after module splitting by main ancestry.
+Source scope: 01a08909-9416-7d41-8c15-471d32899279 and 01a08ada-6b2f-74a1-98d3-b251cb7c27f9, plus all earlier supplied source intervals.
 
 ## Continuing validation limits
 
-Historical checks support behavior-preserving identity refactoring and test compatibility cleanup. SQL-shape tests locate semantic markers rather than fixed indices. No new public mapping interface, global cache or speculative optimization is introduced.
+The final source, README, module wiring and test definitions have been checked statically against this knowledge state. Historical check reports belong to their original candidates; this reconstruction ran GAW checks only. No current runtime certification, future Citar/Org compatibility guarantee, sidecar synchronization or replacement destructive deletion workflow is claimed. Title-display caches still require explicit refresh after indexed title changes, and arbitrary third-party state mutations are outside adapter restoration guarantees.
+
+## Complete input horizon
+
+The requested package-standardization session and long registry/capture/citation session supply the early feature evolution. The short testing session overlaps that work and supplies the independent test-infrastructure transition. The Citar session is inherited into both later citation sessions and is counted once. Their common continuation supplies bibliography/display/activation; their distinct tails supply module splitting and identity refactoring, ordered by project ancestry. The two final sessions supply runner proposals and the adopted implementation.
+
+All eight requested conversation horizons and four handoff/reference documents have been considered within the accepted scope. The discovered input-directory task list is excluded as supporting evidence. Retries, compactions and withdrawn turns are not separate adopted states. References to another project are used only to explain this project's adopted testing/provider boundaries. No raw source archive or Auxiliary history is required to interpret the distilled memory, and no substantive unrecoverable interval has been identified. Undocumented early intent and exact committed baselines for historical uncommitted test candidates remain unknown.

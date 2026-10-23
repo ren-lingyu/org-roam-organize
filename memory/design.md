@@ -32,7 +32,11 @@ The preface hook creates directories only after placeholders expand. Cleanup tra
 
 ## Testing architecture
 
-The root flake explicitly packages all source modules and injects source/installed package/Emacs environments into independent tests. Suites cover core, cite-citar, cite-biblatex and cite-display; optional Citar packages are added only to the relevant environment. ERT uses real dependencies, temporary databases and targeted mocks without depending on personal directories or parent-repository layout. Compilation warnings remain errors. Package-lint is wired, but all-module lint coverage is addressed in the later runner work.
+The root flake explicitly includes the nine package Lisp modules, README and license in its source fileset and builds the installed package with Emacs 31 and declared Org/Org-roam dependencies. Compilation warnings are errors. Tests receive explicit source and Emacs inputs; they do not assume a parent-repository layout or derive the main filename from pname.
+
+ERT suites cover core, cite-citar, cite-biblatex and cite-display with real dependencies, temporary databases and targeted mocks. Package modules declare package-lint-main-file in their file-local metadata. The lint runner recursively supplies every .el file in the filtered package source, not only the metadata-bearing entry file.
+
+Nix replaceVarsWith creates executable Guile runners with explicit interpreter, Emacs, test-file or source replacements. Guile system* passes an argument list, isolates HOME under the build temporary directory, propagates failure and creates the output marker only after success. Lint receives source explicitly for working directory/load-path and file discovery. Scheme test files are tracked through the ignore whitelist. Nixpkgs follows unstable; lock refreshes are dependency maintenance, not separate application capabilities.
 
 ## Citation model
 

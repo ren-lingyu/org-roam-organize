@@ -1,24 +1,23 @@
-# Org-roam Organize: Shared citation identity acquisition with consumer-owned policy
+# Org-roam Organize: Current package baseline with explicit Guile test runners
 
 ## State and objective
 
-Backend-independent identity primitives replace repeated mapping acquisition without changing user-visible behavior or collapsing ambiguity prematurely.
+The supplied knowledge horizon is reconstructed through the current inspected main tip. Test runners, module metadata and lint scope agree with the packaged source layout.
 
 Read `memory/design.md` for the complete supported design and
-`memory/validation.md` for evidence and validation limits. This is a reconstructed
-historical state, not a claim about present-day main.
+`memory/validation.md` for evidence and validation limits. This is current project knowledge at the main snapshot inspected when
+reconstruction completed. Recheck Git before assuming the project has not
+advanced.
 Its associated project
 snapshot was inspected during this retrospective review; that association does
 not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Current package baseline with explicit Guile test runners.
-
-Continue from the supplied conversations and corroborating project source. Later
-material must supersede stale decisions as recovery advances. The earlier
-repository baseline remains in first-parent memory history.
+The supplied reconstruction horizon is complete through the inspected project
+state. Resume project work from the design and validation limits recorded here;
+no new implementation task or speculative cleanup is authorized by this memory.
 
 ## Current limitations
 
-Historical checks support behavior-preserving identity refactoring and test compatibility cleanup. SQL-shape tests locate semantic markers rather than fixed indices. No new public mapping interface, global cache or speculative optimization is introduced.
+The final source, README, module wiring and test definitions have been checked statically against this knowledge state. Historical check reports belong to their original candidates; this reconstruction ran GAW checks only. No current runtime certification, future Citar/Org compatibility guarantee, sidecar synchronization or replacement destructive deletion workflow is claimed. Title-display caches still require explicit refresh after indexed title changes, and arbitrary third-party state mutations are outside adapter restoration guarantees.
