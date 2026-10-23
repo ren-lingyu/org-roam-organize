@@ -27,3 +27,9 @@ The core creates an Org-roam node through a temporary one-entry capture template
 Template metadata is declared per record. Arbitrary Org keywords and repeated keys are serialized in order; only structured fields needing special handling use narrow formatters. Dynamic values are left to Org-roam/Org capture. The shared capture helper accepts title/info and owns target/template/directory lifecycle; ordinary provider dispatch has only been prepared, not adopted yet.
 
 Cleanup attempts to remove an empty created directory after capture. Because interactive capture can outlive the call, the dynamically scoped after-finalize hook still needs lifecycle correction.
+
+## Testing architecture
+
+The root flake composes a filtered source tree, packaged Emacs dependencies and test modules. Tests do not infer a parent-repository layout or depend on personal directories. ERT loads the installed package with real Org-roam; targeted function mocks remain useful without substituting a fake Org-roam object system.
+
+The flake defines package build, ERT, package-lint and a development shell. Compilation warnings are errors. Nixpkgs is temporarily pinned to the revision containing the GNU ELPA Org hash-mismatch repair; the unstable URL remains commented for a later switch. That pin addresses a dependency fetch failure, not an application test failure.

@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation records real temporary capture investigation and local test adjustments as removed APIs made earlier assertions stale. Compilation also required an early mode declaration. This stage contains a dynamically scoped finalize cleanup design; asynchronous cleanup is not yet established as reliable.
+The user reports passing flake checks and the short testing conversation records an independently requested check. Real Org-roam dependencies replace the old stubs; targeted mocks are retained for behavior isolation. Passing results belong to that historical candidate, not automatically its later commit or this reconstruction.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, managed node creation and provider preparation.
+Source scope: 019f9f85-be3e-74f0-a0df-7169ad428f78; overlapping test-infrastructure interval of 019f8966-0fcf-7732-814e-f1a6f35c5bc6.
 
 ## Continuing validation limits
 
-Managed capture is statically present, but historical exploratory runs do not establish reliable asynchronous cleanup. The repository has not yet adopted the dependency-backed reproducible suite.
+A tracked reproducible suite now exists, with historical passing reports. Provider dispatch is still incomplete at this snapshot, and the capture finalize cleanup limitation has not yet been repaired.

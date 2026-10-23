@@ -1,8 +1,8 @@
-# Org-roam Organize: Managed capture owns node paths and lifecycle
+# Org-roam Organize: Reproducible checks before completing provider dispatch
 
 ## State and objective
 
-Ordinary node creation joins MOC creation at a shared capture boundary. Preparing metadata is being separated from deciding identity, target and filesystem effects.
+Provider work pauses at a deliberate test-infrastructure boundary so subsequent changes can be checked against the installed package and real dependencies.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Reproducible checks before completing provider dispatch.
+Next phase: Provider requests and native structured capture templates.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Managed capture is statically present, but historical exploratory runs do not establish reliable asynchronous cleanup. The repository has not yet adopted the dependency-backed reproducible suite.
+A tracked reproducible suite now exists, with historical passing reports. Provider dispatch is still incomplete at this snapshot, and the capture finalize cleanup limitation has not yet been repaired.
