@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical passing checks and formatting-failure ERT supersede the supplied TODO file's unchecked final test item. The release metadata is aligned to v0.7.0. Static review in a handoff is not itself runtime certification; the original conversation provides the historical test reports.
+Real-database ERT exposed two incorrect assumptions: properties live in nodes.properties, not a separate properties table, and Org-roam returns them as an alist. Further tests corrected the shape/ownership of Citar's major-mode callbacks. Historical passing checks and user export experiments are recorded; Citar visibility and Org export resource declarations are distinct results.
 
-Source scope: 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e and inherited citation material; Citar TODO and handoff references.
+Source scope: Later interval of 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e, inherited in 01a05d45-57f4-7403-a93e-4fdb3f873fbc and 01a080d5-7d4d-7dc0-ada1-06b59934832d.
 
 ## Continuing validation limits
 
-Historical core/adapter checks cover formatting, invalid specifications and backend errors. All planned Citar note-creation stages are represented; the old unchecked TODO is not a current blocker. Future backend compatibility and arbitrary post-install state edits remain outside the tested contract.
+Historical integration checks use real temporary databases and Citar. The discovery helper does not certify bibliography content or guarantee a complete LaTeX toolchain. Manual bibliography/processor experiments are distinct from package-level automated tests. Sidecar file synchronization has not been adopted.

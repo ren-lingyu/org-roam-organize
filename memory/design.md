@@ -63,3 +63,11 @@ Setup rejects a notes-source name collision. Teardown unregisters owned state an
 The citation record's :backend accepts a symbol or a tagged (citar OPTION VALUE...) specification. Core accessors separate backend identity from options; only Citar interprets :title and :info formatting. Options reject malformed, unknown or duplicate keys rather than silently guessing.
 
 With the simple citar symbol, title defaults to the entry title and falls back to citekey when blank. Tagged :info maps user-chosen keywords to Citar format strings; no fixed author/year/DOI schema is imposed. Citar formatting uses the callback entry and its configured available fields. Provider-style :title/:info is then passed to managed capture, leaving the success-finalize ROAM_REFS contract intact. Backend formatting and ordinary :provider selection are separate paths.
+
+## Bibliography
+
+Managed level-0 literature nodes declare a BIBLIOGRAPHY property. Discovery queries their indexed node properties and resolves each path relative to the note file, deduplicating and lexically sorting the result. Each request queries current database data without retaining an extra cache. Discovery does not inspect, validate, create or synchronize the referenced files; the database must reflect saved property changes.
+
+At this stage Citar's Org local-bibliography callback appends managed paths while retaining its previous callback results. Setup/teardown owns that change rather than globally replacing citar-bibliography. Consumers must respect Citar's actual major-mode callback data structure. A file literally named .bib may not be recognized as having a bib extension; a conventional name such as reference.bib avoids that trap.
+
+Making bibliographies visible to Citar does not by itself configure Org's export processor or print a bibliography. Org export still needs its bibliography discovery input and an enabled citation processor.

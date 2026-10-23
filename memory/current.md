@@ -1,8 +1,8 @@
-# Org-roam Organize: Declarative Citar formatting and v0.7 integration baseline
+# Org-roam Organize: Managed bibliography discovery and first Citar consumer
 
 ## State and objective
 
-The v0.7 adapter has a configurable metadata request interface without fixing a universal bibliography field schema or transferring capture ownership to Citar.
+Literature nodes become self-describing bibliography sources. Discovery is backend-neutral, while the first consumer is Citar's local bibliography interface.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -13,7 +13,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Managed bibliography discovery and first Citar consumer.
+Next phase: Org Cite bibliography policy and narrow BibLaTeX fallback.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -21,4 +21,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical core/adapter checks cover formatting, invalid specifications and backend errors. All planned Citar note-creation stages are represented; the old unchecked TODO is not a current blocker. Future backend compatibility and arbitrary post-install state edits remain outside the tested contract.
+Historical integration checks use real temporary databases and Citar. The discovery helper does not certify bibliography content or guarantee a complete LaTeX toolchain. Manual bibliography/processor experiments are distinct from package-level automated tests. Sidecar file synchronization has not been adopted.
