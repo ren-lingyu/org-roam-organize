@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical flake results and adapter ERT cover at-point conversion, both insertion paths, temporary database mapping and optional-backend degradation. The earlier global duplicate-key warning policy is tightened for cite-check only; UUID sync/export retain their direction-specific behavior.
+Historical ERT and passing-check reports cover real temporary-database lookup/open, duplicate creation refusal, successful-finalize ref persistence, abort/error cleanup and source registration rollback. A public citar-create-note dispatch test closes the gap between testing a callback directly and testing the upstream entry point.
 
-Source scope: 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e and inherited material in the two later citation conversations; Citar handoff.
+Source scope: 019fd2db-34e0-7622-b9b1-9e5b5e7ea22e and inherited citation material; Citar notes-source handoff.
 
 ## Continuing validation limits
 
-Historical adapter tests cover mapping and lifecycle behavior, including preserving core functionality after optional failure. They do not certify future Citar versions or a full interactive user-driven capture round trip. Managed Citar note creation is not yet part of this state.
+The historical suite exercises real database scope and public creation dispatch as well as callbacks. Successful finalize is distinct from capture-call return. A source/style commit inheriting a dispatch test must not be described as the commit that added that test.

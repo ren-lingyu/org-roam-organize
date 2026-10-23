@@ -50,8 +50,10 @@ Citation sync reconciles #+ROAM_CITING_NODE: ID-link keywords in managed literat
 
 ## Citar adapter
 
-The unique :cite record selects :backend citar; no backend or nil leaves Citar integration uninstalled. The previous separate backend custom variable is removed. Capability validation and dispatch remain distinct from merely reading registry selection.
+The unique :cite record selects :backend citar; nil/missing backend leaves the adapter uninstalled. Core UUID synchronization/export is backend-independent. Adapter setup is mode-guarded, validates capabilities and rolls back partial installation; optional failure warns while core mode remains enabled.
 
-At-point actions translate UUIDs to external keys before handing control to Citar. Citar insertion and its Org Cite insert processor require distinct adaptation boundaries so both produce UUID source citations. Missing/ambiguous mappings error explicitly; ordinary non-UUID citations keep standard behavior. Citar's own key-at-point parser is not repurposed to rewrite stored identity.
+Both insertion paths translate external keys to UUIDs; at-point actions translate UUIDs back. Missing/ambiguous mappings are errors and ordinary citations retain their behavior. The adapter registers its own formal Citar notes source with :items, :hasitems, :open and :create. Lookup is limited to citation-tagged level-0 nodes and cite refs; a snapshot predicate avoids repeated hasitems queries.
 
-Mode setup/teardown owns the adapter. Setup validates selected configuration and Citar capabilities, rolls back partially installed advice/state on failure, and degrades to core-only operation rather than disabling successful core setup or removing its export filter. Citar is not a mandatory core dependency.
+Creation consumes Citar's (citekey entry) callback directly, never reselecting the key or invoking the ordinary registry provider. Existing single matches are refused rather than silently opened/modified; multiple matches are ambiguous. The managed capture template must carry the citation tag and must not manually write ROAM_REFS. A successful-finalize callback adds the cite ref, saves and updates the database; abort/failure does not register an incomplete note. Core capture runs success callbacks in the capture buffer and removes temporary hooks on errors.
+
+Setup rejects a notes-source name collision. Teardown unregisters owned state and restores prior source/at-point selection only while the adapter still owns those settings. It does not promise to repair arbitrary user mutations after installation. Public dispatch is capability-checked and tested through citar-create-note.
