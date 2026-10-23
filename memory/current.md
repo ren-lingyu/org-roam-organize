@@ -1,8 +1,8 @@
-# Org-roam Organize: Citation title presentation with complete buffer lifecycle
+# Org-roam Organize: Citar activation recognizes managed UUIDs without changing identity
 
 ## State and objective
 
-Managed UUID citations become readable through title overlays without changing source text, citation identity or the selected activation processor.
+Passive Citar activation receives a temporary bibliography view that recognizes managed UUIDs, while actions and stored citation keys retain their established identity boundaries.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -13,7 +13,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Citar activation recognizes managed UUIDs without changing identity.
+Next phase: Focused modules and explicit migration boundary.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -21,4 +21,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical core/adapter/display/BibLaTeX checks pass after lifecycle corrections. Presentation caching needs explicit refresh when indexed titles change. Extra parsing cost was discussed but no speculative optimization or new cache invalidation service was adopted.
+Historical checks support the narrow activation projection and restored lifecycle. Passive activation tolerates missing data; interactive insertion/actions can still error. Do not propagate temporary UUID aliases to all Citar consumers or replace the entire activation processor.

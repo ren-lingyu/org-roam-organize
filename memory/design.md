@@ -85,3 +85,9 @@ The backend-independent org-roam-organize-cite-display module displays titles fo
 Per-buffer title caching avoids repeated database queries. An explicit refresh clears caches/owned overlays after node titles or membership change; there is no automatic cross-buffer database invalidation contract. Global setup rebuilds Font Lock defaults in existing Org buffers as well as registering future-buffer hooks. Refresh widens for full cleanup/fontification and restores narrowing, point and buffer state.
 
 Changing major mode removes local ownership state before it is lost. Teardown removes only this module's overlays/hooks. Buffers with Font Lock disabled remain disabled: defaults may be rebuilt, but eager fontification runs only when enabled. The disabled state must not be inferred solely from batch-mode behavior.
+
+## Citar activation
+
+Around Citar's basic Org Cite activation only, resolve UUID candidates in the current citation, copy the active entry hash lazily and add aliases to the corresponding external entries. Dynamically bind citar--entries for that one call. No projection is retained, so later activation sees current mappings and bibliographies.
+
+This follows a documented internal Citar contract and remains capability-checked; it is not a universal public mapping API. The wrapper calls the original function exactly once. Mapping/projection failure warns and falls back to ordinary Citar activation rather than interrupting Font Lock. Citation objects, source text and Citar's original entry table remain unchanged. Actions, insertion, file/link sources and notes continue using their own conversion policies.

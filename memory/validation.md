@@ -30,10 +30,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical ERT failures exposed missing rebuilt Font Lock defaults and misleading batch-mode assumptions. Subsequent reviews/tests cover existing buffers, narrowing, major-mode changes and disabled Font Lock. Passing check reports follow those corrections; the initial overlay implementation is not the final supported lifecycle.
+Historical checks cover Citar activation/tooltips with UUID aliases. An obsolete when-let form caused a compilation failure under Emacs 31 and was corrected to when-let*. Passing reports follow the correction. The source confirms that the original entry hash and citation object are not modified.
 
-Source scope: Shared citation-display interval of 01a05d45-57f4-7403-a93e-4fdb3f873fbc and 01a080d5-7d4d-7dc0-ada1-06b59934832d.
+Source scope: Shared activation interval of 01a05d45-57f4-7403-a93e-4fdb3f873fbc and 01a080d5-7d4d-7dc0-ada1-06b59934832d.
 
 ## Continuing validation limits
 
-Historical core/adapter/display/BibLaTeX checks pass after lifecycle corrections. Presentation caching needs explicit refresh when indexed titles change. Extra parsing cost was discussed but no speculative optimization or new cache invalidation service was adopted.
+Historical checks support the narrow activation projection and restored lifecycle. Passive activation tolerates missing data; interactive insertion/actions can still error. Do not propagate temporary UUID aliases to all Citar consumers or replace the entire activation processor.
