@@ -99,3 +99,11 @@ The public entry remains (require 'org-roam-organize). Core holds registry/confi
 Old org-roam-organize-citar and org-roam-organize-biblatex features/files are removed. Explicit feature consumers use org-roam-organize-cite-citar and org-roam-organize-cite-biblatex. Their implementation symbols use internal -- namespaces. Former setup/teardown/dwim names, even those previously lacking --, have no supported public replacement; remove direct calls/bindings and select the Citar adapter through the registry/mode lifecycle.
 
 The reserved Citar notes-source symbol becomes org-roam-organize-cite-citar. Direct users must migrate it. Nix attributes become ert-cite-citar and ert-cite-biblatex. No file/feature/symbol aliases are provided, and normal users need not require implementation modules directly.
+
+## Citation identity implementation
+
+Shared primitives live in org-roam-organize-cite, not an unscoped lib module. The row-to-map function retains candidate lists in both UUID-to-citekeys and citekey-to-UUIDs directions, preserving first-occurrence order. It normally deduplicates identity pairs; a duplicate-preserving mode lets global diagnostics retain raw declaration multiplicity symmetrically.
+
+One managed identity loader restricts by tag and level-0 cite refs, with all/UUID/citekey selectors. An empty restricted key set returns empty maps without a database query. SQL vectors use explicit vector construction. Pure row transformation is separate from database acquisition.
+
+Consumers retain their distinct strict, tolerant, plural or diagnostic policies: insertion needs a unique reverse match, actions need a unique forward match, notes may return lists, activation tolerates missing data, sync reports appropriate quality warnings, and export stays local to its cited UUIDs. Sharing acquisition does not make all boundaries enforce a bijection. Both directions are built intentionally; a future optimization must preserve order, multiplicity and scope.

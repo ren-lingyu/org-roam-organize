@@ -30,10 +30,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical compilation failures exposed real module dependency cycles and cross-unit declarations, leading to the independent entry module and corrected require boundaries. User-reported full checks pass after the final naming cleanup. README records migration requirements; neither the session start date nor the other branch's discussion order is used as code chronology.
+The conversation records full checks during the refactor and user-reported success after Emacs 31 test cleanup. Review replaced a brittle fixed SQL-vector index assertion with lookup of :where. Mapping construction avoids mutating input row lists; known eager construction of both directions is documented rather than treated as an unresolved release blocker.
 
-Source scope: Unique module-splitting tail of 01a080d5-7d4d-7dc0-ada1-06b59934832d; main ancestry orders this before the later identity refactor.
+Source scope: Unique identity-refactor tail of 01a05d45-57f4-7403-a93e-4fdb3f873fbc, ordered after module splitting by main ancestry.
 
 ## Continuing validation limits
 
-Historical full checks pass after module dependency and internal naming corrections. This is a packaging/load-boundary and migration change; it does not authorize reviving removed adapter APIs or treating test access to internals as public API support.
+Historical checks support behavior-preserving identity refactoring and test compatibility cleanup. SQL-shape tests locate semantic markers rather than fixed indices. No new public mapping interface, global cache or speculative optimization is introduced.
