@@ -30,10 +30,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-Historical checks cover Citar activation/tooltips with UUID aliases. An obsolete when-let form caused a compilation failure under Emacs 31 and was corrected to when-let*. Passing reports follow the correction. The source confirms that the original entry hash and citation object are not modified.
+Historical compilation failures exposed real module dependency cycles and cross-unit declarations, leading to the independent entry module and corrected require boundaries. User-reported full checks pass after the final naming cleanup. README records migration requirements; neither the session start date nor the other branch's discussion order is used as code chronology.
 
-Source scope: Shared activation interval of 01a05d45-57f4-7403-a93e-4fdb3f873fbc and 01a080d5-7d4d-7dc0-ada1-06b59934832d.
+Source scope: Unique module-splitting tail of 01a080d5-7d4d-7dc0-ada1-06b59934832d; main ancestry orders this before the later identity refactor.
 
 ## Continuing validation limits
 
-Historical checks support the narrow activation projection and restored lifecycle. Passive activation tolerates missing data; interactive insertion/actions can still error. Do not propagate temporary UUID aliases to all Citar consumers or replace the entire activation processor.
+Historical full checks pass after module dependency and internal naming corrections. This is a packaging/load-boundary and migration change; it does not authorize reviving removed adapter APIs or treating test access to internals as public API support.

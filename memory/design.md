@@ -32,7 +32,7 @@ The preface hook creates directories only after placeholders expand. Cleanup tra
 
 ## Testing architecture
 
-The root flake injects a filtered source tree, installed package and Emacs environments into independent test modules. ERT uses real Org-roam, temporary databases and targeted mocks. Separate core and Citar ERT environments keep the optional backend optional. Package build, lint and development shell are wired explicitly; compilation warnings remain errors. Nixpkgs has returned to unstable after the earlier Org-fetch workaround.
+The root flake explicitly packages all source modules and injects source/installed package/Emacs environments into independent tests. Suites cover core, cite-citar, cite-biblatex and cite-display; optional Citar packages are added only to the relevant environment. ERT uses real dependencies, temporary databases and targeted mocks without depending on personal directories or parent-repository layout. Compilation warnings remain errors. Package-lint is wired, but all-module lint coverage is addressed in the later runner work.
 
 ## Citation model
 
@@ -74,9 +74,9 @@ Mode-owned filter-return advice appends managed paths to org-cite-list-bibliogra
 
 ## BibLaTeX compatibility
 
-A separate org-roam-organize-biblatex module provides a mode-owned final-output filter. It applies only to LaTeX-derived exports using the biblatex citation processor and at least one managed bibliography. It adds only missing direct package/resource declarations before begin{document}; body-only output and unrelated exports remain unchanged.
+The internal org-roam-organize-cite-biblatex module provides the mode-owned final-output fallback, enabled only with :bibliography t. It applies to LaTeX-derived biblatex exports containing a managed bibliography and adds only missing direct package/resource declarations before begin{document}. Body-only/unrelated exports remain unchanged; printbibliography and processor selection stay user-owned.
 
-The fallback inspects actual final output after Org Cite, rather than guessing from version numbers or a private finalizer name. Existing upstream declarations make it a no-op. Options/style merging is delegated to Org's option helper, preserving bracket semantics. The compatibility layer does not add printbibliography, replace processor selection or repair arbitrary document configuration. Its lifecycle is gated together with managed bibliography discovery.
+Actual final output determines whether upstream already succeeded. Options/style merging delegates to Org's helper, avoiding duplicate brackets or reimplemented precedence. Teardown removes the filter, and failed setup rolls back ownership.
 
 ## Citation display
 
@@ -91,3 +91,11 @@ Changing major mode removes local ownership state before it is lost. Teardown re
 Around Citar's basic Org Cite activation only, resolve UUID candidates in the current citation, copy the active entry hash lazily and add aliases to the corresponding external entries. Dynamically bind citar--entries for that one call. No projection is retained, so later activation sees current mappings and bibliographies.
 
 This follows a documented internal Citar contract and remains capability-checked; it is not a universal public mapping API. The wrapper calls the original function exactly once. Mapping/projection failure warns and falls back to ordinary Citar activation rather than interrupting Font Lock. Citation objects, source text and Citar's original entry table remain unchanged. Actions, insertion, file/link sources and notes continue using their own conversion policies.
+
+## Modules and migration
+
+The public entry remains (require 'org-roam-organize). Core holds registry/configuration/shared diagnostics, capture owns creation, entry owns shared keyword parsing/reconciliation, MOC owns MOC operations, and cite owns citation behavior. Tests and packaging include the corresponding modules explicitly. Shared entry logic is below both MOC and cite so core does not require higher-level citation behavior.
+
+Old org-roam-organize-citar and org-roam-organize-biblatex features/files are removed. Explicit feature consumers use org-roam-organize-cite-citar and org-roam-organize-cite-biblatex. Their implementation symbols use internal -- namespaces. Former setup/teardown/dwim names, even those previously lacking --, have no supported public replacement; remove direct calls/bindings and select the Citar adapter through the registry/mode lifecycle.
+
+The reserved Citar notes-source symbol becomes org-roam-organize-cite-citar. Direct users must migrate it. Nix attributes become ert-cite-citar and ert-cite-biblatex. No file/feature/symbol aliases are provided, and normal users need not require implementation modules directly.

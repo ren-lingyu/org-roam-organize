@@ -1,8 +1,8 @@
-# Org-roam Organize: Citar activation recognizes managed UUIDs without changing identity
+# Org-roam Organize: Focused modules and explicit migration boundary
 
 ## State and objective
 
-Passive Citar activation receives a temporary bibliography view that recognizes managed UUIDs, while actions and stored citation keys retain their established identity boundaries.
+The monolithic implementation is separated by responsibility, and citation integrations receive consistent internal namespaces without compatibility aliases.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -13,7 +13,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Focused modules and explicit migration boundary.
+Next phase: Shared citation identity acquisition with consumer-owned policy.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -21,4 +21,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Historical checks support the narrow activation projection and restored lifecycle. Passive activation tolerates missing data; interactive insertion/actions can still error. Do not propagate temporary UUID aliases to all Citar consumers or replace the entire activation processor.
+Historical full checks pass after module dependency and internal naming corrections. This is a packaging/load-boundary and migration change; it does not authorize reviving removed adapter APIs or treating test access to internals as public API support.
