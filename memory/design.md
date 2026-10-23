@@ -2,7 +2,7 @@
 
 ## Package interface
 
-The v0.5 baseline declares Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Source and Nix package versions are aligned. Dependency declarations are conservative support boundaries, not measured minimum compatibility. Removed legacy commands and variables have no aliases; keybindings remain user-owned examples.
+The v0.6 baseline declares Emacs 30.1, Org 9.5 and Org-roam 2.3.1, with source and Nix metadata aligned. The dependency declaration is conservative rather than proof of every older supported combination. Removed legacy interfaces have no aliases; keybindings are examples owned by users.
 
 ## Organization
 
@@ -12,7 +12,9 @@ The organizing root must stay inside org-roam-directory. Record paths are resolv
 
 ## Setup and diagnostics
 
-Setup combines configuration validation and runtime capability checks through one diagnostic result. Deprecated settings are excluded from startup requirements. The user rejected an unrelated tightening that treated every empty string as invalid; do not silently restore that policy.
+Setup combines variable/registry validation and runtime capabilities. The rejected blanket empty-string restriction is not restored; fields follow their own semantic validation.
+
+Checks and sync commands collect complete report lines before presenting one result. Detailed warnings/failures go to *Org-roam Organize Report*, a read-only special-mode buffer overwritten by each new report. Successful commands without details use a short minibuffer summary. The formatter for notices is shared; business diagnostics are not an elaborate message-key registry. One command owns one final report, not an append-only history.
 
 ## MOC synchronization
 

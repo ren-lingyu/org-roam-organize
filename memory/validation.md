@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation reports an isolated library containing a valid cited note and an unrelated note lacking cite refs: global checking reports the bad note while export of the valid citation succeeds. A tracked ERT invokes the real org-export-as pipeline with a downstream filter. These historical results are not reproduced here.
+The conversation records passing flake checks and an isolated GUI inspection of the report buffer. Collection was refactored before display so loop iterations cannot overwrite earlier diagnostics. The user subsequently reviewed the GUI result; no GUI is started by this reconstruction.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, global cite-check and local-export correction interval.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, report collection/buffer and release interval.
 
 ## Continuing validation limits
 
-The v0.5 candidate has historical flake and isolated real-export reports, plus a tracked export-pipeline ERT. Export-local validation and library-wide diagnostics have different scopes; a clean export does not certify the whole library.
+Historical flake reports and isolated GUI review support report presentation. This changes diagnostics delivery, not the underlying organizing or citation contracts. A later nixpkgs switch is dependency maintenance rather than a new application capability.

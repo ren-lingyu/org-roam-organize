@@ -1,8 +1,8 @@
-# Org-roam Organize: Global diagnostics and local export validation
+# Org-roam Organize: Collected diagnostics and one final report per command
 
 ## State and objective
 
-The v0.5 baseline separates library-wide data hygiene from the requirements of one export, preventing unrelated malformed literature from blocking it.
+The v0.6 baseline makes multi-item checks and sync diagnostics inspectable without changing registry, capture or citation identity semantics.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Collected diagnostics and one final report per command.
+Next phase: Optional Citar integration and directional mapping policy.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-The v0.5 candidate has historical flake and isolated real-export reports, plus a tracked export-pipeline ERT. Export-local validation and library-wide diagnostics have different scopes; a clean export does not certify the whole library.
+Historical flake reports and isolated GUI review support report presentation. This changes diagnostics delivery, not the underlying organizing or citation contracts. A later nixpkgs switch is dependency maintenance rather than a new application capability.
