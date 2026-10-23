@@ -1,8 +1,8 @@
-# Org-roam Organize: MOC synchronization preserves human outline structure
+# Org-roam Organize: Managed capture owns node paths and lifecycle
 
 ## State and objective
 
-MOC membership is reconciled as keyword entries derived from file-node tags, while human headings retain semantic organization.
+Ordinary node creation joins MOC creation at a shared capture boundary. Preparing metadata is being separated from deciding identity, target and filesystem effects.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: Managed capture owns node paths and lifecycle.
+Next phase: Reproducible checks before completing provider dispatch.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
@@ -20,4 +20,4 @@ repository baseline remains in first-parent memory history.
 
 ## Current limitations
 
-Static inspection confirms registry validation/resolution and removal of the old interface. Historical local tests and database checks are not a certification of all capture or synchronization paths. A general attachment deletion workflow is still undesigned.
+Managed capture is statically present, but historical exploratory runs do not establish reliable asynchronous cleanup. The repository has not yet adopted the dependency-backed reproducible suite.

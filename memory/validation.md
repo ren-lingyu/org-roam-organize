@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation records temporary-directory checks, source loading/compilation investigation and local ERT. Reviews corrected parsing inside source/example blocks, commented headings and link-title escaping. These findings explain the AST-based boundary, not a requirement to repeat those exploratory tests.
+The conversation records real temporary capture investigation and local test adjustments as removed APIs made earlier assertions stale. Compilation also required an early mode declaration. This stage contains a dynamically scoped finalize cleanup design; asynchronous cleanup is not yet established as reliable.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, MOC synchronization interval.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, managed node creation and provider preparation.
 
 ## Continuing validation limits
 
-Static inspection confirms registry validation/resolution and removal of the old interface. Historical local tests and database checks are not a certification of all capture or synchronization paths. A general attachment deletion workflow is still undesigned.
+Managed capture is statically present, but historical exploratory runs do not establish reliable asynchronous cleanup. The repository has not yet adopted the dependency-backed reproducible suite.
