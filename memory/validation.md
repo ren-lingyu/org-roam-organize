@@ -25,9 +25,9 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The conversation records 16 passing local ERT tests and temporary database-query checks during this transition. They are historical development results; the committed state still does not contain the later reproducible suite.
+The conversation records temporary-directory checks, source loading/compilation investigation and local ERT. Reviews corrected parsing inside source/example blocks, commented headings and link-title escaping. These findings explain the AST-based boundary, not a requirement to repeat those exploratory tests.
 
-Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, registry design and configuration-refactor interval.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, MOC synchronization interval.
 
 ## Continuing validation limits
 

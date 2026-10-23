@@ -1,8 +1,8 @@
-# Org-roam Organize: Registry replaces the retired organizing interface
+# Org-roam Organize: MOC synchronization preserves human outline structure
 
 ## State and objective
 
-The obsolete interface is removed and registry records become the canonical organization description. Configuration migration is intentionally breaking, without compatibility aliases for the removed model.
+MOC membership is reconciled as keyword entries derived from file-node tags, while human headings retain semantic organization.
 
 Read `memory/design.md` for the complete supported design and
 `memory/validation.md` for evidence and validation limits. This is a reconstructed
@@ -12,7 +12,7 @@ not establish the exact committed baseline of historical uncommitted work.
 
 ## Continuation
 
-Next phase: MOC synchronization preserves human outline structure.
+Next phase: Managed capture owns node paths and lifecycle.
 
 Continue from the supplied conversations and corroborating project source. Later
 material must supersede stale decisions as recovery advances. The earlier
