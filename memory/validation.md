@@ -25,10 +25,10 @@ reconstruction. GAW checks validate protocol/workspace state, not project behavi
 
 ## Evidence for the represented transition
 
-The user reports passing flake checks and the short testing conversation records an independently requested check. Real Org-roam dependencies replace the old stubs; targeted mocks are retained for behavior isolation. Passing results belong to that historical candidate, not automatically its later commit or this reconstruction.
+Historical flake reports cover provider abstraction, dynamic field expansion and runtime capability smoke tests. Cross-project handoff material is secondary corroboration only; tests or fixes in Org-roam Include are not attributed to this repository.
 
-Source scope: 019f9f85-be3e-74f0-a0df-7169ad428f78; overlapping test-infrastructure interval of 019f8966-0fcf-7732-814e-f1a6f35c5bc6.
+Source scope: 019f8966-0fcf-7732-814e-f1a6f35c5bc6, provider dispatch and dynamic expansion interval; relevant organize portions of the capture-provider handoff.
 
 ## Continuing validation limits
 
-A tracked reproducible suite now exists, with historical passing reports. Provider dispatch is still incomplete at this snapshot, and the capture finalize cleanup limitation has not yet been repaired.
+The tracked tests now cover provider requests, MOC request reuse and native dynamic expansion. They do not yet establish the asynchronous finalize cleanup fix or the unfinished citation-sync replacement.

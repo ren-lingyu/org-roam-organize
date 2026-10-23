@@ -22,11 +22,11 @@ Duplicate entries are all synchronized and reported, not silently deduplicated. 
 
 ## Capture and templates
 
-The core creates an Org-roam node through a temporary one-entry capture template. Ordinary targets follow <directory>/${id}/${slug}.org; MOCs use their configured MOC destinations. Org-roam supplies node identity and expands placeholders. A capture preface hook creates the expanded target's parent directory.
+An ordinary provider receives its registry record and returns (:title TITLE :info INFO), or nil to cancel. Missing/nil :provider selects the built-in default provider. The core constructs the Org-roam node and owns paths, target, template and directory lifecycle; providers do not return arbitrary nodes or control filesystem placement.
 
-Template metadata is declared per record. Arbitrary Org keywords and repeated keys are serialized in order; only structured fields needing special handling use narrow formatters. Dynamic values are left to Org-roam/Org capture. The shared capture helper accepts title/info and owns target/template/directory lifecycle; ordinary provider dispatch has only been prepared, not adopted yet.
+Structured template sections separate properties from keywords. Property drawers and file keywords are serialized into capture text. Native ${field} expansion consumes provider :info, and %<FORMAT> expands at capture time. Do not build a second interpolation engine or freeze dates during configuration evaluation. MOCs use an internal provider implementing the same request protocol, independently of the record's ordinary custom provider.
 
-Cleanup attempts to remove an empty created directory after capture. Because interactive capture can outlive the call, the dynamically scoped after-finalize hook still needs lifecycle correction.
+Ordinary targets remain <directory>/${id}/${slug}.org, and MOCs retain configured destinations. Temporary templates are passed directly to capture, not registered globally. The earlier dynamically scoped cleanup hook is still a known lifecycle limitation.
 
 ## Testing architecture
 
