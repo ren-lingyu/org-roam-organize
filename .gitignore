@@ -1,25 +1,25 @@
 *
 */
 
-!README.org
-!.gitignore
-!.gitsubmodules
-!LICENSE
-!flake.nix
-!flake.lock
+!/README.org
+!/.gitignore
+!/.gitsubmodules
+!/LICENSE
+!/flake.nix
+!/flake.lock
 
-!org-roam-organize.el
-!org-roam-organize-*.el
+!/org-roam-organize.el
+!/org-roam-organize-*.el
 
-!.github/
-!.github/**/
-!.github/**/*.yaml
+!/.github/
+!/.github/**/
+!/.github/**/*.yaml
 
-!tests/
-!tests/**/
-!tests/**/*.el
-!tests/**/*.nix
-!tests/**/*.scm
+!/tests/
+!/tests/**/
+!/tests/**/*.el
+!/tests/**/*.nix
+!/tests/**/*.scm
 
 *~
 *#
