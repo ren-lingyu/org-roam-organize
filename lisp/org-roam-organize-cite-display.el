@@ -129,7 +129,8 @@ or surrounding citation boundary has been edited."
   (when after
     (org-roam-organize-cite-display--delete-overlay overlay)))
 
-(defun org-roam-organize-cite-display--clear-overlays (&optional beg end)
+(defun org-roam-organize-cite-display--clear-overlays
+    (&optional beg end)
   "Delete owned citation display overlays between BEG and END.
 
 When BEG and END are nil, delete every citation display overlay owned by the
@@ -141,13 +142,14 @@ owned by other components are unchanged.
 Implementation notes: The function walks the buffer-local ownership list
 instead of `overlays-in', so cleanup is unaffected by buffer narrowing and
 does not need to classify third-party overlays."
-  (dolist (overlay (copy-sequence
-                    org-roam-organize-cite-display--overlays))
+  (dolist (overlay
+           (copy-sequence org-roam-organize-cite-display--overlays))
     (let ((overlay-buffer (overlay-buffer overlay)))
       (cond
        ((null overlay-buffer)
         (setq org-roam-organize-cite-display--overlays
-              (delq overlay org-roam-organize-cite-display--overlays)))
+              (delq
+               overlay org-roam-organize-cite-display--overlays)))
        ((or (and (null beg) (null end))
             (and beg
                  end
@@ -169,12 +171,15 @@ activation processor to remain installed independently."
   (let ((overlay (make-overlay beg end nil nil nil)))
     (overlay-put overlay 'display title)
     (overlay-put overlay 'org-roam-organize-cite-display t)
-    (overlay-put overlay 'modification-hooks
-                 (list #'org-roam-organize-cite-display--overlay-modified))
-    (overlay-put overlay 'insert-in-front-hooks
-                 (list #'org-roam-organize-cite-display--overlay-modified))
-    (overlay-put overlay 'insert-behind-hooks
-                 (list #'org-roam-organize-cite-display--overlay-modified))
+    (overlay-put
+     overlay 'modification-hooks
+     (list #'org-roam-organize-cite-display--overlay-modified))
+    (overlay-put
+     overlay 'insert-in-front-hooks
+     (list #'org-roam-organize-cite-display--overlay-modified))
+    (overlay-put
+     overlay 'insert-behind-hooks
+     (list #'org-roam-organize-cite-display--overlay-modified))
     (push overlay org-roam-organize-cite-display--overlays)
     overlay))
 
@@ -201,9 +206,10 @@ styles, prefixes, suffixes, separators, and citation keys."
     (let* ((citation-beginning (match-beginning 0))
            (citation
             (condition-case nil
-                (org-with-point-at citation-beginning
-                  (org-element-citation-parser))
-              (error nil))))
+                (org-with-point-at
+                 citation-beginning (org-element-citation-parser))
+              (error
+               nil))))
       (when citation
         (let ((begin (org-element-property :begin citation))
               (end (org-element-property :end citation)))
@@ -211,13 +217,17 @@ styles, prefixes, suffixes, separators, and citation keys."
             (org-roam-organize-cite-display--clear-overlays begin end)
             (dolist (reference (org-cite-get-references citation))
               (condition-case nil
-                  (when-let* ((key (org-element-property :key reference))
+                  (when-let* ((key
+                               (org-element-property :key reference))
                               (title
-                               (org-roam-organize-cite-display--title key))
-                              (bounds (org-cite-key-boundaries reference)))
+                               (org-roam-organize-cite-display--title
+                                key))
+                              (bounds
+                               (org-cite-key-boundaries reference)))
                     (org-roam-organize-cite-display--make-overlay
                      (car bounds) (cdr bounds) title))
-                (error nil))))
+                (error
+                 nil))))
           (goto-char end)))
       t)))
 
@@ -237,10 +247,9 @@ orphaned when an Org buffer changes mode."
   (add-to-list 'org-font-lock-extra-keywords
                '(org-roam-organize-cite-display--activate)
                t)
-  (add-hook 'change-major-mode-hook
-            #'org-roam-organize-cite-display--clear
-            nil
-            t))
+  (add-hook
+   'change-major-mode-hook #'org-roam-organize-cite-display--clear
+   nil t))
 
 (defun org-roam-organize-cite-display--refresh-font-lock ()
   "Rebuild and refresh Org Font Lock in the current buffer.
@@ -302,9 +311,9 @@ repeatedly is safe and preserves source text and narrowing.
 Rationale: Global mode teardown must remove the local lifecycle hook itself,
 whereas `org-roam-organize-cite-display--clear' is also used by refresh and
 must keep that hook installed."
-  (remove-hook 'change-major-mode-hook
-               #'org-roam-organize-cite-display--clear
-               t)
+  (remove-hook
+   'change-major-mode-hook #'org-roam-organize-cite-display--clear
+   t)
   (org-roam-organize-cite-display--clear)
   nil)
 
@@ -362,8 +371,9 @@ integration rather than an optional interactive backend."
     (unless (car result)
       (user-error "Citation display capabilities are unavailable:\n%s"
                   (cdr result))))
-  (add-hook 'org-font-lock-set-keywords-hook
-            #'org-roam-organize-cite-display--font-lock-setup)
+  (add-hook
+   'org-font-lock-set-keywords-hook
+   #'org-roam-organize-cite-display--font-lock-setup)
   (org-roam-organize-cite-display--refresh-org-buffers)
   t)
 
@@ -376,8 +386,9 @@ Return nil.  Calling this function before setup or more than once is safe.
 
 Implementation notes: Cleanup uses the module's buffer-local ownership list
 and therefore leaves Org, Citar, and other packages' overlays untouched."
-  (remove-hook 'org-font-lock-set-keywords-hook
-               #'org-roam-organize-cite-display--font-lock-setup)
+  (remove-hook
+   'org-font-lock-set-keywords-hook
+   #'org-roam-organize-cite-display--font-lock-setup)
   (dolist (buffer (buffer-list))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer

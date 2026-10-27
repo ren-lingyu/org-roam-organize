@@ -67,55 +67,65 @@ needed."
   :init-value nil)
 
 ;; Hook.
-(add-hook 'org-roam-organize-mode-hook
-          (lambda ()
-            (if org-roam-organize-mode
-                (let* ((check_result
-                        (when (and (boundp 'org-roam-organize--variable-type-alist)
-                                   (boundp 'org-roam-organize--capability-alist))
-                          (org-roam-organize--check-setup))))
-                  (cond
-                   ((not (car check_result))
-                    (setq org-roam-organize-mode nil)
+(add-hook
+ 'org-roam-organize-mode-hook
+ (lambda ()
+   (if org-roam-organize-mode
+       (let* ((check_result
+               (when (and (boundp
+                           'org-roam-organize--variable-type-alist)
+                          (boundp
+                           'org-roam-organize--capability-alist))
+                 (org-roam-organize--check-setup))))
+         (cond
+          ((not (car check_result))
+           (setq org-roam-organize-mode nil)
+           (org-roam-organize--teardown-cite-backend)
+           (org-roam-organize--teardown-cite-integration)
+           (message
+            "%s"
+            (concat
+             "[WARNING] Org Roam Organize setup checks failed. "
+             "Org Roam Organize Mode setup failed.\n"
+             (format "%s\n" (car check_result))
+             (cdr check_result))))
+          (t
+           (condition-case err
+               (progn
+                 (unless (featurep 'org)
+                   (require 'org))
+                 (unless (featurep 'org-element)
+                   (require 'org-element))
+                 (unless (featurep 'ox)
+                   (require 'ox))
+                 (unless (featurep 'org-roam)
+                   (require 'org-roam))
+                 (unless (featurep 'cl-lib)
+                   (require 'cl-lib))
+                 (org-roam-organize--setup-cite-integration)
+                 ;; The citation backend is optional.  Its setup
+                 ;; failure must not undo successful core mode setup or
+                 ;; remove the core citation integration installed
+                 ;; above.
+                 (condition-case backend-err
+                     (org-roam-organize--setup-cite-backend
+                      (org-roam-organize--registry-cite-backend))
+                   (error
                     (org-roam-organize--teardown-cite-backend)
-                    (org-roam-organize--teardown-cite-integration)
-                    (message "%s" (concat
-                                   "[WARNING] Org Roam Organize setup checks failed. "
-                                   "Org Roam Organize Mode setup failed.\n"
-                                   (format "%s\n" (car check_result))
-                                   (cdr check_result))))
-                   (t
-                    (condition-case err
-                        (progn
-                          (unless (featurep 'org) (require 'org))
-                          (unless (featurep 'org-element) (require 'org-element))
-                          (unless (featurep 'ox) (require 'ox))
-                          (unless (featurep 'org-roam) (require 'org-roam))
-                          (unless (featurep 'cl-lib) (require 'cl-lib))
-                          (org-roam-organize--setup-cite-integration)
-                          ;; The citation backend is optional.  Its setup
-                          ;; failure must not undo successful core mode setup or
-                          ;; remove the core citation integration installed
-                          ;; above.
-                          (condition-case backend-err
-                              (org-roam-organize--setup-cite-backend
-                               (org-roam-organize--registry-cite-backend))
-                            (error
-                             (org-roam-organize--teardown-cite-backend)
-                             (message
-                              (concat
-                               "[WARNING] Citation backend was not installed: "
-                               "%s")
-                              (error-message-string backend-err)))))
-                      (error
-                       (org-roam-organize--teardown-cite-backend)
-                       (setq org-roam-organize-mode nil)
-                       (org-roam-organize--teardown-cite-integration)
-                       (message
-                        "[WARNING] Org Roam Organize Mode setup failed: %s"
-                        (error-message-string err)))))))
+                    (message
+                     (concat
+                      "[WARNING] Citation backend was not installed: "
+                      "%s")
+                     (error-message-string backend-err)))))
+             (error
               (org-roam-organize--teardown-cite-backend)
-              (org-roam-organize--teardown-cite-integration))))
+              (setq org-roam-organize-mode nil)
+              (org-roam-organize--teardown-cite-integration)
+              (message
+               "[WARNING] Org Roam Organize Mode setup failed: %s"
+               (error-message-string err)))))))
+     (org-roam-organize--teardown-cite-backend)
+     (org-roam-organize--teardown-cite-integration))))
 
 (provide 'org-roam-organize)
 ;;; org-roam-organize.el ends here

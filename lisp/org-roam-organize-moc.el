@@ -21,9 +21,11 @@ file nodes.  The SQL form is built with `vector' syntax for consistency with
 dynamic EmacSQL query construction."
   (caar
    (org-roam-db-query
-    (vector :select (vector 'n:id)
-            :from '(as nodes n)
-            :where '(and (= n:level 0) (= n:file $s1)))
+    (vector
+     :select (vector 'n:id)
+     :from '(as nodes n)
+     :where
+     '(and (= n:level 0) (= n:file $s1)))
     path)))
 
 (defun org-roam-organize--registry-tag-id-alist ()
@@ -33,18 +35,22 @@ Implementation notes: each registry record is resolved to its MOC path, then
 looked up in the Org-roam database.  The result cons keeps successful
 TAG . ID pairs in the car and unresolved records in the cdr so callers can
 distinguish partial failure from an empty registry."
-  (let (output missing-records)
+  (let (output
+        missing-records)
     (dolist (record org-roam-organize-registry)
       (let* ((tag (org-roam-organize--record-tag record))
-             (path (org-roam-organize--record-absolute-moc-path record))
-             (id (when path
-                   (org-roam-organize--moc-node-id-by-path path))))
+             (path
+              (org-roam-organize--record-absolute-moc-path record))
+             (id
+              (when path
+                (org-roam-organize--moc-node-id-by-path path))))
         (if (and tag id)
             (push (cons tag id) output)
           (push record missing-records))))
     (cons (nreverse output) (nreverse missing-records))))
 
-(defun org-roam-organize--moc-node-entry-line (id title &optional delete)
+(defun org-roam-organize--moc-node-entry-line
+    (id title &optional delete)
   "Return a MOC node entry line for ID, TITLE, and DELETE flag.
 
 Implementation notes: this is the MOC-specific wrapper around
@@ -52,10 +58,9 @@ Implementation notes: this is the MOC-specific wrapper around
 to `org-roam-organize--moc-node-keyword' and serializes the existing
 `:delete t' marker when requested."
   (org-roam-organize--id-link-keyword-entry-line
-   org-roam-organize--moc-node-keyword
-   id
-   title
-   (when delete " :delete t")))
+   org-roam-organize--moc-node-keyword id title
+   (when delete
+     " :delete t")))
 
 (defun org-roam-organize--moc-node-entry-delete-p (suffix)
   "Return non-nil if MOC node entry SUFFIX contains `:delete t'.
@@ -72,7 +77,8 @@ non-delete marker so malformed suffixes do not break MOC parsing."
               (push (car result) values)
               (setq start (cdr result))))
           (eq (plist-get (nreverse values) :delete) t))
-      (error nil))))
+      (error
+       nil))))
 
 (defun org-roam-organize--moc-parse-node-entry-value (value)
   "Parse a MOC node entry keyword VALUE.
@@ -86,8 +92,8 @@ of the MOC `:delete t' suffix."
   (org-roam-organize--parse-id-link-keyword-entry-value
    value
    (lambda (suffix)
-     (list :delete
-           (org-roam-organize--moc-node-entry-delete-p suffix)))))
+     (list
+      :delete (org-roam-organize--moc-node-entry-delete-p suffix)))))
 
 (defun org-roam-organize--moc-parse-node-entries ()
   "Parse MOC node entries in the current buffer.
@@ -102,8 +108,8 @@ suffix parsing."
   (org-roam-organize--parse-id-link-keyword-entries
    org-roam-organize--moc-node-keyword
    (lambda (suffix)
-     (list :delete
-           (org-roam-organize--moc-node-entry-delete-p suffix)))))
+     (list
+      :delete (org-roam-organize--moc-node-entry-delete-p suffix)))))
 
 (defun org-roam-organize--moc-managed-property-put (property value)
   "Set top-level MOC PROPERTY to VALUE in the current buffer.
@@ -126,15 +132,17 @@ drawer when found, or inserts a new property before `:END:'."
             (progn
               (goto-char (point-min))
               (insert ":PROPERTIES:\n:END:\n")
-              (org-roam-organize--moc-managed-property-put property value))
-          (if (re-search-forward
-               (format "^:%s:[ \t]*.*$" (regexp-quote property))
-               drawer-end t)
+              (org-roam-organize--moc-managed-property-put
+               property value))
+          (if (re-search-forward (format "^:%s:[ \t]*.*$"
+                                         (regexp-quote property))
+                                 drawer-end t)
               (replace-match (format ":%s: %s" property value) t t)
             (goto-char drawer-end)
             (insert (format ":%s: %s\n" property value))))))))
 
-(defun org-roam-organize--moc-update-managed-information (record nodes)
+(defun org-roam-organize--moc-update-managed-information
+    (record nodes)
   "Update managed information in RECORD's MOC file for NODES.
 
 Implementation notes: derived metadata is written after a successful sync.
@@ -145,8 +153,7 @@ properties are updated through the drawer helper, then the buffer is saved."
     (when (and path tag (file-exists-p path))
       (with-current-buffer (find-file-noselect path)
         (org-roam-organize--moc-managed-property-put
-         org-roam-organize-moc-managed-tag-property
-         tag)
+         org-roam-organize-moc-managed-tag-property tag)
         (org-roam-organize--moc-managed-property-put
          org-roam-organize-moc-managed-node-count-property
          (length nodes))
@@ -171,8 +178,8 @@ headline name, and MOC suffix handlers that preserve the existing
    nodes
    (org-roam-organize--record-inbox record)
    (lambda (suffix)
-     (list :delete
-           (org-roam-organize--moc-node-entry-delete-p suffix)))
+     (list
+      :delete (org-roam-organize--moc-node-entry-delete-p suffix)))
    (lambda (entry)
      (when (plist-get entry :delete)
        " :delete t"))
@@ -199,7 +206,8 @@ configuration or filesystem problem."
               (org-roam-organize--registry-moc-record))))
         (cond
          ((not file_path)
-          (message "Top MOC file path is not defined. Please check your configuration."))
+          (message
+           "Top MOC file path is not defined. Please check your configuration."))
          ((not (file-exists-p file_path))
           (message "Top MOC file not found at path: %s" file_path))
          (t
@@ -208,8 +216,11 @@ configuration or filesystem problem."
           ;; (display-line-numbers-mode 1)
           ;; (font-lock-mode 1)
           ;; (font-lock-fontify-buffer)
-          (message "[INFO] Opened Top MOC: %s" (file-name-nondirectory file_path)))))
-    (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
+          (message "[INFO] Opened Top MOC: %s"
+                   (file-name-nondirectory file_path)))))
+    (message
+     "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)"
+     org-roam-organize-mode)))
 
 ;; 创建缺失的 MOC 对应的 org-roam node
 ;;;###autoload
@@ -229,17 +240,25 @@ single immediate-finish template generated from the registry."
             (skipped-count 0)
             (failed-count 0))
         (dolist (record org-roam-organize-registry)
-          (let* ((path (org-roam-organize--record-absolute-moc-path record))
-                 (template (org-roam-organize--record-moc-capture-template record))
+          (let* ((path
+                  (org-roam-organize--record-absolute-moc-path
+                   record))
+                 (template
+                  (org-roam-organize--record-moc-capture-template
+                   record))
                  (tag (org-roam-organize--record-tag record))
-                 (request (org-roam-organize--moc-node-provider record)))
+                 (request
+                  (org-roam-organize--moc-node-provider record)))
             (cond
-             ((not (and path
-                        template
-                        tag
-                        (org-roam-organize--node-request-valid-p request)))
+             ((not
+               (and path
+                    template tag
+                    (org-roam-organize--node-request-valid-p
+                     request)))
               (setq failed-count (1+ failed-count))
-              (message "[WARNING] Cannot create MOC for registry record: %s" record))
+              (message
+               "[WARNING] Cannot create MOC for registry record: %s"
+               record))
              ((file-exists-p path)
               (setq skipped-count (1+ skipped-count))
               (message "[INFO] MOC already exists, skipped: %s" path))
@@ -250,9 +269,12 @@ single immediate-finish template generated from the registry."
                (plist-get request :info)
                '(:immediate-finish t))
               (setq created-count (1+ created-count))))))
-        (message "[INFO] Create missing MOCs: %s created, %s skipped, %s failed."
-                 created-count skipped-count failed-count))
-    (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
+        (message
+         "[INFO] Create missing MOCs: %s created, %s skipped, %s failed."
+         created-count skipped-count failed-count))
+    (message
+     "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)"
+     org-roam-organize-mode)))
 
 ;; 同步 MOC
 ;;;###autoload
@@ -276,28 +298,31 @@ clean runs only produce a summary message."
         (org-roam-db)
         (dolist (record org-roam-organize-registry)
           (let* ((tag (org-roam-organize--record-tag record))
-                 (nodes (and (stringp tag)
-                             (org-roam-organize--nodes-with-tag tag)))
-                 (result (when (stringp tag)
-                           (org-roam-organize--moc-sync-node-entries
-                            record
-                            (or nodes nil)))))
+                 (nodes
+                  (and (stringp tag)
+                       (org-roam-organize--nodes-with-tag tag)))
+                 (result
+                  (when (stringp tag)
+                    (org-roam-organize--moc-sync-node-entries
+                     record (or nodes nil)))))
             (cond
              ((not (and (stringp tag) result))
               (setq failed-count (1+ failed-count))
               (push
-               (format "[WARNING] Cannot sync MOC for registry record: %s"
-                       record)
+               (format
+                "[WARNING] Cannot sync MOC for registry record: %s"
+                record)
                report-lines))
              ((eq (plist-get result :status) 'failed)
               (setq failed-count (1+ failed-count))
               (push
-               (format "[WARNING] Cannot sync MOC for registry record: %s (%s)"
-                       record
-                       (plist-get result :reason))
+               (format
+                "[WARNING] Cannot sync MOC for registry record: %s (%s)"
+                record (plist-get result :reason))
                report-lines))
              (t
-              (org-roam-organize--moc-update-managed-information record nodes)
+              (org-roam-organize--moc-update-managed-information
+               record nodes)
               (setq synced-count (1+ synced-count))
               (setq duplicate-count
                     (+ duplicate-count
@@ -308,10 +333,15 @@ clean runs only produce a summary message."
               (setq malformed-count
                     (+ malformed-count
                        (length (plist-get result :malformed))))))))
-        (let ((summary
-               (format
-                "[INFO] Sync MOCs: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries."
-                synced-count failed-count duplicate-count removed-count malformed-count)))
+        (let
+            ((summary
+              (format
+               "[INFO] Sync MOCs: %s synced, %s failed, %s duplicate ids, %s removed entries, %s malformed entries."
+               synced-count
+               failed-count
+               duplicate-count
+               removed-count
+               malformed-count)))
           (if report-lines
               (progn
                 (org-roam-organize--display-report
@@ -319,10 +349,11 @@ clean runs only produce a summary message."
                  (append (nreverse report-lines) (list summary)))
                 (message "%s"
                          (org-roam-organize--report-notice
-                          'warning
-                          summary)))
+                          'warning summary)))
             (message "%s" summary))))
-    (message "[WARNING] This function is not valid, since org-roam-organize-mode = %s. " org-roam-organize-mode)))
+    (message
+     "[WARNING] This function is not valid, since org-roam-organize-mode = %s. "
+     org-roam-organize-mode)))
 
 
 (provide 'org-roam-organize-moc)

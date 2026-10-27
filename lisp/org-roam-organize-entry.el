@@ -65,31 +65,33 @@ is passed to SUFFIX-PARSER when provided."
     (org-mode)
     (let* ((ast (org-element-parse-buffer))
            link-result)
-      (org-element-map ast 'link
-        (lambda (link)
-          (unless link-result
-            (let ((prefix (buffer-substring-no-properties
-                           (point-min)
-                           (org-element-property :begin link))))
-              (when (and (org-roam-organize--blank-string-p prefix)
-                         (string= (org-element-property :type link) "id")
-                         (org-element-property :contents-begin link)
-                         (org-element-property :contents-end link))
-                (let* ((description
-                        (buffer-substring-no-properties
-                         (org-element-property :contents-begin link)
-                         (org-element-property :contents-end link)))
-                       (suffix
-                        (buffer-substring-no-properties
-                         (org-element-property :end link)
-                         (point-max))))
-                  (setq link-result
-                        (append
-                         (list
-                          :id (org-element-property :path link)
-                          :title description)
-                         (when suffix-parser
-                           (funcall suffix-parser suffix))))))))))
+      (org-element-map
+       ast 'link
+       (lambda (link)
+         (unless link-result
+           (let ((prefix
+                  (buffer-substring-no-properties
+                   (point-min) (org-element-property :begin link))))
+             (when (and (org-roam-organize--blank-string-p prefix)
+                        (string=
+                         (org-element-property :type link) "id")
+                        (org-element-property :contents-begin link)
+                        (org-element-property :contents-end link))
+               (let* ((description
+                       (buffer-substring-no-properties
+                        (org-element-property :contents-begin link)
+                        (org-element-property :contents-end link)))
+                      (suffix
+                       (buffer-substring-no-properties
+                        (org-element-property :end link)
+                        (point-max))))
+                 (setq link-result
+                       (append
+                        (list
+                         :id (org-element-property :path link)
+                         :title description)
+                        (when suffix-parser
+                          (funcall suffix-parser suffix))))))))))
       link-result)))
 
 (defun org-roam-organize--parse-id-link-keyword-entries
@@ -105,33 +107,34 @@ real keyword elements matching KEYWORD-NAME outside COMMENT context are
 considered.  Malformed lines are retained as strings for reporting, while
 legal entries carry buffer positions so sync can replace or remove them
 later."
-  (let (entries malformed)
-    (org-element-map (org-element-parse-buffer) 'keyword
-      (lambda (keyword)
-        (when (and (string= (org-element-property :key keyword)
-                            keyword-name)
-                   (not
-                    (org-roam-organize--element-commented-p keyword)))
-          (let* ((begin (org-element-property :begin keyword))
-                 (end (org-element-property :end keyword))
-                 (value (org-element-property :value keyword))
-                 (parsed
-                  (org-roam-organize--parse-id-link-keyword-entry-value
-                   value
-                   suffix-parser)))
-            (if parsed
-                (push (append parsed
-                              (list :begin begin
-                                    :end end))
-                      entries)
-              (push (buffer-substring-no-properties
-                     begin
-                     (save-excursion
-                       (goto-char begin)
-                       (line-end-position)))
-                    malformed))))))
-    (list :entries (nreverse entries)
-          :malformed (nreverse malformed))))
+  (let (entries
+        malformed)
+    (org-element-map
+     (org-element-parse-buffer) 'keyword
+     (lambda (keyword)
+       (when (and (string=
+                   (org-element-property :key keyword) keyword-name)
+                  (not
+                   (org-roam-organize--element-commented-p keyword)))
+         (let* ((begin (org-element-property :begin keyword))
+                (end (org-element-property :end keyword))
+                (value (org-element-property :value keyword))
+                (parsed
+                 (org-roam-organize--parse-id-link-keyword-entry-value
+                  value
+                  suffix-parser)))
+           (if parsed
+               (push
+                (append parsed (list :begin begin :end end)) entries)
+             (push (buffer-substring-no-properties
+                    begin
+                    (save-excursion
+                      (goto-char begin)
+                      (line-end-position)))
+                   malformed))))))
+    (list
+     :entries (nreverse entries)
+     :malformed (nreverse malformed))))
 
 (defun org-roam-organize--inbox-headline (name)
   "Return the top-level Inbox headline element named NAME in the current buffer.
@@ -141,15 +144,16 @@ non-commented level-1 headline whose raw title equals NAME.  Regex matching
 is avoided so source blocks, COMMENT subtrees, and nested headlines do not
 become false inboxes."
   (let (inbox)
-    (org-element-map (org-element-parse-buffer) 'headline
-      (lambda (headline)
-        (when (and (not inbox)
-                   (= (or (org-element-property :level headline) 0) 1)
-                   (string= (org-element-property :raw-value headline)
-                            name)
-                   (not
-                    (org-roam-organize--element-commented-p headline)))
-          (setq inbox headline))))
+    (org-element-map
+     (org-element-parse-buffer) 'headline
+     (lambda (headline)
+       (when (and (not inbox)
+                  (= (or (org-element-property :level headline) 0) 1)
+                  (string=
+                   (org-element-property :raw-value headline) name)
+                  (not
+                   (org-roam-organize--element-commented-p headline)))
+         (setq inbox headline))))
     inbox))
 
 (defun org-roam-organize--first-child-headline-begin (headline)
@@ -158,20 +162,20 @@ become false inboxes."
 Implementation notes: the child search is constrained to HEADLINE's parsed
 element tree.  The returned position lets insertion happen inside the Inbox
 section before nested child headings."
-  (let ((contents-begin (org-element-property :contents-begin headline))
+  (let ((contents-begin
+         (org-element-property :contents-begin headline))
         (end (org-element-property :end headline))
         child-begin)
     (when contents-begin
-      (org-element-map headline 'headline
-        (lambda (child)
-          (when (and (not child-begin)
-                     (> (org-element-property :begin child)
-                        (org-element-property :begin headline)))
-            (setq child-begin (org-element-property :begin child))))
-        nil nil nil)
-      (when (and child-begin
-                 end
-                 (< child-begin end))
+      (org-element-map
+       headline 'headline
+       (lambda (child)
+         (when (and (not child-begin)
+                    (> (org-element-property :begin child)
+                       (org-element-property :begin headline)))
+           (setq child-begin (org-element-property :begin child))))
+       nil nil nil)
+      (when (and child-begin end (< child-begin end))
         child-begin))))
 
 (defun org-roam-organize--inbox-insertion-point (name)
@@ -186,7 +190,8 @@ appended as a level-1 headline at the end of the file."
     (if inbox
         (let ((child-begin
                (org-roam-organize--first-child-headline-begin inbox))
-              (contents-begin (org-element-property :contents-begin inbox))
+              (contents-begin
+               (org-element-property :contents-begin inbox))
               (end (org-element-property :end inbox)))
           (goto-char (or child-begin contents-begin end))
           (unless (bolp)
@@ -199,8 +204,15 @@ appended as a level-1 headline at the end of the file."
       (point))))
 
 (defun org-roam-organize--sync-id-link-keyword-entries
-    (keyword-name path nodes inbox-name
-                  &optional suffix-parser suffix-builder record missing-reason)
+    (keyword-name
+     path
+     nodes
+     inbox-name
+     &optional
+     suffix-parser
+     suffix-builder
+     record
+     missing-reason)
   "Sync id-link KEYWORD-NAME entries at PATH from NODES.
 
 Existing legal entries keep their relative position.  Duplicate entries are
@@ -218,13 +230,16 @@ callers keep domain-specific failure messages while sharing the same sync
 implementation."
   (let ((node-table (make-hash-table :test 'equal))
         (seen-table (make-hash-table :test 'equal))
-        duplicate-ids removed-ids malformed-lines)
+        duplicate-ids
+        removed-ids
+        malformed-lines)
     (dolist (node nodes)
       (puthash (plist-get node :id) node node-table))
     (if (not (and path (file-exists-p path)))
-        (list :status 'failed
-              :record record
-              :reason (or missing-reason "Target file does not exist"))
+        (list
+         :status 'failed
+         :record record
+         :reason (or missing-reason "Target file does not exist"))
       (with-current-buffer (find-file-noselect path)
         (let* ((parse-result
                 (org-roam-organize--parse-id-link-keyword-entries
@@ -243,8 +258,8 @@ implementation."
               (goto-char (plist-get entry :begin))
               (if node
                   (progn
-                    (delete-region (plist-get entry :begin)
-                                   (plist-get entry :end))
+                    (delete-region
+                     (plist-get entry :begin) (plist-get entry :end))
                     (insert
                      (org-roam-organize--id-link-keyword-entry-line
                       keyword-name
@@ -253,8 +268,8 @@ implementation."
                       (when suffix-builder
                         (funcall suffix-builder entry)))))
                 (push id removed-ids)
-                (delete-region (plist-get entry :begin)
-                               (plist-get entry :end)))))
+                (delete-region
+                 (plist-get entry :begin) (plist-get entry :end)))))
           (let (missing-nodes)
             (dolist (node nodes)
               (unless (gethash (plist-get node :id) seen-table)
@@ -268,11 +283,12 @@ implementation."
                   (plist-get node :id)
                   (plist-get node :title)))))))
         (save-buffer)
-        (list :status 'ok
-              :record record
-              :duplicates (nreverse duplicate-ids)
-              :removed (nreverse removed-ids)
-              :malformed malformed-lines)))))
+        (list
+         :status 'ok
+         :record record
+         :duplicates (nreverse duplicate-ids)
+         :removed (nreverse removed-ids)
+         :malformed malformed-lines)))))
 
 (provide 'org-roam-organize-entry)
 ;;; org-roam-organize-entry.el ends here

@@ -21,8 +21,8 @@ limited to records that can produce a concrete path template."
    (lambda (record)
      (and (not (org-roam-organize--record-moc-p record))
           (stringp (org-roam-organize--record-directory record))))
-   (seq-filter #'org-roam-organize--plistp
-               org-roam-organize-registry)))
+   (seq-filter
+    #'org-roam-organize--plistp org-roam-organize-registry)))
 
 (defun org-roam-organize--read-node-record ()
   "Read and return a registry record for managed node creation.
@@ -34,10 +34,11 @@ is mapped back to the original registry plist."
          (alist
           (mapcar
            (lambda (record)
-             (cons (format "%s (%s)"
-                           (org-roam-organize--record-name record)
-                           (org-roam-organize--record-tag record))
-                   record))
+             (cons
+              (format "%s (%s)"
+                      (org-roam-organize--record-name record)
+                      (org-roam-organize--record-tag record))
+              record))
            records)))
     (when alist
       (let ((choice (completing-read "Node kind: " alist nil t)))
@@ -50,7 +51,10 @@ Implementation notes: the check delegates existence/type handling to
 `file-directory-p' and uses `directory-files-no-dot-files-regexp' so `.' and
 `..' do not count as contents."
   (and (file-directory-p directory)
-       (null (directory-files directory nil directory-files-no-dot-files-regexp))))
+       (null
+        (directory-files directory
+                         nil
+                         directory-files-no-dot-files-regexp))))
 
 (defun org-roam-organize--capture-delete-directory (directory aborted)
   "Clean capture-created DIRECTORY.
@@ -64,7 +68,8 @@ bundle root, not the final target file's parent.  Recursive deletion is
 guarded by `yes-or-no-p' and is never attempted in noninteractive sessions."
   (when (and (stringp directory)
              (org-roam-organize--path-inside-root-p
-              (file-relative-name directory org-roam-organize-directory))
+              (file-relative-name directory
+                                  org-roam-organize-directory))
              (file-directory-p directory))
     (cond
      ((org-roam-organize--empty-directory-p directory)
@@ -72,7 +77,8 @@ guarded by `yes-or-no-p' and is never attempted in noninteractive sessions."
      ((and aborted
            (not noninteractive)
            (yes-or-no-p
-            (format "Delete non-empty aborted capture bundle %s? " directory)))
+            (format "Delete non-empty aborted capture bundle %s? "
+                    directory)))
       (delete-directory directory t)))))
 
 (defun org-roam-organize--capture-target-file ()
@@ -83,37 +89,36 @@ variants and resolves each target path through
 `org-roam-capture--target-truepath'.  Non-file targets return nil because
 there is no parent directory to prepare."
   (pcase (org-roam-capture--get-target)
-    (`(file ,path)
-     (org-roam-capture--target-truepath path))
+    (`(file ,path) (org-roam-capture--target-truepath path))
     (`(file+head ,path ,_head)
      (org-roam-capture--target-truepath path))
-    (`(file+olp ,path ,_olp)
-     (org-roam-capture--target-truepath path))
+    (`(file+olp ,path ,_olp) (org-roam-capture--target-truepath path))
     (`(file+head+olp ,path ,_head ,_olp)
      (org-roam-capture--target-truepath path))
     (`(file+datetree ,path ,_tree-type)
      (org-roam-capture--target-truepath path))
     (_ nil)))
 
-(defun org-roam-organize--capture-target-bundle-directory (record target-file)
+(defun org-roam-organize--capture-target-bundle-directory
+    (record target-file)
   "Return RECORD's expanded bundle directory for TARGET-FILE.
 
 Implementation notes: TARGET-FILE must be an expanded Org file target inside
 RECORD's absolute directory with at least one bundle-id component below that
 directory.  The returned directory is `<directory>/<id>/'.  This function
 does not require the path inside the bundle to be flat."
-  (let* ((base-directory (org-roam-organize--record-absolute-directory record))
-         (target (and (stringp target-file)
-                      (expand-file-name target-file)))
-         (base (and base-directory
-                    (file-name-as-directory
-                     (expand-file-name base-directory)))))
+  (let* ((base-directory
+          (org-roam-organize--record-absolute-directory record))
+         (target
+          (and (stringp target-file) (expand-file-name target-file)))
+         (base
+          (and base-directory
+               (file-name-as-directory
+                (expand-file-name base-directory)))))
     (when (and target
-               base
-               (string-suffix-p ".org" target)
+               base (string-suffix-p ".org" target)
                (org-roam-organize--absolute-path-inside-directory-p
-                target
-                base))
+                target base))
       (let* ((relative (file-relative-name target base))
              (components (split-string relative "/" t))
              (bundle-id (car components))
@@ -122,14 +127,14 @@ does not require the path inside the bundle to be flat."
                    (expand-file-name
                     (file-name-as-directory bundle-id)
                     base))))
-        (when (and (>= (length components) 2)
-                   (not (org-roam-organize--blank-string-p bundle-id))
-                   (not (member bundle-id '("." "..")))
-                   bundle-directory
-                   (not (file-symlink-p bundle-directory))
-                   (org-roam-organize--absolute-path-inside-directory-p
-                    target
-                    bundle-directory))
+        (when (and
+               (>= (length components) 2)
+               (not (org-roam-organize--blank-string-p bundle-id))
+               (not (member bundle-id '("." "..")))
+               bundle-directory
+               (not (file-symlink-p bundle-directory))
+               (org-roam-organize--absolute-path-inside-directory-p
+                target bundle-directory))
           bundle-directory)))))
 
 (defun org-roam-organize--capture-create-target-directory (record)
@@ -143,16 +148,17 @@ to expand `${id}', `${slug}', and provider `:info' placeholders.  It returns
 the managed bundle root so the caller can clean that root later."
   (let* ((file (org-roam-organize--capture-target-file))
          (bundle-directory
-          (org-roam-organize--capture-target-bundle-directory record file))
+          (org-roam-organize--capture-target-bundle-directory
+           record file))
          (target-directory (and file (file-name-directory file))))
     (unless bundle-directory
-      (user-error "Managed node capture target escaped its bundle: %s" file))
+      (user-error "Managed node capture target escaped its bundle: %s"
+                  file))
     (unless (file-directory-p bundle-directory)
       (make-directory bundle-directory t))
     (when (and target-directory
                (org-roam-organize--absolute-path-inside-directory-p
-                target-directory
-                bundle-directory)
+                target-directory bundle-directory)
                (not (file-directory-p target-directory)))
       (make-directory target-directory t))
     bundle-directory))
@@ -197,46 +203,51 @@ interactive `org-roam-capture-' return as proof of successful finalization."
     (unless (or (null on-success) (functionp on-success))
       (user-error "Capture success callback must be a function"))
     (let ((node (org-roam-node-create :title title)))
-      (let (created-directory finalize-hook)
+      (let (created-directory
+            finalize-hook)
         (cl-labels
-            ((finalize ()
-               (remove-hook 'org-capture-after-finalize-hook finalize-hook)
-               (let ((aborted (org-roam-organize--capture-aborted-p)))
-                 (unwind-protect
-                     (when (and on-success (not aborted))
-                       (funcall on-success))
-                   (when created-directory
-                     (run-at-time
-                      0 nil
-                      #'org-roam-organize--capture-delete-directory
-                      created-directory
-                      aborted)))))
-             (create-parent-directory ()
-               (setq created-directory
-                     (org-roam-organize--capture-create-target-directory
-                      managed-record))
-               nil))
-          (setq finalize-hook #'finalize)
-          (when (or managed-record on-success)
-            (add-hook 'org-capture-after-finalize-hook finalize-hook t))
-          (let ((org-roam-capture-preface-hook
-                 (if managed-record
-                     (cons #'create-parent-directory
-                           org-roam-capture-preface-hook)
-                   org-roam-capture-preface-hook)))
-            (condition-case err
-                (org-roam-capture- :node node
-                                   :keys key
-                                   :info info
-                                   :props props
-                                   :templates (list template))
-              (error
-               (remove-hook 'org-capture-after-finalize-hook finalize-hook)
+         ((finalize
+           ()
+           (remove-hook
+            'org-capture-after-finalize-hook finalize-hook)
+           (let ((aborted (org-roam-organize--capture-aborted-p)))
+             (unwind-protect
+                 (when (and on-success (not aborted))
+                   (funcall on-success))
                (when created-directory
-                 (org-roam-organize--capture-delete-directory
-                  created-directory
-                  t))
-               (signal (car err) (cdr err))))))))))
+                 (run-at-time
+                  0 nil #'org-roam-organize--capture-delete-directory
+                  created-directory aborted)))))
+          (create-parent-directory
+           ()
+           (setq created-directory
+                 (org-roam-organize--capture-create-target-directory
+                  managed-record))
+           nil))
+         (setq finalize-hook #'finalize)
+         (when (or managed-record on-success)
+           (add-hook 'org-capture-after-finalize-hook finalize-hook
+                     t))
+         (let ((org-roam-capture-preface-hook
+                (if managed-record
+                    (cons
+                     #'create-parent-directory
+                     org-roam-capture-preface-hook)
+                  org-roam-capture-preface-hook)))
+           (condition-case err
+               (org-roam-capture-
+                :node node
+                :keys key
+                :info info
+                :props props
+                :templates (list template))
+             (error
+              (remove-hook
+               'org-capture-after-finalize-hook finalize-hook)
+              (when created-directory
+                (org-roam-organize--capture-delete-directory
+                 created-directory t))
+              (signal (car err) (cdr err))))))))))
 
 (defun org-roam-organize--moc-node-provider (record)
   "Return RECORD's MOC node creation request.
@@ -253,8 +264,7 @@ continue to receive the same dynamic value."
   (let ((title (org-roam-organize--record-moc-title record))
         (tag (org-roam-organize--record-tag record)))
     (when (stringp title)
-      (list :title title
-            :info `(:moc_managed_tag ,tag)))))
+      (list :title title :info `(:moc_managed_tag ,tag)))))
 
 (defun org-roam-organize--record-node-capture-template (record)
   "Return a managed node capture template for RECORD.
@@ -265,13 +275,13 @@ the template globally; callers pass it directly to `org-roam-capture-'."
   (let ((path (org-roam-organize--record-node-path-template record))
         (head (org-roam-organize--record-node-head record)))
     (when (and (stringp path) (stringp head))
-      (list org-roam-organize--node-capture-key
-            (format "%s node" (org-roam-organize--record-name record))
-            'plain
-            "%?"
-            :target
-            (list 'file+head path head)
-            :unnarrowed t))))
+      (list
+       org-roam-organize--node-capture-key
+       (format "%s node" (org-roam-organize--record-name record))
+       'plain
+       "%?"
+       :target (list 'file+head path head)
+       :unnarrowed t))))
 
 (defun org-roam-organize--record-moc-capture-template (record)
   "Return a MOC capture template for RECORD.
@@ -282,13 +292,13 @@ node relative path template."
   (let ((path (org-roam-organize--record-absolute-moc-path record))
         (head (org-roam-organize--record-moc-head record)))
     (when (and (stringp path) (stringp head))
-      (list org-roam-organize--moc-capture-key
-            "map of contents"
-            'plain
-            "%?"
-            :target
-            (list 'file+head path head)
-            :unnarrowed t))))
+      (list
+       org-roam-organize--moc-capture-key
+       "map of contents"
+       'plain
+       "%?"
+       :target (list 'file+head path head)
+       :unnarrowed t))))
 
 ;; 创建目录
 ;;;###autoload
@@ -303,8 +313,9 @@ skipped; missing directories are created recursively."
   (let ((dir_list
          (cons
           org-roam-organize-directory
-          (mapcar #'org-roam-organize--record-absolute-directory
-                  (org-roam-organize--registry-basic-records)))))
+          (mapcar
+           #'org-roam-organize--record-absolute-directory
+           (org-roam-organize--registry-basic-records)))))
     (dolist (dir dir_list)
       (unless (or (not dir) (file-exists-p dir))
         (make-directory dir t)))))
@@ -334,29 +345,43 @@ an after-finalize hook to clean only that bundle root."
   (if org-roam-organize-mode
       (let ((record (org-roam-organize--read-node-record)))
         (if (not record)
-            (message "[WARNING] No registry record can create managed nodes.")
-          (let* ((provider (org-roam-organize--record-provider record))
-                 (request (when (functionp provider)
-                            (funcall provider record)))
-                 (template (org-roam-organize--record-node-capture-template record))
+            (message
+             "[WARNING] No registry record can create managed nodes.")
+          (let* ((provider
+                  (org-roam-organize--record-provider record))
+                 (request
+                  (when (functionp provider)
+                    (funcall provider record)))
+                 (template
+                  (org-roam-organize--record-node-capture-template
+                   record))
                  (key (car-safe template)))
             (cond
              ((not (functionp provider))
-              (message "[WARNING] Invalid node provider for registry record: %s" record))
+              (message
+               "[WARNING] Invalid node provider for registry record: %s"
+               record))
              ((null request)
               (message "[INFO] Node creation canceled."))
              ((not (org-roam-organize--node-request-valid-p request))
-              (message "[WARNING] Invalid node creation request: %s" request))
+              (message "[WARNING] Invalid node creation request: %s"
+                       request))
              ((not (and template key))
-              (message "[WARNING] Cannot create node for registry record: %s" record))
+              (message
+               "[WARNING] Cannot create node for registry record: %s"
+               record))
              (t
-              (org-roam-organize--capture-node
-               (plist-get request :title)
-               template
-               (plist-get request :info)
-               nil
-               record))))))
-    (message "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)" org-roam-organize-mode)))
+              (org-roam-organize--capture-node (plist-get
+                                                request
+                                                :title)
+                                               template
+                                               (plist-get
+                                                request
+                                                :info)
+                                               nil record))))))
+    (message
+     "[WARNING] This function requires org-roam-organize-mode to be enabled (current value: %s)"
+     org-roam-organize-mode)))
 
 
 (provide 'org-roam-organize-capture)

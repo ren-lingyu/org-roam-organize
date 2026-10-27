@@ -16,18 +16,20 @@
 (defvar org-roam-organize-mode)
 
 (declare-function org-cite-bibliography-style "oc" (info))
-(declare-function org-cite-biblatex--package-options
-                  "oc-biblatex" (initial style))
-(declare-function org-export-derived-backend-p "ox" (backend &rest backends))
+(declare-function org-cite-biblatex--package-options "oc-biblatex"
+                  (initial style))
+(declare-function org-export-derived-backend-p "ox"
+                  (backend &rest backends))
 
 (defvar org-cite-biblatex-options)
 
 (defconst org-roam-organize-cite-biblatex--package-regexp
-  (rx "\\"
-      (or "usepackage" "RequirePackage")
-      (opt "[" (*? nonl) "]")
-      (* blank)
-      "{biblatex}")
+  (rx
+   "\\"
+   (or "usepackage" "RequirePackage")
+   (opt "[" (*? nonl) "]")
+   (* blank)
+   "{biblatex}")
   "The regexp matches a direct BibLaTeX package declaration.
 
 Both LaTeX document declarations and package-level declarations are accepted.
@@ -51,7 +53,8 @@ in the Org-roam Organize registry."
   (and (org-export-derived-backend-p backend 'latex)
        (eq (car-safe (plist-get info :cite-export)) 'biblatex)))
 
-(defun org-roam-organize-cite-biblatex--managed-bibliography-present-p (files)
+(defun org-roam-organize-cite-biblatex--managed-bibliography-present-p
+    (files)
   "Return non-nil when FILES contains a managed bibliography.
 
 FILES is the bibliography list stored in the Org export communication
@@ -119,42 +122,50 @@ Rationale: Some Org Cite versions export BibLaTeX citation commands while
 registering no finalizer.  An output-based, idempotent fallback repairs that
 narrow gap and automatically becomes a no-op when upstream emits the expected
 metadata."
-  (if (not (and org-roam-organize-mode
-                (org-roam-organize-cite-biblatex--export-p backend info)))
+  (if (not
+       (and org-roam-organize-mode
+            (org-roam-organize-cite-biblatex--export-p backend info)))
       output
     (let ((files (plist-get info :bibliography)))
-      (if (not (and files
-                    (org-roam-organize-cite-biblatex--managed-bibliography-present-p
-                     files)))
+      (if (not
+           (and
+            files
+            (org-roam-organize-cite-biblatex--managed-bibliography-present-p
+             files)))
           output
-        (let* ((missing-files
-                (seq-filter
-                 (lambda (file)
-                   (not
-                    (string-search
-                     (org-roam-organize-cite-biblatex--resource-declaration file)
-                     output)))
-                 files))
-               (document-position
-                (and missing-files
-                     (string-search "\\begin{document}" output))))
+        (let*
+            ((missing-files
+              (seq-filter
+               (lambda (file)
+                 (not
+                  (string-search
+                   (org-roam-organize-cite-biblatex--resource-declaration
+                    file)
+                   output)))
+               files))
+             (document-position
+              (and missing-files
+                   (string-search "\\begin{document}" output))))
           (if (not document-position)
               output
-            (let ((metadata
-                   (concat
-                    (unless
-                        (string-match-p
-                         org-roam-organize-cite-biblatex--package-regexp
-                         output)
-                      (org-roam-organize-cite-biblatex--package-declaration info))
-                    (mapconcat
-                     #'org-roam-organize-cite-biblatex--resource-declaration
-                     missing-files
-                     "\n")
-                    "\n")))
-              (concat (substring output 0 document-position)
-                      metadata
-                      (substring output document-position)))))))))
+            (let
+                ((metadata
+                  (concat
+                   (unless
+                       (string-match-p
+                        org-roam-organize-cite-biblatex--package-regexp
+                        output)
+                     (org-roam-organize-cite-biblatex--package-declaration
+                      info))
+                   (mapconcat
+                    #'org-roam-organize-cite-biblatex--resource-declaration
+                    missing-files
+                    "\n")
+                   "\n")))
+              (concat
+               (substring output 0 document-position)
+               metadata
+               (substring output document-position)))))))))
 
 (defun org-roam-organize-cite-biblatex--setup ()
   "Install the BibLaTeX final-output compatibility filter.
@@ -165,16 +176,18 @@ The filter guards its behavior with `org-roam-organize-mode'.
 Implementation notes: `org-roam-organize--setup-cite-integration' owns this
 function's lifecycle and calls the matching teardown function during mode
 disable or setup rollback."
-  (add-hook 'org-export-filter-final-output-functions
-            #'org-roam-organize-cite-biblatex--filter-final-output)
+  (add-hook
+   'org-export-filter-final-output-functions
+   #'org-roam-organize-cite-biblatex--filter-final-output)
   t)
 
 (defun org-roam-organize-cite-biblatex--teardown ()
   "Remove the BibLaTeX final-output compatibility filter.
 
 Return nil.  Calling this function when the filter is absent is safe."
-  (remove-hook 'org-export-filter-final-output-functions
-               #'org-roam-organize-cite-biblatex--filter-final-output)
+  (remove-hook
+   'org-export-filter-final-output-functions
+   #'org-roam-organize-cite-biblatex--filter-final-output)
   nil)
 
 (provide 'org-roam-organize-cite-biblatex)

@@ -1,27 +1,36 @@
-{ pkgs, mkEmacs } : let
+{ pkgs, mkEmacs }:
+let
 
-  mkErtCheck = {
-    name,
-    testFile,
-    extraPackages ? (_ : [ ]),
-  } : let
-    emacs = mkEmacs extraPackages;
-  in pkgs.runCommand name {
-    nativeBuildInputs = [
-      emacs
-      pkgs.guile
-    ];
-  } (pkgs.replaceVarsWith {
-    src = ./run.scm;
-    isExecutable = true;
-    replacements = {
-      guile = pkgs.lib.getExe pkgs.guile;
-      emacs = pkgs.lib.getExe' emacs "emacs";
-      testFile = "${testFile}";
-    };
-  });
+  mkErtCheck =
+    {
+      name,
+      testFile,
+      extraPackages ? (_: [ ]),
+    }:
+    let
+      emacs = mkEmacs extraPackages;
+    in
+    pkgs.runCommand name
+      {
+        nativeBuildInputs = [
+          emacs
+          pkgs.guile
+        ];
+      }
+      (
+        pkgs.replaceVarsWith {
+          src = ./run.scm;
+          isExecutable = true;
+          replacements = {
+            guile = pkgs.lib.getExe pkgs.guile;
+            emacs = pkgs.lib.getExe' emacs "emacs";
+            testFile = "${testFile}";
+          };
+        }
+      );
 
-in {
+in
+{
 
   ert = mkErtCheck {
     name = "org-roam-organize-ert";
@@ -31,9 +40,7 @@ in {
   ert-cite-citar = mkErtCheck {
     name = "org-roam-organize-cite-citar-ert";
     testFile = ./cite-citar.el;
-    extraPackages = ps_ : [
-      ps_.citar
-    ];
+    extraPackages = ps_: [ ps_.citar ];
   };
 
   ert-cite-biblatex = mkErtCheck {
