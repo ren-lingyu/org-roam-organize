@@ -32,11 +32,30 @@ The preface hook creates directories only after placeholders expand. Cleanup tra
 
 ## Testing architecture
 
-The root flake explicitly includes the nine package Lisp modules, README and license in its source fileset and builds the installed package with Emacs 31 and declared Org/Org-roam dependencies. Compilation warnings are errors. Tests receive explicit source and Emacs inputs; they do not assume a parent-repository layout or derive the main filename from pname.
+The root flake uses the personal-nixpkgs framework with a source fileset rooted
+at `lisp/`. `pkgs/` contains package.nix/overlay.nix pairs discovered through
+packages.mkOverlays. The library uses melpaBuild, v0.7.0 metadata, Org and Org-roam
+dependencies and compilation warnings as errors. The wrapper uses default Emacs;
+the user rejected selecting Emacs 31 in the flake. Named library and Emacs wrapper
+package outputs are declared; the final migration commit removes the explicit
+default package declaration. The final flake-check output lists only the named
+library and Emacs wrapper; README still incorrectly claims the default remains. README's straight recipe selects lisp/*.el.
 
-ERT suites cover core, cite-citar, cite-biblatex and cite-display with real dependencies, temporary databases and targeted mocks. Package modules declare package-lint-main-file in their file-local metadata. The lint runner recursively supplies every .el file in the filtered package source, not only the metadata-bearing entry file.
+Tests are discovered through tests.mkChecks and test-overlay.nix, with test.nix
+per leaf. Core ERT is under tests/ert; citation suites have separate ert-cite-*
+directories. Existing check attributes remain unchanged. Tests use real
+dependencies, temporary databases and targeted mocks. Citar is added only to its
+suite. Package modules declare package-lint-main-file; lint recursively checks
+all packaged Elisp files and gets the explicit source working directory/load-path.
 
-Nix replaceVarsWith creates executable Guile runners with explicit interpreter, Emacs, test-file or source replacements. Guile system* passes an argument list, isolates HOME under the build temporary directory, propagates failure and creates the output marker only after success. Lint receives source explicitly for working directory/load-path and file discovery. Scheme test files are tracked through the ignore whitelist. Nixpkgs follows unstable; lock refreshes are dependency maintenance, not separate application capabilities.
+The ERT builder and Guile runner are shared under tests/support. replaceVarsWith
+creates executable runners with explicit Guile, Emacs and test/source inputs.
+Test-file interpolation retains Nix dependency context; toString on the path does
+not. Guile system* passes argument lists, isolates HOME under the build temporary
+directory, propagates failures and creates the output marker only after success.
+Scheme files are whitelisted by Git ignore rules. Treefmt is included in checks.
+Nixpkgs follows unstable; lock refreshes are dependency maintenance.
+
 
 ## Citation model
 
