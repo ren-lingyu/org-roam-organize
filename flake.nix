@@ -5,14 +5,14 @@
   inputs = {
     nixpkgs = {
       url = "git+https://github.com/NixOS/nixpkgs.git?ref=refs/heads/nixpkgs-unstable&shallow=1";
-      # url = "github:NixOS/nixpkgs/94a9730314351929f8e4ca5dd28d461f87e7ba76";
     };
-    flake-parts = {
-      url = "git+https://github.com/hercules-ci/flake-parts.git?ref=refs/heads/main&shallow=1";
+    personal-nixpkgs = {
+      url = "git+https://github.com/ren-lingyu/nixpkgs.git?ref=refs/heads/main&shallow=1";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, ... }@inputs : inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = { self, ... }@inputs : inputs.personal-nixpkgs.lib.mkFlake inputs.nixpkgs ({ lib }: { inherit inputs; moduleLocation = __curPos.file; }) {
 
     systems = inputs.nixpkgs.lib.systems.flakeExposed;
 
@@ -70,6 +70,16 @@
             ]))
           ];
         };
+      };
+
+      treefmt = {
+        flakeCheck = false;
+        settings.excludes = [
+          ".gitignore"
+          "LICENSE"
+          "README.org"
+          "flake.lock"
+        ];
       };
 
     };
