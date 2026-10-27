@@ -76,7 +76,7 @@
             };
 
             treefmt = {
-              flakeCheck = false;
+              flakeCheck = true;
               settings.excludes = [
                 ".gitignore"
                 "LICENSE"
