@@ -15,8 +15,8 @@
 !/flake.lock
 !/flake.nix
 
-!/org-roam-organize-*.el
-!/org-roam-organize.el
+!/lisp/
+!/lisp/org-roam-organize*.el
 
 !/tests/
 !/tests/**/
