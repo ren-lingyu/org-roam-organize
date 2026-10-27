@@ -223,7 +223,7 @@ The list is appended to `org-roam-organize--capability-alist' only when the
 unique citation registry record sets `:bibliography t'.")
 
 (defconst org-roam-organize--record-name-regexp
-  (rx string-start (+ (any "A-Za-z0-9_-")) string-end)
+  (rx string-start (+ (in "A-Za-z0-9_-")) string-end)
   "Regexp matching a safe Org-roam Organize registry record name.")
 
 (defconst org-roam-organize--moc-capture-key "m"
