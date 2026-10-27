@@ -1,19 +1,22 @@
 *
 */
 
-!/README.org
-!/.gitignore
-!/.gitsubmodules
-!/LICENSE
-!/flake.nix
-!/flake.lock
-
-!/org-roam-organize.el
-!/org-roam-organize-*.el
-
 !/.github/
 !/.github/**/
 !/.github/**/*.yaml
+
+!/.gitignore
+!/.gitsubmodules
+
+!/LICENSE
+
+!/README.org
+
+!/flake.lock
+!/flake.nix
+
+!/org-roam-organize-*.el
+!/org-roam-organize.el
 
 !/tests/
 !/tests/**/
