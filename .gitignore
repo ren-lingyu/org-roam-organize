@@ -18,6 +18,10 @@
 !/lisp/
 !/lisp/org-roam-organize*.el
 
+!/pkgs/
+!/pkgs/**/
+!/pkgs/**/*.nix
+
 !/tests/
 !/tests/**/
 !/tests/**/*.el

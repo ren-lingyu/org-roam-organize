@@ -1,11 +1,8 @@
 {
-
   description = "Emacs package: org-roam-organize";
 
   inputs = {
-    nixpkgs = {
-      url = "git+https://github.com/NixOS/nixpkgs.git?ref=refs/heads/nixpkgs-unstable&shallow=1";
-    };
+    nixpkgs.url = "git+https://github.com/NixOS/nixpkgs.git?ref=refs/heads/nixpkgs-unstable&shallow=1";
     personal-nixpkgs = {
       url = "git+https://github.com/ren-lingyu/nixpkgs.git?ref=refs/heads/main&shallow=1";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -15,62 +12,56 @@
   outputs =
     { self, ... }@inputs:
     inputs.personal-nixpkgs.lib.mkFlake inputs.nixpkgs
-      ({ lib }: {
+      ({ lib }: rec {
         inherit inputs;
         moduleLocation = __curPos.file;
+        llib = inputs.personal-nixpkgs.lib;
+        lpkgs = import ./pkgs {
+          inherit llib;
+          inherit (specialArgs) src;
+        };
+        specialArgs.src = lib.fileset.toSource {
+          root = ./lisp;
+          fileset = ./lisp;
+        };
       })
-      {
+      (
+        {
+          src,
+          llib,
+          lpkgs,
+          ...
+        }:
+        {
+          systems = inputs.nixpkgs.lib.systems.flakeExposed;
 
-        systems = inputs.nixpkgs.lib.systems.flakeExposed;
+          flake = {
+            overlays = { inherit (lpkgs.overlays) emacsPackages; };
+          };
 
-        perSystem =
-          { config, pkgs, ... }:
-          let
+          perSystem = { pkgs, ... }: {
+            nixpkgs.overlays = [ lpkgs.overlays.legacy ];
 
-            source = pkgs.lib.fileset.toSource {
-              root = ./lisp;
-              fileset = pkgs.lib.fileset.unions [ ./lisp ];
-            };
-
-            emacsPackages = pkgs.emacsPackagesFor pkgs.emacs31;
-
-            mkEmacs =
-              selectPackages:
-              emacsPackages.emacsWithPackages (
-                ps_:
-                (builtins.concatLists [
-                  (selectPackages ps_)
-                  [ config.packages.default ]
-                ])
-              );
-
-          in
-          {
+            legacyPackages = pkgs.legacyPackages;
 
             packages = {
-              default = emacsPackages.trivialBuild {
-                pname = "org-roam-organize";
-                version = "0.7.0";
-                src = source;
-                packageRequires = [
-                  emacsPackages.org
-                  emacsPackages.org-roam
-                ];
-                turnCompilationWarningToError = true;
-              };
+              org-roam-organize = pkgs.emacsPackages.org-roam-organize;
+              emacs = pkgs.emacs-with-org-roam-organize;
             };
 
-            checks = import ./tests { inherit pkgs source mkEmacs; };
+            checks = import ./tests {
+              inherit src pkgs llib;
+              emacs = pkgs.emacs-with-org-roam-organize;
+            };
 
             devShells = {
               default = pkgs.mkShell {
                 packages = [
-                  (mkEmacs (
-                    ps_: with ps_; [
-                      package-lint
-                      citar
-                    ]
-                  ))
+                  (pkgs.emacsPackages.emacsWithPackages (ps: [
+                    ps.org-roam-organize
+                    ps.package-lint
+                    ps.citar
+                  ]))
                 ];
               };
             };
@@ -84,9 +75,7 @@
                 "flake.lock"
               ];
             };
-
           };
-
-      };
-
+        }
+      );
 }

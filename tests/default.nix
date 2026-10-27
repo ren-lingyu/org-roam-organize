@@ -1,12 +1,22 @@
 {
+  src,
   pkgs,
-  source,
-  mkEmacs,
+  llib,
+  emacs,
 }:
-
-(import ./ert { inherit pkgs mkEmacs; })
-// {
-
-  package-lint = import ./package-lint { inherit pkgs source mkEmacs; };
-
+llib.tests.mkChecks {
+  root = ./.;
+  overlayFile = "test-overlay.nix";
+  separator = "-";
+  args = {
+    inherit (pkgs)
+      lib
+      runCommand
+      guile
+      replaceVarsWith
+      emacsPackages
+      ;
+    inherit src emacs;
+    testSupport = import ./support;
+  };
 }

@@ -7,29 +7,27 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
 * Repository Structure
 #+BEGIN_SRC text
   .
-  ├── org-roam-organize.el
-  ├── org-roam-organize-core.el
-  ├── org-roam-organize-capture.el
-  ├── org-roam-organize-entry.el
-  ├── org-roam-organize-moc.el
-  ├── org-roam-organize-cite.el
-  ├── org-roam-organize-cite-biblatex.el
-  ├── org-roam-organize-cite-display.el
-  ├── org-roam-organize-cite-citar.el
+  ├── lisp/                         # Package Lisp modules
+  ├── pkgs/
+  │   ├── default.nix                # Package overlay discovery
+  │   ├── emacsPackages/org-roam-organize/
+  │   │   ├── package.nix
+  │   │   └── overlay.nix
+  │   └── emacs-with-org-roam-organize/
+  │       ├── package.nix
+  │       └── overlay.nix
   ├── README.org
   ├── LICENSE
   ├── flake.nix
   ├── flake.lock
   └── tests/
-      ├── default.nix
-      ├── ert/
-      │   ├── default.nix
-      │   ├── cite-biblatex.el
-      │   ├── cite-display.el
-      │   ├── cite-citar.el
-      │   └── ert.el
+      ├── default.nix                # Check overlay discovery
+      ├── support/                   # Shared ERT builder and Guile runner
+      ├── ert/                       # Core suite
+      ├── ert-cite-biblatex/
+      ├── ert-cite-display/
+      ├── ert-cite-citar/
       └── package-lint/
-          └── default.nix
 #+END_SRC
 
 Key conventions:
@@ -43,9 +41,11 @@ Key conventions:
 - =org-roam-organize-cite-display.el= is the backend-independent managed citation presentation layer.
 - =org-roam-organize-cite-citar.el= is the optional Citar adapter loaded only when its backend is enabled.
 - =org-roam-organize-cite-biblatex.el= is the managed bibliography compatibility layer for BibLaTeX export.
-- =flake.nix= defines the package build, development shell, ERT checks, and package-lint check.
-- =tests/ert/= contains separate core, citation display, Citar adapter, and BibLaTeX compatibility suites.
-- =tests/package-lint/default.nix= runs package-lint against the packaged Elisp source.
+- Package Lisp modules live under =lisp/=. The module filenames above are relative to that directory.
+- =pkgs/= defines the MELPA package and an Emacs wrapper through =package.nix= and =overlay.nix= pairs.
+- =flake.nix= wires package overlays, development shells, checks, and formatting through the personal-nixpkgs framework. The default package remains Org-roam Organize; named =org-roam-organize= and =emacs= packages are also available.
+- Each test directory uses =test.nix= and =test-overlay.nix=. The four ERT suites use the shared Guile runner under =tests/support/=. Only the Citar suite adds Citar to its test environment.
+- =tests/package-lint/test.nix= runs package-lint against every Elisp file in the packaged source.
 
 * Breaking Changes and Migration
 The source layout and citation integration namespaces have changed without
@@ -248,7 +248,8 @@ Commands that produce detailed diagnostics use the =*Org-roam Organize Report*= 
 An example of configuration is shown here.
 #+BEGIN_SRC emacs-lisp
   (use-package org-roam-organize
-    :straight (:host github :repo "ren-lingyu/org-roam-organize")
+    :straight (:host github :repo "ren-lingyu/org-roam-organize"
+               :files ("lisp/*.el"))
     :after org-roam
     :custom
     (org-roam-organize-directory org-roam-directory)
@@ -432,7 +433,7 @@ The mode includes a startup hook that validates setup when the mode is enabled.
 * Tests
 The repository provides separate Nix checks for the core, citation display,
 Citar adapter, and BibLaTeX compatibility ERT suites, plus package-lint;
-=nix flake check= also evaluates the package build:
+=nix flake check= also evaluates the package build and runs the treefmt check:
 
 #+BEGIN_SRC sh
   nix flake check
