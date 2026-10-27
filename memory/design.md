@@ -39,7 +39,11 @@ dependencies and compilation warnings as errors. The wrapper uses default Emacs;
 the user rejected selecting Emacs 31 in the flake. Named library and Emacs wrapper
 package outputs are declared; the final migration commit removes the explicit
 default package declaration. The final flake-check output lists only the named
-library and Emacs wrapper; README still incorrectly claims the default remains. README's straight recipe selects lisp/*.el.
+library and Emacs wrapper. README now documents explicit named-package builds.
+Its straight recipe selects lisp/*.el. The configuration example has balanced
+registry syntax and the standard use-package after-init hook spelling. The
+provider example adds a record to a valid registry rather than removing its
+required MOC record.
 
 Tests are discovered through tests.mkChecks and test-overlay.nix, with test.nix
 per leaf. Core ERT is under tests/ert; citation suites have separate ert-cite-*

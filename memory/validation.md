@@ -81,3 +81,23 @@ worktree on x86_64-linux. This supports the final state separately from the
 agent-tested candidate. Its package output lists only the two named packages;
 README's default-package claim needs a later correction. The project-parent
 association identifies the inspected final snapshot.
+
+
+## README alignment audit
+
+The later README task used committed HEAD as its factual baseline and excluded
+an independent unstaged flake.nix edit. The audit read the full README, inspected
+its documented layout and package/test wiring, and checked public function,
+registry, capture and citation claims against committed source. Corrections
+cover named package outputs without a default, suite directory conventions,
+the exactly-one-MOC requirement, the provider example preserving the existing
+registry, and the main use-package example's closing parenthesis and hook name.
+The hook spelling follows the official use-package Hooks manual at
+https://www.gnu.org/software/emacs/manual/html_node/use-package/Hooks.html.
+
+Read-only checks confirmed balanced delimiters in all nine Elisp blocks and the
+existence of all nine referenced package functions at HEAD; git diff --check
+passed. No example evaluation, build, test or formatter was run. The user
+authorized staging only README.org and committed it; the new checkpoint parent
+identifies that exact committed documentation snapshot. The earlier note about
+README's stale default-package claim is superseded by this correction.

@@ -1,12 +1,13 @@
-# Org-roam Organize: Package and test migration
+# Org-roam Organize: README aligned with committed package layout
 
 ## Current state
 
-The user authorized completing the in-progress `pkgs/` migration and normalizing
-`tests/`, referencing sibling `org-texmacs`. Sources were already under `lisp/`.
-The user committed the migration as `build(nix): migrate packages and checks to
-framework overlays`. The inspected ordinary worktree is clean. The agent did not
-stage or commit ordinary-project files.
+The user requested a README audit against HEAD, authorized necessary README
+edits and then explicitly authorized staging README.org. The user committed the
+result as `docs(readme): align package outputs and configuration examples`.
+Only README changed in that commit. An independent unstaged flake.nix change
+narrows llib to the framework's tests/packages exports; it was excluded from
+this HEAD-based audit and remains untouched. No implementation work is pending.
 
 The root flake provides the lisp fileset through `specialArgs.src`, discovers
 package overlays through `packages.mkOverlays`, exports the Emacs package overlay
@@ -42,21 +43,34 @@ An initial attempt failed because toString on testFile lost Nix input dependency
 context. Interpolating the test path fixed it; subsequent checks passed. The
 formatter was run via the explicit formatter.x86_64-linux output with filesystem
 walking, since Git walking ignores the validation copy. The copy remains in tmp.
-No lock update, ordinary staging or ordinary commit was performed by the agent.
+During the package migration, no lock update, ordinary staging or ordinary
+commit was performed by the agent. README staging in the later audit was
+explicitly authorized; the user performed the ordinary commit.
 After committing, the user supplied successful `nix flake check` output (exit 0)
 on the final clean worktree, confirming the final flake on x86_64-linux. Its
-package output lists only the named library and Emacs wrapper. README still
-claims a default package remains, which needs a later documentation correction. No ordinary-project fix is authorized by the checkpoint task.
-No additional implementation task is specified.
+package output lists only the named library and Emacs wrapper.
+
+The subsequent README audit corrected the default-package claim, documented
+explicit named-package builds and clarified that test suite directories own
+check overlays. It fixed the missing closing parenthesis in the use-package
+registry example and the default hook spelling to after-init. It documented the
+exactly-one-MOC-record rule and changed the provider example to add a record to
+an existing valid registry, preserving its MOC record.
+
+All nine README Elisp blocks have balanced delimiters and all nine referenced
+package functions exist at the inspected HEAD. The hook convention was checked
+against the official use-package Hooks manual. These are static checks; no
+examples, builds, tests or formatters were run for the documentation task.
+The documentation correction is committed; no further task is specified.
 
 ## Baseline and retained finding
 
 Read `memory/design.md` for supported behavior and `memory/validation.md` for
 evidence limits. Earlier checkpoint project-parent associations describe their
-own inspected baselines. The new project-parent association identifies the exact
-committed snapshot inspected after HEAD moved. The user subsequently supplied
-successful flake-check output for that final committed state; the earlier agent
-check used the separately described working candidate.
+own inspected baselines. The current checkpoint's project parent identifies the
+committed README state inspected after HEAD moved. The earlier successful flake
+check applies to the package migration state, not a new runtime validation of
+the documentation examples.
 The committed rx `any` to `in` workaround avoids package-lint treating rx syntax
 as the ordinary function introduced in Emacs 31.1. Version 20260903.2119 has that
 symbol entry; locally retained 20260619.1246 does not. The older source was not
