@@ -8,8 +8,8 @@
 melpaBuild {
   inherit src;
   pname = "org-roam-organize";
-  version = "0.7.0";
-  melpaVersion = "0.7.0";
+  version = "0.8.0";
+  melpaVersion = "0.8.0";
   files = "(:defaults)";
   packageRequires = [
     org

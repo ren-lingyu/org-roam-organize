@@ -47,7 +47,29 @@ Key conventions:
 - Each test suite directory uses =test.nix= and =test-overlay.nix=. The four ERT suites use the shared Guile runner under =tests/support/=. Only the Citar suite adds Citar to its test environment.
 - =tests/package-lint/test.nix= runs package-lint against every Elisp file in the packaged source.
 
-* Breaking Changes and Migration
+* 0.8.0 Changes and Migration
+This section describes upgrading from 0.7.0 to 0.8.0. The existing registry,
+managed capture, MOC synchronization, and UUID citation model remain the basis
+of the package; the changes below extend citation integration and reorganize
+installation and packaging.
+
+** Citation integration changes
+- Managed bibliography discovery is enabled explicitly with =:bibliography t= on the unique =:cite t= record. It exposes note-relative =BIBLIOGRAPHY= properties through Org Cite and enables the bundled BibLaTeX compatibility layer. Missing or nil =:bibliography= leaves existing bibliography handling to Org, Citar, and user configuration. The package does not select an export processor or insert =#+print_bibliography:=.
+- Managed literature UUID citation keys are displayed as node titles without rewriting the saved citation text. This display does not require Citar. Run =org-roam-organize-cite-display-refresh= after changing literature titles or managed tag membership; title caches are not automatically invalidated across buffers.
+- Citar's basic Org Cite activation recognizes managed UUID keys through a temporary entry projection. Activation falls back to ordinary Citar behavior when that projection fails. Display refresh also respects buffers with Font Lock disabled.
+
+** Source layout and Nix packaging
+The package's Lisp files now live under =lisp/=. Manual installations must put
+that directory on =load-path=; straight recipes must include =lisp/*.el=, as in
+the configuration example below. Install all package modules together, rather
+than copying only =org-roam-organize.el=.
+
+The Nix flake uses the personal-nixpkgs framework and provides the named
+=org-roam-organize= and =emacs= packages without a default package. Select a name
+explicitly when building. Checks retain separate core, Citar, BibLaTeX, and
+citation-display suites, with package-lint and treefmt checks.
+
+** Integration names
 The source layout and citation integration namespaces have changed without
 compatibility aliases.  The package entry point remains
 =org-roam-organize.el=, so configurations that only use
