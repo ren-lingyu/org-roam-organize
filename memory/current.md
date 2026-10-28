@@ -1,5 +1,9 @@
 # Org-roam Organize: README aligned with committed package layout
 
+## Backlog
+
+Next phase: prepare the 0.8.0 release.
+
 ## Current state
 
 The user requested a README audit against HEAD, authorized necessary README
