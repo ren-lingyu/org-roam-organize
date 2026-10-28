@@ -101,3 +101,37 @@ passed. No example evaluation, build, test or formatter was run. The user
 authorized staging only README.org and committed it; the new checkpoint parent
 identifies that exact committed documentation snapshot. The earlier note about
 README's stale default-package claim is superseded by this correction.
+
+
+## 0.8.0 release-preparation validation
+
+The user approved updating version metadata and README without preparing a
+release draft or introducing CHANGELOG. The main Version header and Nix
+version/melpaVersion changed from 0.7.0 to 0.8.0. README's new upgrade summary is
+grounded in v0.7.0-to-current project history and the supported implementation;
+existing registry/capture/MOC/UUID behavior is distinguished from newer citation
+integrations and packaging changes. No dependency or lock refresh was performed.
+
+With explicit command authorization, the candidate passed nix flake check
+--no-write-lock-file on x86_64-linux, including four ERT suites, package-lint and
+treefmt. Explicit nix build --no-link --no-write-lock-file --json succeeded for
+both named package outputs. An isolated-HOME batch check verified installed
+0.8.0 metadata, the generated Package-Version header, all nine modules resolving
+inside the built package, eleven public commands and the autoload file. Loading
+all modules neither enabled the mode nor loaded optional Citar. Default Emacs
+was 31.1; this does not establish minimum-version, other-system or straight
+installation compatibility. Project checks and builds had 120-second timeouts;
+the installation runner had a 30-second timeout.
+
+Initial smoke-script assumptions were corrected for this Nix JSON lacking
+attrPath and MELPA replacing Version with Package-Version. These were temporary
+verification-script issues; no product change was needed. Final checks passed.
+The installed metadata/source checks do not evaluate user configuration or
+exercise interactive capture against real notes.
+
+Only the three preparation files were explicitly staged after user approval.
+The user committed them, and read-only review confirmed the resulting commit
+matches the tested candidate and the ordinary worktree is clean. The checkpoint
+project parent identifies that exact inspected committed preparation state.
+No tag, push or publication was performed by the agent. CHANGELOG remains a
+separate possible follow-up involving historical release notes.

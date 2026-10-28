@@ -2,7 +2,7 @@
 
 ## Package interface
 
-Source and Nix package metadata declare v0.7.0, with Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Citar remains optional; 1.4.0 is the documented minimum tested backend version, with capability checks rather than a guarantee of future compatibility. Removed legacy interfaces have no aliases; user bindings remain examples.
+Source and Nix package metadata declare v0.8.0, with Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Citar remains optional; 1.4.0 is the documented minimum tested backend version, with capability checks rather than a guarantee of future compatibility. Removed legacy interfaces have no aliases; user bindings remain examples.
 
 ## Organization
 
@@ -34,7 +34,7 @@ The preface hook creates directories only after placeholders expand. Cleanup tra
 
 The root flake uses the personal-nixpkgs framework with a source fileset rooted
 at `lisp/`. `pkgs/` contains package.nix/overlay.nix pairs discovered through
-packages.mkOverlays. The library uses melpaBuild, v0.7.0 metadata, Org and Org-roam
+packages.mkOverlays. The library uses melpaBuild, v0.8.0 metadata, Org and Org-roam
 dependencies and compilation warnings as errors. The wrapper uses default Emacs;
 the user rejected selecting Emacs 31 in the flake. Named library and Emacs wrapper
 package outputs are declared; the final migration commit removes the explicit
