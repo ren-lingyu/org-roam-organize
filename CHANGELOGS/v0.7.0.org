@@ -1,0 +1,102 @@
+#+TITLE: v0.7.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.7.0][Changelog summary]]
+
+v0.7.0 adds an optional Citar integration for managed literature nodes while preserving Org-roam Organize's UUID-based citation model.
+
+* Changes
+** Optional Citar backend
+A citation registry record may now enable the Citar adapter with:
+
+#+begin_src emacs-lisp
+  :backend citar
+#+end_src
+
+or provide creation formatting options:
+
+#+begin_src emacs-lisp
+  :backend '(citar
+             :title "${title}"
+             :info (:citar-key "${=key=}"
+                               :citar-author "${author editor}"
+                               :citar-year "${year issued date}"))
+#+end_src
+
+The backend remains optional:
+
+- Citar is not a core package dependency.
+- Records without =:backend= retain the existing behavior.
+- Unsupported backend names are ignored with a warning.
+- Adapter setup failures do not disable the core =org-roam-organize-mode=.
+- Citar 1.4.0 is the minimum tested version; runtime compatibility is checked through required capabilities.
+
+** Stable UUID citations with Citar
+The adapter keeps the two citation identities separate:
+
+- bibliography-facing operations use external citekeys;
+- Org source citations store managed literature node UUIDs.
+
+When the backend is active:
+
+- =citar-insert-citation= translates selected citekeys to managed UUIDs before insertion;
+- =org-cite-insert= performs the same conversion when using Citar's Org Cite processor;
+- Citar actions at point translate managed UUIDs back to the current external citekeys;
+- ordinary non-UUID citation keys remain unchanged.
+
+Missing or ambiguous citekey-to-UUID mappings now produce explicit errors instead of selecting an arbitrary node.
+
+** Managed Citar notes
+Org-roam Organize now registers its own Citar notes source for managed literature nodes.
+
+Citar can:
+
+- find existing notes through their external citekeys;
+- open the corresponding managed Org-roam nodes;
+- create new literature nodes through the citation record's managed capture template.
+
+The adapter formats the node title and capture information from the Citar entry. Custom =:provider= functions remain available for =org-roam-organize-node-create=, but are not used by Citar note creation.
+
+After a successful capture, the adapter:
+
+- adds the selected external citekey as =ROAM_REFS=;
+- saves the node;
+- updates the Org-roam database.
+
+The cite ref is added only after successful capture finalization, so aborted captures do not leave partially registered literature nodes. Capture templates used by the Citar backend should therefore not create their own =roam_refs= property.
+
+** Backend lifecycle and state restoration
+Citar integration is installed and removed with =org-roam-organize-mode=.
+
+Setup now:
+
+- registers and selects the Org-roam Organize Citar notes source;
+- installs citation insertion translation;
+- installs UUID-aware Citar actions at point;
+- validates the configured backend options and required runtime capabilities.
+
+Teardown restores the previously active Citar notes source and at-point function when they are still owned by the adapter. User changes made while the adapter is active are preserved.
+
+Setup is transactional: partial installation is rolled back when registration, capability checks, or advice installation fails.
+
+** Citation validation
+=org-roam-organize-cite-check= now requires the managed UUID-to-citekey mapping to be bijective:
+
+- every managed literature node must have exactly one cite ref;
+- every external citekey must belong to exactly one managed literature node.
+
+*Breaking:* Duplicate external citekeys now cause the global check to fail,
+rather than being reported as warnings.
+
+=org-roam-organize-cite-sync= retains its narrower requirements: duplicate citekeys remain non-blocking warnings when they do not prevent UUID-based citing-node synchronization.
+
+* Packaging and upgrade guidance
+The optional adapter is supplied in =org-roam-organize-citar.el=; install it
+with the core library when enabling the Citar backend. Nix checks expose
+separate core and Citar adapter ERT checks.
+
+No configuration changes are required for users who do not enable a citation
+backend. To enable Citar, add one of the backend specifications above to the
+existing citation registry record, retain the required MOC record, and ensure
+the capture template includes the managed tag. Do not add a template-owned
+=roam_refs= property: the adapter writes the selected key only after capture
+successfully finalizes.

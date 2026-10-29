@@ -1,0 +1,37 @@
+#+TITLE: v0.6.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.6.0][Changelog summary]]
+
+v0.6.0 improves command diagnostics by introducing a dedicated reporting workflow for checks and synchronization commands.
+
+* Changes
+** Dedicated report buffer
+Detailed failures and warnings are now displayed in:
+
+#+begin_src text
+  ,*Org-roam Organize Report*
+#+end_src
+
+The report buffer:
+
+- uses =special-mode= and is read-only;
+- is overwritten each time a new report is displayed;
+- keeps detailed diagnostics out of the minibuffer;
+- is only displayed when a command has failures or warnings to report.
+
+Clean successful runs remain quiet and only show a short minibuffer summary.
+
+The report workflow is used by:
+
+- =org-roam-organize-check-variables=
+- =org-roam-organize-check-setup=
+- =org-roam-organize-moc-sync=
+- =org-roam-organize-cite-check=
+- =org-roam-organize-cite-sync=
+
+** Unified diagnostic handling
+- MOC and citation commands now collect diagnostic lines before displaying their final result.
+- Commands emit a single final summary instead of producing fragmented or repeated minibuffer messages.
+
+* Upgrade guidance
+No configuration changes are required when upgrading from v0.5.0.

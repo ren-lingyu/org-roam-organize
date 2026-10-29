@@ -1,0 +1,141 @@
+#+TITLE: v0.4.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.4.0][Changelog summary]]
+
+v0.4.0 reorganizes =org-roam-organize= around a registry-driven model for managed Org-roam nodes, MOC files, and citation relationships.
+
+* Changes
+** Registry-driven configuration
+- Introduced =org-roam-organize-registry= as the central configuration model.
+- Registry records can describe node roles, tags, directories, MOC paths and titles, inbox headlines, file-head templates, citation handling, and optional creation providers.
+- Added validation for registry structure, paths, templates, providers, and runtime capabilities.
+
+** Managed node creation
+- Added =org-roam-organize-node-create=.
+
+- Managed nodes use the standardized path layout:
+
+#+begin_src text
+  <directory>/${id}/${slug}.org
+#+end_src
+
+- Added provider-based data collection for node creation.
+
+- Providers may supply a node title and capture information for =${field}= placeholders, while =org-roam-organize= retains control over paths, targets, and capture templates.
+
+- Empty UUID directories created by aborted or failed captures are cleaned up safely.
+
+** MOC management
+- Added creation of missing MOC files from registry records.
+
+- Replaced the previous MOC update workflow with =org-roam-organize-moc-sync=.
+
+- MOC membership is derived from Org-roam node tags.
+
+- Managed entries are represented as:
+
+#+begin_src org
+  #+ROAM_NODE: [[id:node-id][Node title]]
+#+end_src
+
+- Synchronization updates titles, adds missing entries, removes stale entries, preserves manual ordering, and reports duplicates.
+
+- Added =org-roam-organize-moc-open-index= for opening the top-level MOC.
+
+** Citation synchronization
+- Replaced the old backlink-completion workflow with =org-roam-organize-cite-sync=.
+
+- Literature records can be marked with =:cite t=.
+
+- Citation relationships are computed from Org-roam's =refs= and =citations= tables.
+
+- Generated citing-node entries use:
+
+#+begin_src org
+  #+ROAM_CITING_NODE: [[id:node-id][Node title]]
+#+end_src
+
+- Synchronization updates titles, adds missing citing nodes, removes stale entries, and reports duplicates.
+
+** Capture templates
+- Registry templates now support structured property and keyword sections.
+- String values may contain Org capture time escapes such as =%<...>= and Org-roam placeholders such as =${field}=.
+- Added formatting and validation for file tags and other file-head values.
+
+** Tests and reproducible development
+- Added an ERT test suite.
+- Added package-lint checks.
+- Added a Nix flake with reproducible package, development shell, and check outputs.
+- The complete test suite can be run with:
+
+#+begin_src sh
+  nix flake check
+#+end_src
+
+* Breaking changes
+v0.4.0 removes the compatibility interfaces deprecated in v0.3.0:
+
+- Removed the old fixed fleeting and permanent directory configuration.
+- Removed file-moving variables and aliases.
+- Removed the deprecated headline move and delete commands.
+- Replaced =org-roam-organize-update-mocs= with =org-roam-organize-moc-sync=.
+- Replaced the old literature backlink-completion command with =org-roam-organize-cite-sync=.
+- Raised the minimum Org-roam version from 2.2.0 to 2.3.1.
+
+Existing configurations must be migrated to =org-roam-organize-registry=; see the Migration section below for configuration and command examples.
+
+* Migration
+:PROPERTIES:
+:CUSTOM_ID: migration
+:END:
+Use Org-roam 2.3.1 or later. Set =org-roam-organize-directory= inside
+=org-roam-directory= and replace fixed directory settings with registry records.
+Declare exactly one =:moc t= record, also marked =:basic t=. Basic records need
+a relative =:directory=. At most one record may use =:cite t=.
+
+This example defines the required MOC role and one ordinary node role:
+
+#+begin_src emacs-lisp
+  (setq org-roam-organize-directory org-roam-directory
+        org-roam-organize-registry
+        (list (list :name "navigation"
+                    :tag "map"
+                    :moc t
+                    :basic t
+                    :directory "navigation"
+                    :inbox "Inbox"
+                    :template '((keywords . ((filetags . ("map"))))))
+              (list :name "note"
+                    :tag "note"
+                    :basic t
+                    :directory "notes"
+                    :inbox "Inbox"
+                    :template '((keywords . ((filetags . ("note"))))))))
+#+end_src
+
+Adapt names, tags and paths to the existing knowledge base. Keep the MOC
+record when adding literature or provider-backed records.
+
+Update command references and user bindings:
+
+| Previous command                          | Replacement                            |
+|-------------------------------------------+----------------------------------------|
+| =org-roam-organize-create-directory=      | =org-roam-organize-create-directories= |
+| =org-roam-organize-goto-map-of-maps=      | =org-roam-organize-moc-open-index=     |
+| =org-roam-organize-create-mocs=           | =org-roam-organize-moc-create=         |
+| =org-roam-organize-update-mocs=           | =org-roam-organize-moc-sync=           |
+| =org-roam-organize-ref-backlink-complete= | =org-roam-organize-cite-sync=          |
+
+These renamed commands have no compatibility aliases. Represent managed MOC
+members as keywords instead of the old managed headline links:
+
+#+begin_src org
+  ,#+ROAM_NODE: [[id:node-id][Node title]]
+#+end_src
+
+The deprecated headline move/delete commands, fixed fleeting/permanent
+settings, move-related settings and old slash-style aliases are removed.
+Use registry records to organize managed nodes. The =:delete t= entry marker
+is reserved and does not perform deletion.
+
+Run =org-roam-organize-check-setup= after adapting the configuration.

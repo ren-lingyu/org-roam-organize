@@ -1,0 +1,37 @@
+#+TITLE: v0.2.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.2.0][Changelog summary]]
+
+v0.2.0 standardizes variable names and dependency declarations, adds
+autoloads, and moves keybinding ownership into user configuration.
+
+* Added
+- Autoload declarations for the public commands and global mode.
+
+* Changed
+- *Breaking:* The declared minimum Emacs version increased from 26.1 to 30.1; Org 9.5 and Org-roam 2.2.0 are now explicit package dependencies, and required libraries are loaded at runtime.
+
+* Deprecated
+- Slash-separated configuration names such as =org-roam-organize/directory= in favor of hyphenated names such as =org-roam-organize-directory=. Obsolete variable aliases retain compatibility with existing settings.
+
+* Removed
+- *Breaking:* The mode's default keymap. Bind the desired commands in user configuration; the Migration section below provides examples.
+
+* Migration
+:PROPERTIES:
+:CUSTOM_ID: migration
+:END:
+Use Emacs 30.1 or later, Org 9.5 or later, and Org-roam 2.2.0 or later.
+Update slash-separated variable names to their hyphenated counterparts;
+obsolete aliases allow configuration to be migrated gradually.
+
+Add desired bindings explicitly. These reproduce the previous mode bindings
+as optional global user bindings:
+
+#+begin_src emacs-lisp
+  (global-set-key (kbd "C-c o h c") #'org-roam-organize-headline-move)
+  (global-set-key (kbd "C-c o h d") #'org-roam-organize-headline-delete)
+  (global-set-key (kbd "C-c o m m") #'org-roam-organize-goto-map-of-maps)
+  (global-set-key (kbd "C-c o m u") #'org-roam-organize-update-mocs)
+  (global-set-key (kbd "C-c o r c") #'org-roam-organize-ref-backlink-complete)
+#+end_src

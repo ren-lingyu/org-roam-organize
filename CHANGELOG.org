@@ -1,10 +1,19 @@
 #+TITLE: Org-roam Organize Changelog
+#+TODO: TODO NEXT WAIT | DONE CANCELED
+#+STARTUP: logdone
+#+PROPERTY: TIMEZONE UTC
 
 This file records notable user-visible changes, following Keep a Changelog
-categories in Org format. Released versions are listed newest first; dates
-are the UTC calendar dates of their published release records.
+categories in Org format. Released versions are listed newest first, with
+complete release notes in the linked version files. All version-level CLOSED
+timestamps are interpreted in UTC. Historical CLOSED timestamps use the
+committer time of the release tag's commit, recorded to minute precision;
+they do not represent hosting-platform publication times.
 
-* Unreleased
+* NEXT v0.8.0
+:PROPERTIES:
+:CUSTOM_ID: v0.8.0
+:END:
 Changes since 0.7.0. Version 0.8.0 metadata is prepared, but these changes have
 not yet been published as a release.
 
@@ -25,7 +34,14 @@ not yet been published as a release.
 - Citar's basic Org Cite activation now recognizes managed UUID keys through temporary aliases to bibliography entries. Mapping failures fall back to ordinary activation without interrupting Font Lock.
 - Configuration examples now close the registry expression correctly, use the standard use-package hook spelling, and add provider records without discarding the required MOC record.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.7.0][0.7.0]] - 2026-08-06 (UTC)
+* DONE v0.7.0
+CLOSED: [2026-08-06 Thu 17:23]
+:PROPERTIES:
+:CUSTOM_ID: v0.7.0
+:END:
+
+[[file:CHANGELOGS/v0.7.0.org][Detailed release notes]]
+
 ** Added
 - Optional Citar integration selected by =:backend citar= on the managed citation record. Tagged backend options configure the initial title and capture information with Citar format strings; Citar is not a core dependency.
 - Citation insertion translates selected external citekeys to managed UUIDs, while actions at point translate UUIDs back to current citekeys. Ordinary citation keys retain their behavior; missing or ambiguous managed mappings produce explicit errors.
@@ -35,14 +51,28 @@ not yet been published as a release.
 ** Changed
 - *Breaking:* =org-roam-organize-cite-check= now treats duplicate external citekeys across managed literature nodes as validation failures, rather than warnings. Resolve duplicate mappings so each managed node has one cite ref and each declared citekey belongs to one managed node. =org-roam-organize-cite-sync= continues to report duplicate citekeys as non-blocking warnings.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.6.0][0.6.0]] - 2026-07-28 (UTC)
+* DONE v0.6.0
+CLOSED: [2026-07-28 Tue 16:22]
+:PROPERTIES:
+:CUSTOM_ID: v0.6.0
+:END:
+
+[[file:CHANGELOGS/v0.6.0.org][Detailed release notes]]
+
 ** Added
 - A dedicated =*Org-roam Organize Report*= buffer for detailed check and synchronization diagnostics. It uses read-only =special-mode= and is replaced by each new report.
 
 ** Changed
 - Check, MOC sync and citation commands collect diagnostics into one final report. Commands with warnings or failures point to the report buffer; clean successful runs show a short minibuffer summary without opening it.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.5.0][0.5.0]] - 2026-07-28 (UTC)
+* DONE v0.5.0
+CLOSED: [2026-07-28 Tue 14:34]
+:PROPERTIES:
+:CUSTOM_ID: v0.5.0
+:END:
+
+[[file:CHANGELOGS/v0.5.0.org][Detailed release notes]]
+
 ** Added
 - Configurable ordinary-node paths through the =path= entry of a registry template: =<directory>/${id}/${path}=, defaulting to =${slug}.org=. Paths may include bundle-internal subdirectories and capture placeholders, must end in =.org= and must stay inside the UUID bundle. MOCs continue to use =:moc-path=.
 - =org-roam-organize-cite-check= for read-only inspection of managed literature references. Missing or multiple cite-type refs fail validation; duplicate external citekeys are reported as non-blocking warnings in this version.
@@ -51,9 +81,16 @@ not yet been published as a release.
 - *Breaking:* Managed citation synchronization now uses literature node UUIDs rather than external bibliography keys. Migrate managed citations from =[cite:@external-citekey]= to =[cite:@literature-node-uuid]= and retain the current external key in a cite-type =ROAM_REFS= entry on the literature node. Ordinary external-key citations may coexist but do not participate in managed UUID-based synchronization.
 - Export translates only the managed UUID citations present in the export tree to their current external citekeys, leaving source text and unrelated citations unchanged. Each cited managed node must have exactly one cite-type ref.
 - Capture cleanup now operates on the complete UUID bundle, including nested target paths. Empty abandoned bundles are removed; deleting a non-empty aborted bundle requires confirmation.
-- The default literature template uses =ref.org= inside the UUID bundle, decoupling the filename from mutable bibliography keys. See the [[https://github.com/ren-lingyu/org-roam-organize/blob/v0.5.0/README.org][0.5.0 configuration and citation examples]] for migration details.
+- The recommended literature template uses =ref.org= inside the UUID bundle, decoupling the filename from mutable bibliography keys. See the [[file:CHANGELOGS/v0.5.0.org::#migration][0.5.0 migration guide]] for migration details.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.4.0][0.4.0]] - 2026-07-27 (UTC)
+* DONE v0.4.0
+CLOSED: [2026-07-27 Mon 18:20]
+:PROPERTIES:
+:CUSTOM_ID: v0.4.0
+:END:
+
+[[file:CHANGELOGS/v0.4.0.org][Detailed release notes]]
+
 ** Added
 - =org-roam-organize-registry= for declaring managed roles, tags, directories, MOC destinations, inbox headlines and structured capture templates, with configuration and runtime-capability validation.
 - Managed node creation through =org-roam-organize-node-create= and optional provider functions returning a title and capture info. Ordinary nodes use =<directory>/${id}/${slug}.org=; capture creates parent directories after placeholder expansion and cleans up abandoned empty directories.
@@ -62,7 +99,7 @@ not yet been published as a release.
 - Nix package and development-shell outputs, with ERT and package-lint checks available through =nix flake check=.
 
 ** Changed
-- *Breaking:* Configure managed roles through the registry, including exactly one =:moc t= record. The organizing root must remain inside =org-roam-directory=. Migrate fixed-layout settings using the [[https://github.com/ren-lingyu/org-roam-organize/blob/v0.4.0/README.org][0.4.0 registry configuration]].
+- *Breaking:* Configure managed roles through the registry, including exactly one =:moc t= record. The organizing root must remain inside =org-roam-directory=. Migrate fixed-layout settings using the [[file:CHANGELOGS/v0.4.0.org::#migration][0.4.0 migration guide]].
 - *Breaking:* Commands were renamed without compatibility aliases: =org-roam-organize-create-directory= to =org-roam-organize-create-directories=, =org-roam-organize-goto-map-of-maps= to =org-roam-organize-moc-open-index=, and =org-roam-organize-create-mocs= to =org-roam-organize-moc-create=.
 - *Breaking:* Replace =org-roam-organize-update-mocs= with =org-roam-organize-moc-sync= and represent managed MOC members as =#+ROAM_NODE:= keywords. Replace =org-roam-organize-ref-backlink-complete= with =org-roam-organize-cite-sync= for managed literature records.
 - *Breaking:* The minimum Org-roam dependency increased from 2.2.0 to 2.3.1.
@@ -70,7 +107,14 @@ not yet been published as a release.
 ** Removed
 - *Breaking:* The deprecated fixed fleeting/permanent directory model, file-moving configuration, old slash-style aliases and headline move/delete commands. Use registry records for organization; the =:delete t= entry marker is reserved and does not perform deletion.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.3.0][0.3.0]] - 2026-07-22 (UTC)
+* DONE v0.3.0
+CLOSED: [2026-07-22 Wed 20:45]
+:PROPERTIES:
+:CUSTOM_ID: v0.3.0
+:END:
+
+[[file:CHANGELOGS/v0.3.0.org][Detailed release notes]]
+
 ** Added
 - =org-roam-organize-check-setup= combines configuration validation with checks for required runtime functions and variables; mode startup uses the combined result.
 
@@ -80,7 +124,14 @@ not yet been published as a release.
 ** Deprecated
 - The fixed fleeting/permanent directory model, file-moving configuration, and =org-roam-organize-headline-move= / =org-roam-organize-headline-delete= commands. They remain available in this transitional release; users should prepare to replace that workflow.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.2.0][0.2.0]] - 2026-07-22 (UTC)
+* DONE v0.2.0
+CLOSED: [2026-07-22 Wed 11:53]
+:PROPERTIES:
+:CUSTOM_ID: v0.2.0
+:END:
+
+[[file:CHANGELOGS/v0.2.0.org][Detailed release notes]]
+
 ** Added
 - Autoload declarations for the public commands and global mode.
 
@@ -91,8 +142,16 @@ not yet been published as a release.
 - Slash-separated configuration names such as =org-roam-organize/directory= in favor of hyphenated names such as =org-roam-organize-directory=. Obsolete variable aliases retain compatibility with existing settings.
 
 ** Removed
-- *Breaking:* The mode's default keymap. Bind the desired commands in user configuration; the [[https://github.com/ren-lingyu/org-roam-organize/blob/v0.2.0/README.org][0.2.0 README]] provides examples.
+- *Breaking:* The mode's default keymap. Bind the desired commands in user configuration; the [[file:CHANGELOGS/v0.2.0.org::#migration][0.2.0 migration guide]] provides examples.
 
-* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.1.0][0.1.0]] - 2026-07-09 (UTC)
+* DONE v0.1.0
+CLOSED: [2026-07-09 Thu 07:14]
+:PROPERTIES:
+:CUSTOM_ID: v0.1.0
+:END:
+
+[[file:CHANGELOGS/v0.1.0.org][Detailed release notes]]
+
 ** Added
-- Initial documented release baseline for Org-roam organization, MOC maintenance, headline/file operations and literature backlink completion, using slash-separated configuration variable names.
+- Initial release with MOC creation, tag-based node counts and missing-link insertion, headline/file movement and deletion, and literature backlink completion.
+- Configuration through slash-separated variable names, a global mode, configuration checks and default command keybindings.

@@ -1,0 +1,20 @@
+#+TITLE: v0.3.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.3.0][Changelog summary]]
+
+v0.3.0 is a transitional release that deprecates the fixed directory model
+and strengthens startup validation.
+
+* Added
+- =org-roam-organize-check-setup= combines configuration validation with checks for required runtime functions and variables; mode startup uses the combined result.
+
+* Changed
+- Deprecated fleeting/permanent and file-moving settings no longer participate in normal setup validation. =org-roam-organize-create-directory= now creates only the organizing root and MOC directory, not the deprecated fleeting/permanent directories.
+
+* Deprecated
+- The fixed fleeting/permanent directory model, file-moving configuration, and =org-roam-organize-headline-move= / =org-roam-organize-headline-delete= commands. They remain available in this transitional release; users should prepare to replace that workflow.
+
+* Upgrade guidance
+Use =org-roam-organize-check-setup= to check whether the mode can be enabled.
+Do not rely on directory creation to initialize fleeting/permanent directories.
+Prepare to replace the deprecated workflow; the registry arrives in v0.4.0.

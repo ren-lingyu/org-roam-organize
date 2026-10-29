@@ -1,0 +1,40 @@
+#+TITLE: v0.1.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.1.0][Changelog summary]]
+
+v0.1.0 introduces Org-roam organization through MOCs, tag-based node groups,
+headline and file operations, and literature backlinks.
+
+* Node and file organization
+- =org-roam-organize-headline-move= moves a linked headline and node file,
+  replacing the configured source tag with the target tag. Directory and
+  filename settings control whether node IDs are used in the destination.
+- =org-roam-organize-headline-delete= deletes a linked node file and headline,
+  including the configured ID directory when applicable.
+- =org-roam-organize-create-directory= creates the configured directories.
+
+* MOCs and literature backlinks
+- =org-roam-organize-create-mocs= creates MOCs from the configured template
+  and tag/title mapping.
+- =org-roam-organize-goto-map-of-maps= opens the top-level MOC.
+- =org-roam-organize-update-mocs= updates tag counts and inserts missing
+  node links in MOCs.
+- =org-roam-organize-ref-backlink-complete= inserts missing literature backlinks
+  using cite-type references and Org-roam citation relationships.
+
+* Configuration and use
+Configuration uses slash-separated names such as =org-roam-organize/directory=,
+=org-roam-organize/moc-directory=, =org-roam-organize/fleeting-directory= and
+=org-roam-organize/permanent-directory=. Templates, tag mappings and file-moving
+options are configured separately. =org-roam-organize-check-variables= checks
+the configuration.
+
+The global =org-roam-organize-mode= installs these default bindings:
+
+| Key         | Command                                   |
+|-------------+-------------------------------------------|
+| =C-c o h c= | =org-roam-organize-headline-move=         |
+| =C-c o h d= | =org-roam-organize-headline-delete=       |
+| =C-c o m m= | =org-roam-organize-goto-map-of-maps=      |
+| =C-c o m u= | =org-roam-organize-update-mocs=           |
+| =C-c o r c= | =org-roam-organize-ref-backlink-complete= |

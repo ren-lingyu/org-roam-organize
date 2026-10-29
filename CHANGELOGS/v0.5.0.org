@@ -1,0 +1,158 @@
+#+TITLE: v0.5.0 Release Notes
+
+[[file:../CHANGELOG.org::#v0.5.0][Changelog summary]]
+
+v0.5.0 extends managed node bundles and introduces UUID-based citations for literature nodes.
+
+* Changes
+** Configurable managed node paths
+Managed node paths now use the following model:
+
+#+begin_src text
+  <directory>/${id}/${path}
+#+end_src
+
+Registry templates may declare a top-level =path= entry:
+
+#+begin_src emacs-lisp
+  :template '((path . "ref.org")
+              (properties . ...)
+              (keywords . ...))
+#+end_src
+
+- =path= is relative to the node's UUID bundle directory.
+- It may contain subdirectories and provider-supplied =${field}= placeholders.
+- When omitted, it defaults to =${slug}.org=.
+- Capture targets must remain inside the UUID bundle and use an =.org= filename.
+- MOC records continue to use =:moc-path= and cannot declare a template =path=.
+
+Capture cleanup now operates on the complete UUID bundle. Empty bundles are removed automatically; non-empty bundles left by an aborted capture require confirmation before recursive deletion.
+
+** UUID-based literature citations
+Managed literature citations now use the literature node UUID as their stable internal key:
+
+#+begin_src org
+  [cite:@<literature-node-uuid>]
+#+end_src
+
+The literature node continues to store its current external bibliography key in =ROAM_REFS=:
+
+#+begin_src org
+  :ROAM_REFS: @external-citekey
+#+end_src
+
+This separates the stable internal citation identity from bibliography keys that may change when citation tools, libraries, or key-generation rules change.
+
+During export, =org-roam-organize= converts managed UUID citation keys to the current external citekeys before passing the document to the configured Org citation processor. Existing citation processors and bibliography backends therefore remain responsible for rendering citations and bibliographies.
+
+Export validation is limited to managed literature UUIDs actually used by the current export tree. Ordinary external citekeys remain unchanged and may coexist with managed UUID citations.
+
+** Citation synchronization
+=org-roam-organize-cite-sync= now resolves citation relationships through:
+
+#+begin_src text
+  refs.node_id = citations.cite_key
+#+end_src
+
+Each managed literature node must have exactly one =ROAM_REFS= entry recorded with:
+
+#+begin_src text
+  refs.type = "cite"
+#+end_src
+
+Generated citing-node entries continue to use:
+
+#+begin_src org
+  ,#+ROAM_CITING_NODE: [[id:node-id][Node title]]
+#+end_src
+
+Repeated citations from the same Org-roam node are deduplicated when generating these entries.
+
+** Citation integrity checks
+Added the new command:
+
+#+begin_src text
+  org-roam-organize-cite-check
+#+end_src
+
+It performs a global, read-only consistency check for managed literature references and reports:
+
+- literature nodes with no cite-type ref;
+- literature nodes with multiple cite-type refs;
+- external citekeys associated with multiple literature nodes.
+
+Missing or multiple refs are blocking errors. Duplicate external citekeys are reported as warnings.
+
+** Literature node paths
+The recommended literature template now uses a stable filename independent of its external citekey:
+
+#+begin_src emacs-lisp
+  (path . "ref.org")
+#+end_src
+
+A typical literature node path is therefore:
+
+#+begin_src text
+  literature/<uuid>/ref.org
+#+end_src
+
+* Breaking Changes
+** Managed node path configuration
+Ordinary managed node paths are now configured through the top-level =path= entry of a registry template. Configurations that relied on the previous fixed target model should either add:
+
+#+begin_src emacs-lisp
+  (path . "${slug}.org")
+#+end_src
+
+or rely on that value as the new default.
+
+** Citation source format
+Managed citation synchronization now expects citations to use literature node UUIDs:
+
+#+begin_src org
+  [cite:@<literature-node-uuid>]
+#+end_src
+
+Existing managed citations using external bibliography keys:
+
+#+begin_src org
+  [cite:@external-citekey]
+#+end_src
+
+must be migrated to their corresponding literature node UUIDs to participate in =org-roam-organize-cite-sync=.
+
+Each managed literature node must also contain exactly one current cite-type =ROAM_REFS= entry.
+
+* Migration
+:PROPERTIES:
+:CUSTOM_ID: migration
+:END:
+Ordinary managed-node templates may omit =path= to retain =${slug}.org=,
+or set it explicitly. The recommended literature filename is =ref.org=:
+
+#+begin_src emacs-lisp
+  :template '((path . "ref.org")
+              (properties . ((roam_refs . "@${citar-key}")))
+              (keywords . ((filetags . ("ref")))))
+#+end_src
+
+This is the template portion of a literature registry record, not a replacement
+for the complete registry. Keep the required MOC record and any provider that
+supplies =:citar-key= to capture. A typical target is
+=literature/<uuid>/ref.org=.
+
+For existing managed citations, look up the literature node ID and replace
+the external key in the citation with that UUID. Keep the current external
+citekey in the literature node's cite-type =ROAM_REFS=:
+
+#+begin_src org
+  [cite:@<literature-node-uuid>]
+  :ROAM_REFS: @external-citekey
+#+end_src
+
+The citation belongs in the citing document; =ROAM_REFS= belongs in the
+literature node's property drawer. Each managed literature node must have
+exactly one cite-type ref. Run =org-roam-organize-cite-check= to inspect the
+mapping, then =org-roam-organize-cite-sync= to reconcile citing-node entries.
+Ordinary external-key citations may coexist but do not participate in managed
+UUID-based synchronization.
