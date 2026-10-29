@@ -1,0 +1,98 @@
+#+TITLE: Org-roam Organize Changelog
+
+This file records notable user-visible changes, following Keep a Changelog
+categories in Org format. Released versions are listed newest first; dates
+are the UTC calendar dates of their published release records.
+
+* Unreleased
+Changes since 0.7.0. Version 0.8.0 metadata is prepared, but these changes have
+not yet been published as a release.
+
+** Added
+- Opt-in managed bibliography discovery through =:bibliography t= on the citation registry record. Note-relative =BIBLIOGRAPHY= properties are exposed through Org Cite to export processors and consumers such as Citar, independently of the optional citation backend.
+- Bundled BibLaTeX export compatibility for enabled managed bibliographies, adding missing package and resource declarations without selecting an export processor or inserting =print_bibliography=.
+- Backend-independent display of managed UUID citation keys as literature titles, without changing source text. Use =org-roam-organize-cite-display-refresh= after title or managed-membership changes.
+- A packaged Emacs wrapper and an exported =overlays.emacsPackages= overlay for Nix consumers.
+
+** Changed
+- *Breaking:* Lisp sources moved into =lisp/=. Add that directory to manual =load-path= configurations, select =lisp/*.el= in straight recipes, and install all package modules together. The public entry remains =(require 'org-roam-organize)=.
+- *Breaking:* The Citar library feature changed from =org-roam-organize-citar= to =org-roam-organize-cite-citar=, and its reserved notes-source symbol changed likewise. Update explicit feature/source references. Remove direct calls to adapter lifecycle implementation functions and configure the adapter through the registry and mode lifecycle; no compatibility aliases are supplied.
+- *Breaking:* Nix packages now have explicit =org-roam-organize= and =emacs= outputs, with no default package. Use =nix build .#org-roam-organize= or =nix build .#emacs=. The Citar check changed from =ert-citar= to =ert-cite-citar=; =ert-cite-biblatex= and =ert-cite-display= checks are also available.
+- Nix packaging now uses the personal-nixpkgs framework, MELPA packaging, the default Nixpkgs Emacs package set, and a treefmt check.
+- See the [[file:README.org::*0.8.0 Changes and Migration][0.8.0 migration guide]] for configuration and installation details.
+
+** Fixed
+- Citar's basic Org Cite activation now recognizes managed UUID keys through temporary aliases to bibliography entries. Mapping failures fall back to ordinary activation without interrupting Font Lock.
+- Configuration examples now close the registry expression correctly, use the standard use-package hook spelling, and add provider records without discarding the required MOC record.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.7.0][0.7.0]] - 2026-08-06 (UTC)
+** Added
+- Optional Citar integration selected by =:backend citar= on the managed citation record. Tagged backend options configure the initial title and capture information with Citar format strings; Citar is not a core dependency.
+- Citation insertion translates selected external citekeys to managed UUIDs, while actions at point translate UUIDs back to current citekeys. Ordinary citation keys retain their behavior; missing or ambiguous managed mappings produce explicit errors.
+- A managed Citar notes source for lookup, opening and capture. Successful capture finalization adds =ROAM_REFS=, saves the node and updates the database; aborted captures do not register an incomplete note. Capture templates must supply the managed tag and must not write their own =roam_refs= property.
+- Mode-owned adapter setup with capability validation and rollback on failure. Optional adapter failure leaves the core mode enabled; teardown restores earlier Citar selections only while the adapter still owns those settings. Citar 1.4.0 is the documented minimum tested version.
+
+** Changed
+- *Breaking:* =org-roam-organize-cite-check= now treats duplicate external citekeys across managed literature nodes as validation failures, rather than warnings. Resolve duplicate mappings so each managed node has one cite ref and each declared citekey belongs to one managed node. =org-roam-organize-cite-sync= continues to report duplicate citekeys as non-blocking warnings.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.6.0][0.6.0]] - 2026-07-28 (UTC)
+** Added
+- A dedicated =*Org-roam Organize Report*= buffer for detailed check and synchronization diagnostics. It uses read-only =special-mode= and is replaced by each new report.
+
+** Changed
+- Check, MOC sync and citation commands collect diagnostics into one final report. Commands with warnings or failures point to the report buffer; clean successful runs show a short minibuffer summary without opening it.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.5.0][0.5.0]] - 2026-07-28 (UTC)
+** Added
+- Configurable ordinary-node paths through the =path= entry of a registry template: =<directory>/${id}/${path}=, defaulting to =${slug}.org=. Paths may include bundle-internal subdirectories and capture placeholders, must end in =.org= and must stay inside the UUID bundle. MOCs continue to use =:moc-path=.
+- =org-roam-organize-cite-check= for read-only inspection of managed literature references. Missing or multiple cite-type refs fail validation; duplicate external citekeys are reported as non-blocking warnings in this version.
+
+** Changed
+- *Breaking:* Managed citation synchronization now uses literature node UUIDs rather than external bibliography keys. Migrate managed citations from =[cite:@external-citekey]= to =[cite:@literature-node-uuid]= and retain the current external key in a cite-type =ROAM_REFS= entry on the literature node. Ordinary external-key citations may coexist but do not participate in managed UUID-based synchronization.
+- Export translates only the managed UUID citations present in the export tree to their current external citekeys, leaving source text and unrelated citations unchanged. Each cited managed node must have exactly one cite-type ref.
+- Capture cleanup now operates on the complete UUID bundle, including nested target paths. Empty abandoned bundles are removed; deleting a non-empty aborted bundle requires confirmation.
+- The default literature template uses =ref.org= inside the UUID bundle, decoupling the filename from mutable bibliography keys. See the [[https://github.com/ren-lingyu/org-roam-organize/blob/v0.5.0/README.org][0.5.0 configuration and citation examples]] for migration details.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.4.0][0.4.0]] - 2026-07-27 (UTC)
+** Added
+- =org-roam-organize-registry= for declaring managed roles, tags, directories, MOC destinations, inbox headlines and structured capture templates, with configuration and runtime-capability validation.
+- Managed node creation through =org-roam-organize-node-create= and optional provider functions returning a title and capture info. Ordinary nodes use =<directory>/${id}/${slug}.org=; capture creates parent directories after placeholder expansion and cleans up abandoned empty directories.
+- MOC membership reconciliation through =#+ROAM_NODE:= ID-link keywords, refreshing titles, inserting missing members in the configured Inbox, removing stale entries, and preserving manual order while reporting duplicates.
+- Citation synchronization through =org-roam-organize-cite-sync= for the unique =:cite t= registry record, reconciling =#+ROAM_CITING_NODE:= entries from citation relationships.
+- Nix package and development-shell outputs, with ERT and package-lint checks available through =nix flake check=.
+
+** Changed
+- *Breaking:* Configure managed roles through the registry, including exactly one =:moc t= record. The organizing root must remain inside =org-roam-directory=. Migrate fixed-layout settings using the [[https://github.com/ren-lingyu/org-roam-organize/blob/v0.4.0/README.org][0.4.0 registry configuration]].
+- *Breaking:* Commands were renamed without compatibility aliases: =org-roam-organize-create-directory= to =org-roam-organize-create-directories=, =org-roam-organize-goto-map-of-maps= to =org-roam-organize-moc-open-index=, and =org-roam-organize-create-mocs= to =org-roam-organize-moc-create=.
+- *Breaking:* Replace =org-roam-organize-update-mocs= with =org-roam-organize-moc-sync= and represent managed MOC members as =#+ROAM_NODE:= keywords. Replace =org-roam-organize-ref-backlink-complete= with =org-roam-organize-cite-sync= for managed literature records.
+- *Breaking:* The minimum Org-roam dependency increased from 2.2.0 to 2.3.1.
+
+** Removed
+- *Breaking:* The deprecated fixed fleeting/permanent directory model, file-moving configuration, old slash-style aliases and headline move/delete commands. Use registry records for organization; the =:delete t= entry marker is reserved and does not perform deletion.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.3.0][0.3.0]] - 2026-07-22 (UTC)
+** Added
+- =org-roam-organize-check-setup= combines configuration validation with checks for required runtime functions and variables; mode startup uses the combined result.
+
+** Changed
+- Deprecated fleeting/permanent and file-moving settings no longer participate in normal setup validation. =org-roam-organize-create-directory= now creates only the organizing root and MOC directory, not the deprecated fleeting/permanent directories.
+
+** Deprecated
+- The fixed fleeting/permanent directory model, file-moving configuration, and =org-roam-organize-headline-move= / =org-roam-organize-headline-delete= commands. They remain available in this transitional release; users should prepare to replace that workflow.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.2.0][0.2.0]] - 2026-07-22 (UTC)
+** Added
+- Autoload declarations for the public commands and global mode.
+
+** Changed
+- *Breaking:* The declared minimum Emacs version increased from 26.1 to 30.1; Org 9.5 and Org-roam 2.2.0 are now explicit package dependencies, and required libraries are loaded at runtime.
+
+** Deprecated
+- Slash-separated configuration names such as =org-roam-organize/directory= in favor of hyphenated names such as =org-roam-organize-directory=. Obsolete variable aliases retain compatibility with existing settings.
+
+** Removed
+- *Breaking:* The mode's default keymap. Bind the desired commands in user configuration; the [[https://github.com/ren-lingyu/org-roam-organize/blob/v0.2.0/README.org][0.2.0 README]] provides examples.
+
+* [[https://github.com/ren-lingyu/org-roam-organize/releases/tag/v0.1.0][0.1.0]] - 2026-07-09 (UTC)
+** Added
+- Initial documented release baseline for Org-roam organization, MOC maintenance, headline/file operations and literature backlink completion, using slash-separated configuration variable names.

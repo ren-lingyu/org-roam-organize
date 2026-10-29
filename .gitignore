@@ -8,6 +8,8 @@
 !/.gitignore
 !/.gitsubmodules
 
+!/CHANGELOG.org
+
 !/LICENSE
 
 !/README.org
