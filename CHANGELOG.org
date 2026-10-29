@@ -26,7 +26,7 @@ not yet been published as a release.
 ** Changed
 - *Breaking:* Lisp sources moved into =lisp/=. Add that directory to manual =load-path= configurations, select =lisp/*.el= in straight recipes, and install all package modules together. The public entry remains =(require 'org-roam-organize)=.
 - *Breaking:* The Citar library feature changed from =org-roam-organize-citar= to =org-roam-organize-cite-citar=, and its reserved notes-source symbol changed likewise. Update explicit feature/source references. Remove direct calls to adapter lifecycle implementation functions and configure the adapter through the registry and mode lifecycle; no compatibility aliases are supplied.
-- *Breaking:* Nix packages now have explicit =org-roam-organize= and =emacs= outputs, with no default package. Use =nix build .#org-roam-organize= or =nix build .#emacs=. The Citar check changed from =ert-citar= to =ert-cite-citar=; =ert-cite-biblatex= and =ert-cite-display= checks are also available.
+- *Breaking:* Nix packages now have explicit =org-roam-organize= and =emacs= outputs, with no default package. Use =nix build .#org-roam-organize= or =nix build .#emacs=. The =ert-citar= and =ert-biblatex= checks were renamed to =ert-cite-citar= and =ert-cite-biblatex=, respectively; the =ert-cite-display= check is also available.
 - Nix packaging now uses the personal-nixpkgs framework, MELPA packaging, the default Nixpkgs Emacs package set, and a treefmt check.
 - See the [[file:README.org::*0.8.0 Changes and Migration][0.8.0 migration guide]] for configuration and installation details.
 
