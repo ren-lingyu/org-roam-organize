@@ -70,6 +70,8 @@
               flakeCheck = true;
               settings.excludes = [
                 ".gitignore"
+                "CHANGELOG.org"
+                "CHANGELOGS/*.org"
                 "LICENSE"
                 "README.org"
                 "flake.lock"
