@@ -4,6 +4,18 @@
 
 Source and Nix package metadata declare v0.8.0, with Emacs 30.1, Org 9.5 and Org-roam 2.3.1. Citar remains optional; 1.4.0 is the documented minimum tested backend version, with capability checks rather than a guarantee of future compatibility. Removed legacy interfaces have no aliases; user bindings remain examples.
 
+## Release history documentation
+
+CHANGELOG.org holds curated English history for published versions 0.1.0-0.7.0
+and undated Unreleased changes. Org-native version headings directly link to
+published release pages, with YYYY-MM-DD (UTC) dates from publication records.
+Record user-visible additions, behavior changes, fixes and incompatible
+interfaces, omitting internal-only work and empty categories. Breaking entries
+include migration guidance. Actual released source behavior governs entries;
+release notes are supplementary evidence. Review discrepancies belong in the
+review report or memory, never in the user-facing changelog. README remains the
+current-use and configuration guide.
+
 ## Organization
 
 Registry records describe tag membership, MOC identity and relative node directories without hardcoded category names. Org files are authoritative; the Org-roam database and MOC views are derived. Names are safe short identifiers, exactly one :moc record identifies the map-of-maps role, and at most one :cite record identifies literature. A :basic record requires a directory; non-basic records may also have one. A usable directory selects ordinary creatable records.

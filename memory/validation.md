@@ -135,3 +135,38 @@ matches the tested candidate and the ordinary worktree is clean. The checkpoint
 project parent identifies that exact inspected committed preparation state.
 No tag, push or publication was performed by the agent. CHANGELOG remains a
 separate possible follow-up involving historical release notes.
+
+
+## First historical CHANGELOG
+
+The user approved an English Org changelog backfilling 0.1.0-0.7.0 and explicitly
+including v0.7.0-to-current-HEAD changes as Unreleased. Version/date headings use
+direct release links and YYYY-MM-DD (UTC); no date or publication claim is assigned
+to the prepared 0.8.0 candidate. Public GitHub release records were read through
+the GitHub connector. Their seven published_at values supply the dates; local
+and remote tag object IDs match. Existing release notes were read as supplementary
+evidence, with entries checked against adjacent endpoint source trees and
+historical READMEs, interfaces, dependency declarations and relevant tests.
+
+Static checks covered all eight sections, category order and nonempty categories,
+seven dates/URLs, eleven link targets and version-scoped project identifiers.
+Tracked whitespace checking passed. For the new nonempty untracked file,
+`git diff --no-index --check /dev/null CHANGELOG.org` produced expected status 1
+without whitespace diagnostics; that status was explicitly accepted, while other
+statuses would fail. The whitelist and staged/committed whitespace checks passed.
+No builds, runtime tests, formatters or automated Org rendering were run.
+
+The review report, separate from changelog prose, records two source-based
+clarifications: the former command replaced by MOC sync was actually
+org-roam-organize-update-mocs in 0.3.0, not the org-roam-organize-moc-update name
+used in 0.4.0 notes; and 0.2.0's concise notes omitted details of keymap removal
+and the declared Emacs minimum increase. The earliest 0.1.0 entry is only a
+verified documented baseline without assigning every feature to that version.
+No original hosted notes or historical source trees were modified.
+
+Only CHANGELOG.org and .gitignore were staged after explicit authorization. The
+user committed them. The committed changelog is byte-identical to the reviewed
+candidate; the final ignore edit only regroups the equivalent whitelist entry.
+The worktree is clean and the checkpoint's project parent identifies the exact
+committed documentation state inspected after HEAD moved. README, versions,
+implementation and lockfile were unchanged in this task.

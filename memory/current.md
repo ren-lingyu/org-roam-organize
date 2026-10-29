@@ -1,60 +1,62 @@
-# Org-roam Organize: 0.8.0 release preparation complete
+# Org-roam Organize: Historical CHANGELOG committed
 
 ## Current state
 
-The user approved the release-preparation plan and committed the result as
-`chore(release): prepare v0.8.0 metadata and documentation`. Read-only review
-confirms the resulting commit matches the validated three-file candidate and
-the ordinary worktree is clean.
+The user approved and committed the first English CHANGELOG.org as
+`docs(changelog): backfill release history and unreleased changes`.
+It covers published 0.1.0-0.7.0 plus an undated Unreleased section for changes
+from v0.7.0 to the release-preparation HEAD. Only CHANGELOG.org and its explicit
+.gitignore whitelist entry changed. The user authorized staging these exact
+paths and performed the ordinary commit; the inspected worktree is clean.
 
-The main source Version header and Nix version/melpaVersion are 0.8.0. README now
-has an explicit 0.7.0-to-0.8.0 changes and migration section covering bibliography
-opt-in, UUID title display and refresh limits, Citar activation, lisp installation
-paths, named Nix outputs, and existing internal interface migration guidance.
-No runtime behavior, minimum dependency declaration or lockfile was changed in
-this preparation. Staging of exactly those three files was explicitly authorized;
-the user performed the ordinary commit.
+The committed CHANGELOG blob matches the fully reviewed candidate. The user
+only regrouped the ignore whitelist entry before committing; its semantics are
+unchanged and the commit's whitespace check passes. The checkpoint project
+parent identifies the exact committed documentation snapshot inspected after
+HEAD moved. No additional implementation or documentation task is pending.
 
-The earlier package/test migration and README alignment are complete. The source
-fileset is rooted at lisp/, packages and tests use framework overlay discovery,
-and the default Emacs package set is used. Only named org-roam-organize and emacs
-package outputs are declared. See memory/design.md for the supported model and
-memory/validation.md for detailed evidence and historical interpretation.
+## Documentation policy and evidence
 
-## Validation
+Use English and Org-native headings, lists, inline code and direct links.
+Released version numbers link to the actual release pages. Each verified
+publication date is written as YYYY-MM-DD (UTC), derived from published_at,
+not tag creation or commit dates. Unreleased has no date and does not claim
+0.8.0 has been published. Omit empty change categories and internal-only work.
+Breaking entries describe affected interfaces and migration directions.
 
-With explicit user authorization, the release candidate passed
-`timeout 120s nix flake check --no-write-lock-file` on x86_64-linux: four ERT suites,
-package-lint and treefmt. Both named outputs built using nix build with --no-link,
---no-write-lock-file and --json. A batch installation smoke check in an isolated
-HOME passed for 0.8.0 installed metadata and MELPA Package-Version header, nine
-modules resolved inside the built package, eleven public commands, autoload file
-presence, and loading without enabling the mode or forcing optional Citar.
+Adjacent released source trees, historical READMEs and interfaces are primary
+change evidence; the seven published GitHub release notes provide supplementary
+context and omission checks. Local and remote tag objects were confirmed equal.
+The user explicitly wants an ordinary user-facing changelog, without statements
+about problems in release notes or historical investigation. Keep evidence
+conflicts and gaps in the review report or memory, not in changelog entries.
 
-The default Emacs was 31.1. No minimum-version, other-system or straight-install
-runtime verification is claimed. Source header/Nix versions agree, README Elisp
-blocks remain delimiter-balanced, and git diff --check passed. The committed
-three-file change was inspected and matches this candidate. The checkpoint's
-project parent identifies the exact committed release-preparation state inspected
-after HEAD moved. Temporary installation scripts and build output JSON remain
-under ignored project tmp/; future resumption does not depend on these files.
+The separate review findings are that 0.4.0 release notes name the former MOC
+command org-roam-organize-moc-update, while actual 0.3.0 source defines
+org-roam-organize-update-mocs; the changelog uses the real interface. Brief
+0.2.0 notes omit explicit details of the default-keymap removal and declared
+Emacs minimum increase, both recovered from endpoint source. No predecessor
+release was established for 0.1.0; its entry is a limited documented baseline,
+not a claim that all features in that tree were newly introduced.
 
-## Backlog and boundary
+## Validation and limits
 
-The requested version, README and validation preparation is complete. No v0.8.0
-tag points at the inspected commit. The agent did not create a tag, push, publish,
-prepare a release draft, introduce CHANGELOG, or update dependencies.
+Static checks passed for eight release sections, seven dates and release URLs,
+category ordering and nonempty categories, eleven links, and project identifiers
+against their relevant old/new source endpoints. Historical README link paths
+and the local README heading target exist. Git's whitelist permits CHANGELOG.org.
+The new, nonempty file passed no-index whitespace checking by accepting expected
+status 1 rather than treating every nonzero status as failure; ordinary tracked,
+staged and committed whitespace checks also passed. No builds, tests, formatters
+or automated Org rendering were run for this documentation task.
 
-At the end of preparation, discuss whether to introduce CHANGELOG as a separate
-task. The user wants any first CHANGELOG to consider historical release notes,
-not only 0.8.0. Its format, historical scope and writes are not yet authorized.
-Actual release operations remain for the user. Do not describe preparation as a
-published release or start historical changelog reconstruction automatically.
+## Release preparation and continuation
 
-## Retained lint finding
-
-The committed rx any-to-in workaround avoids package-lint treating rx syntax as
-the ordinary function introduced in Emacs 31.1. Version 20260903.2119 has that
-symbol entry; locally retained 20260619.1246 does not. The older source was not
-conclusively tied to the former lock. No minimum Emacs version increase or compat
-dependency was needed.
+The 0.8.0 source and Nix metadata and README upgrade guide were already committed.
+Their checks and installed-package smoke verification passed on x86_64-linux
+with default Emacs 31.1 as recorded in memory/validation.md. That evidence is
+separate from this static changelog audit; no minimum-version, other-system or
+straight runtime validation is claimed. See memory/design.md for supported
+behavior. The historical CHANGELOG backlog is now complete. No tag, push,
+published release, hosted-note edits, dependency refresh or README edit was
+performed as part of this task. Actual release operations remain for the user.
