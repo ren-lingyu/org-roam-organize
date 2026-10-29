@@ -6,15 +6,36 @@ Source and Nix package metadata declare v0.8.0, with Emacs 30.1, Org 9.5 and Org
 
 ## Release history documentation
 
-CHANGELOG.org holds curated English history for published versions 0.1.0-0.7.0
-and undated Unreleased changes. Org-native version headings directly link to
-published release pages, with YYYY-MM-DD (UTC) dates from publication records.
-Record user-visible additions, behavior changes, fixes and incompatible
-interfaces, omitting internal-only work and empty categories. Breaking entries
-include migration guidance. Actual released source behavior governs entries;
-release notes are supplementary evidence. Review discrepancies belong in the
-review report or memory, never in the user-facing changelog. README remains the
-current-use and configuration guide.
+The adopted Org profile keeps curated English summaries in CHANGELOG.org and
+complete historical release notes in CHANGELOGS/<tag>.org. Seven historical versions
+v0.1.0-v0.7.0 are DONE with matching CUSTOM_ID and UTC CLOSED. The user manually
+froze the candidate as NEXT v0.8.0 with matching ID; its complete detailed manuscript
+has not been written, and it has no CLOSED/publication claim. Existing state
+transitions and version-time changes remain human-owned except for the user's
+explicit one-task historical CLOSED authorization already exercised.
+
+Historical CLOSED values use peeled tag-commit committer epochs converted to UTC
+at minute precision, not hosting publication dates. Root declares native TODO states,
+logdone and TIMEZONE UTC. A file property alone does not make Org log times in UTC.
+Local detail and migration links provide stable navigation. Detail-to-root backlinks
+are a retained project navigation choice, not a skill requirement; use relative
+paths. Formatting uses no blank after headlines, lowercase source-block delimiters,
+no trailing whitespace and org-table-align tables.
+
+Record notable user-visible additions, behavior changes, fixes and incompatible
+interfaces. Omit internal-only work and empty categories. Breaking entries include
+migration guidance. Released source behavior governs; old hosted notes are
+supplementary. Evidence conflicts belong in reports/memory, not user-facing history.
+README remains the current-use/configuration guide. The 0.8.0 summary and README
+both record ert-citar -> ert-cite-citar and ert-biblatex -> ert-cite-biblatex.
+
+The root and detailed Org changelogs are excluded from treefmt, and the Git whitelist
+permits CHANGELOGS/*.org. For future profile releases, the complete detailed file
+from the release tag is the sole Release Notes manuscript; root is a summary, not
+a publishing fallback. Conversion/publication tooling remains separate. Legacy
+backfill follows the skill's confirmed successor-tag source selection; reviewed
+mainline fallback needs explicit authorization. Do not rewrite old tags or silently
+replace existing hosted notes.
 
 ## Organization
 

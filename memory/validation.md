@@ -170,3 +170,40 @@ candidate; the final ignore edit only regroups the equivalent whitelist entry.
 The worktree is clean and the checkpoint's project parent identifies the exact
 committed documentation state inspected after HEAD moved. README, versions,
 implementation and lockfile were unchanged in this task.
+
+## Committed Org summary/detail migration
+
+Seven historical Org details and root metadata/navigation passed static inspection:
+seven historical CLOSED records match peeled tag-commit committer epochs at UTC
+minute precision; 18 local links resolve including migration/back links; 25 source
+blocks balance; heading levels and unique per-file CUSTOM_ID values are valid;
+50 project identifiers match their release/predecessor source or README. The user
+manually applied DONE to historical entries and NEXT v0.8.0 with its ID. The user's
+explicit instruction allowed the agent to write historical CLOSED despite the
+skill's existing-entry time boundary; it grants no future state/time permission.
+
+The user requested headline spacing cleanup, trailing-whitespace removal and
+org-table-align. emacs -Q --batch aligned two tables and removed 26 blank lines
+after headlines; a non-whitespace-content comparison excluded table-rule widths.
+Source-block delimiters were lowercased, preserving arguments/body, and later user
+Org editing added source indentation/escaping. Eight Emacs Lisp example blocks had
+balanced parentheses/strings; no configuration example was executed. A local-path
+backlink in v0.1.0 was fixed before staging, and all eight files were rechecked for
+relative links, version IDs, UTC records, lowercase delimiters and headline spacing.
+Tracked, staged and committed whitespace checks passed at the relevant steps.
+Initial new-file no-index checks accepted status 1 only with no whitespace errors.
+
+The user committed the docs, treefmt exclusions and strict .org ignore whitelist.
+The final root-summary omission fix records ert-biblatex -> ert-cite-biblatex as
+well as the Citar rename, matching committed README and check overlays. Read-only
+inspection after the latest commit confirmed a clean ordinary worktree/index and
+these final committed facts. The checkpoint project parent identifies that exact
+reviewed final snapshot; no retrospective intermediate parent is inferred.
+
+The user reported nix flake check failure before adding the root changelog treefmt
+exclusion; no fresh Nix check/build was run after that fix. No full Org export or
+render validation was run. Formatting is distinct from runtime validation. No
+CHANGELOGS/v0.8.0.org or local v0.8.0 tag exists; no 0.8.0 publication is claimed.
+No hosted notes or historical source trees were rewritten, and the agent did not
+create ordinary project commits. Earlier package/runtime checks remain scoped to
+the separately documented release-preparation candidate.
