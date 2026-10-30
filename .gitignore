@@ -2,7 +2,7 @@
 */
 
 !/.gitignore
-!/.gitsubmodules
+!/.gitmodules
 !/CHANGELOG.org
 !/LICENSE
 !/README.org
