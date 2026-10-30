@@ -207,3 +207,17 @@ CHANGELOGS/v0.8.0.org or local v0.8.0 tag exists; no 0.8.0 publication is claime
 No hosted notes or historical source trees were rewritten, and the agent did not
 create ordinary project commits. Earlier package/runtime checks remain scoped to
 the separately documented release-preparation candidate.
+
+## Standalone historical release-note navigation (committed)
+
+The user requested removal of top root-summary backlinks from all seven detail
+files, to keep independent manuscripts usable after tag extraction/conversion and
+historical successor-tag recovery. v0.1.0 was already edited by the user; the agent
+removed the other six. Exact comparisons against project HEAD confirm every file
+only loses that backlink and its following blank line. All 11 remaining root file
+links resolve, including local migration IDs; CHANGELOG.org is unchanged and
+worktree diff --check passed. The user then committed the seven-file removal;
+read-only comparison of committed parent/new blobs matches the reviewed changes,
+committed whitespace checking passes, and the ordinary worktree/index are clean.
+No renderer, Nix check, publishing tool, or state/time mutation was run for this
+narrow edit.

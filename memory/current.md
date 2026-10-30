@@ -1,11 +1,15 @@
-# Org-roam Organize: Org release history committed
+# Org-roam Organize: Standalone release-note navigation update
 
 ## Current state and continuation
 
-The user committed the Org history migration, the treefmt exclusions, the strict
-.org ignore whitelist and the BibLaTeX check-name clarification. The inspected
-ordinary project worktree and index are clean. The checkpoint's project parent
-identifies the exact committed snapshot reviewed for this handoff.
+The user committed the historical Org migration and its follow-up fixes, then
+committed removal of root-summary backlinks from all seven historical detail files
+as docs(changelog): remove root backlinks from release notes. The ordinary project
+worktree and index are clean. The committed seven-file diff exactly matches the
+reviewed backlink-and-blank-line removal; root CHANGELOG.org remains unchanged.
+The standalone-note policy below supersedes the temporary backlink retention in
+the previous checkpoint. The project parent identifies the exact committed
+snapshot inspected for this standalone-note policy and validation result.
 
 CHANGELOG.org now contains seven DONE historical versions (v0.1.0-v0.7.0) with
 matching tag CUSTOM_ID values, UTC CLOSED records and local detailed-note links.
@@ -25,9 +29,13 @@ Root CHANGELOG.org keeps concise categorized user-visible history and actionable
 Breaking migration directions. Complete historical Release Notes live in
 CHANGELOGS/<tag>.org. Plain version titles, matching CUSTOM_ID properties and local
 links replace hosting-platform URLs as version identity. Historical migration
-instructions are in local detailed files. Details currently link back to root IDs;
-these backlinks are an adopted navigation choice, not a skill requirement. The
-user considered removing them but chose to retain them for now.
+instructions are in local detailed files. The user has now explicitly removed
+all detail-to-root backlinks, superseding the earlier temporary decision to retain
+them. Each detailed Release Notes file is an independently understandable authoritative
+manuscript. Root-to-detail links remain. Future tag extraction/conversion must not
+need a backlink rewriting/removal rule or a root summary with a matching structure.
+Historical detail recovery from a successor tag likewise does not require that
+snapshot's root changelog to contain a corresponding summary entry.
 
 Use English and native Org syntax, omit empty categories and internal-only work,
 and preserve meaningful category ordering. Headline-to-first-object spacing has

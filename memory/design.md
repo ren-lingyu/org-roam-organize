@@ -17,9 +17,12 @@ explicit one-task historical CLOSED authorization already exercised.
 Historical CLOSED values use peeled tag-commit committer epochs converted to UTC
 at minute precision, not hosting publication dates. Root declares native TODO states,
 logdone and TIMEZONE UTC. A file property alone does not make Org log times in UTC.
-Local detail and migration links provide stable navigation. Detail-to-root backlinks
-are a retained project navigation choice, not a skill requirement; use relative
-paths. Formatting uses no blank after headlines, lowercase source-block delimiters,
+Root-to-detail and migration links provide stable navigation. Details are standalone
+authoritative manuscripts and contain no root-summary backlinks. This avoids requiring
+link rewriting during later extraction/conversion or a matching root summary in the
+successor snapshot used for historical backfill. This user-adopted policy supersedes
+the former temporary backlink retention; remaining file links use relative paths.
+Formatting uses no blank after headlines, lowercase source-block delimiters,
 no trailing whitespace and org-table-align tables.
 
 Record notable user-visible additions, behavior changes, fixes and incompatible
