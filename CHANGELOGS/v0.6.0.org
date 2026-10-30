@@ -1,4 +1,4 @@
-#+TITLE: v0.6.0 Release Notes
+#+title: v0.6.0 Release Notes
 
 v0.6.0 improves command diagnostics by introducing a dedicated reporting workflow for checks and synchronization commands.
 

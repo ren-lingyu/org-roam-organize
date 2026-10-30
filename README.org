@@ -1,11 +1,11 @@
-#+TITLE: Org Roam Organize
-#+AUTHOR: aRenCoco
+#+title: Org Roam Organize
+#+author: aRenCoco
 
 * Overview
 Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC) files and node references. It provides a minor mode with commands for checking setup, creating managed nodes, creating missing MOC files, syncing MOC entries from Org-roam node tags, checking managed citation references, and syncing citing-node entries.
 
 * Repository Structure
-#+BEGIN_SRC text
+#+begin_src text
   .
   ├── lisp/                         # Package Lisp modules
   ├── pkgs/
@@ -28,7 +28,7 @@ Org-roam-organize is an Emacs package for managing Org-roam Map of Contents (MOC
       ├── ert-cite-display/
       ├── ert-cite-citar/
       └── package-lint/
-#+END_SRC
+#+end_src
 
 Key conventions:
 
@@ -79,14 +79,14 @@ not need to load the new internal modules directly.
 Configurations that explicitly load citation integration libraries must use
 the new feature names:
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   ;; Old names no longer provided:
   ;; (require 'org-roam-organize-citar)
   ;; (require 'org-roam-organize-biblatex)
 
   (require 'org-roam-organize-cite-citar)
   (require 'org-roam-organize-cite-biblatex)
-#+END_SRC
+#+end_src
 
 All Citar adapter implementation symbols moved from the
 =org-roam-organize-citar-= namespace to the internal
@@ -179,9 +179,9 @@ When the Citar backend is active, Org-roam Organize registers and selects its ow
 While =org-roam-organize-mode= is enabled and the citation record sets =:bibliography t=, the core citation integration extends Org Cite's bibliography discovery with bibliography files declared by managed literature nodes.  This behavior is independent of the optional =:backend=.  Add a =BIBLIOGRAPHY= property to a level-0 literature node to associate a file with that node:
 
 #+begin_src org
-:PROPERTIES:
-:BIBLIOGRAPHY: reference.bib
-:END:
+  :PROPERTIES:
+  :BIBLIOGRAPHY: reference.bib
+  :END:
 #+end_src
 
 The value is resolved relative to the node's Org file.  Org-roam Organize reads the property from the Org-roam database, aggregates paths across nodes carrying the citation record's tag, removes duplicates, and appends the result to Org Cite's existing bibliography list.  Org Cite export processors and consumers such as Citar therefore see the managed files through the standard Org interface.  The package does not insert this property, scan directories, read the referenced files, or validate their existence, extension, readability, or contents.  It also does not select an export processor or insert =#+print_bibliography:=; those remain document or user configuration.  =BIBLIOGRAPHY= is an Org-roam Organize metadata convention and is not Org Cite's =#+bibliography:= keyword.  Changes become visible after the corresponding Org-roam database update.
@@ -190,23 +190,23 @@ The optional =:template= value is a structured alist for the generated managed c
 
 For a dynamic date, use Org capture's time escape syntax:
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   :template '((path . "${slug}.org")
               (keywords . ((date . "%<%Y-%m-%d %A %H:%M:%S %z>"))))
-#+END_SRC
+#+end_src
 
 The optional =:provider= value customizes data collection for ordinary managed node creation. When =:provider= is missing or nil, =org-roam-organize-node-create= uses the built-in provider, which reads a node title. A non-nil provider must be a function or function symbol. It is called with the full registry record:
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   (funcall provider record)
-#+END_SRC
+#+end_src
 
 The provider should return nil to cancel creation, or a request plist with a non-empty =:title= string and an optional =:info= plist:
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   ( :title TITLE
     :info INFO)
-#+END_SRC
+#+end_src
 
 The =:info= plist is passed to =org-roam-capture-= so placeholders such as =${author}= in =:template= values can be expanded. Providers only supply title and capture info; Org-roam-organize still controls paths, targets, and capture templates.
 
@@ -218,7 +218,7 @@ This package does not install default keybindings. The commands are intended to 
 ** Suggested Global Keybindings
 The following =C-c o= keybindings are optional user configuration examples:
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   (global-set-key (kbd "C-c o o") #'org-roam-organize-mode)
   (global-set-key (kbd "C-c o c") #'org-roam-organize-check-setup)
   (global-set-key (kbd "C-c o n c") #'org-roam-organize-node-create)
@@ -227,9 +227,9 @@ The following =C-c o= keybindings are optional user configuration examples:
   (global-set-key (kbd "C-c o m s") #'org-roam-organize-moc-sync)
   (global-set-key (kbd "C-c o r k") #'org-roam-organize-cite-check)
   (global-set-key (kbd "C-c o r c") #'org-roam-organize-cite-sync)
-#+END_SRC
+#+end_src
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   (keymap-global-set "C-c o o" #'org-roam-organize-mode)
   (keymap-global-set "C-c o c" #'org-roam-organize-check-setup)
   (keymap-global-set "C-c o n c" #'org-roam-organize-node-create)
@@ -238,12 +238,12 @@ The following =C-c o= keybindings are optional user configuration examples:
   (keymap-global-set "C-c o m s" #'org-roam-organize-moc-sync)
   (keymap-global-set "C-c o r k" #'org-roam-organize-cite-check)
   (keymap-global-set "C-c o r c" #'org-roam-organize-cite-sync)
-#+END_SRC
+#+end_src
 
 ** Suggested Command Aliases
 The following aliases are optional user configuration examples:
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   (defalias 'oro-check #'org-roam-organize-check-setup)
   (defalias 'oro-mkdirs #'org-roam-organize-create-directories)
   (defalias 'oro-create-node #'org-roam-organize-node-create)
@@ -252,7 +252,7 @@ The following aliases are optional user configuration examples:
   (defalias 'oro-sync-mocs #'org-roam-organize-moc-sync)
   (defalias 'oro-check-cites #'org-roam-organize-cite-check)
   (defalias 'oro-cite-sync #'org-roam-organize-cite-sync)
-#+END_SRC
+#+end_src
 
 * Usage
 1. Configure the required variables in your Emacs configuration
@@ -268,7 +268,7 @@ The following aliases are optional user configuration examples:
 Commands that produce detailed diagnostics use the =*Org-roam Organize Report*= buffer for the full report. Successful commands without warnings keep the interface quiet and only show a short minibuffer summary. Failed checks and sync commands with warnings display the report buffer and leave a short minibuffer notice pointing to it.
 
 An example of configuration is shown here.
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   (use-package org-roam-organize
     :straight (:host github :repo "ren-lingyu/org-roam-organize"
                :files ("lisp/*.el"))
@@ -350,28 +350,28 @@ An example of configuration is shown here.
      ("C-c o c c" . org-roam-organize-cite-check)
      ("C-c o c s" . org-roam-organize-cite-sync))
     :hook (after-init . org-roam-organize-mode))
-#+END_SRC
+#+end_src
 
 * Managed Node Creation
 The command =org-roam-organize-node-create= creates ordinary managed Org-roam nodes from non-MOC registry records that declare =:directory=. It prompts for a registry record, asks that record's provider for a node creation request, then calls =org-roam-capture-= with a registry-derived template. The default provider prompts for a node title.
 
 Managed node files use this target path template under =org-roam-organize-directory=:
 
-#+BEGIN_SRC text
+#+begin_src text
   <directory>/${id}/${path}
-#+END_SRC
+#+end_src
 
 When =path= is omitted from a record's =:template=, it defaults to =${slug}.org=, giving the standard path:
 
-#+BEGIN_SRC text
+#+begin_src text
   <directory>/${id}/${slug}.org
-#+END_SRC
+#+end_src
 
 During capture, Org-roam assigns the node ID. Org-roam-organize computes the expanded bundle root =<directory>/<id>/= in =org-roam-capture-preface-hook=, verifies the target file stays inside that bundle root, and creates the target file's parent directory before the file is opened. After capture, Org-roam-organize cleans only the bundle root: empty bundle roots are removed automatically, while non-empty aborted bundle roots require interactive confirmation before recursive deletion.
 
 A minimal custom provider can supply dynamic fields for placeholders used by the record template when the user invokes =org-roam-organize-node-create=. Citar notes creation does not call this provider; the Citar adapter obtains the initial title from the bibliography entry and owns cite ref creation.
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
   (defun my-org-roam-organize-reading-provider (_record)
     (let ((title (read-string "Reading note title: "))
           (author (read-string "Author: ")))
@@ -392,35 +392,35 @@ A minimal custom provider can supply dynamic fields for placeholders used by the
                                   (date . "%<%Y-%m-%d %A %H:%M:%S %z>")
                                   (description . nil)
                                   (filetags . ("reading")))))))
-#+END_SRC
+#+end_src
 
 * MOC Entry Format
 Managed MOC node entries are stored as Org keywords:
 
-#+BEGIN_SRC org
-  #+ROAM_NODE: [[id:node-id][Node title]]
-#+END_SRC
+#+begin_src org
+  ,#+ROAM_NODE: [[id:node-id][Node title]]
+#+end_src
 
 Entries marked for future deletion workflows may use:
 
-#+BEGIN_SRC org
-  #+ROAM_NODE: [[id:node-id][Node title]] :delete t
-#+END_SRC
+#+begin_src org
+  ,#+ROAM_NODE: [[id:node-id][Node title]] :delete t
+#+end_src
 
 During sync, existing valid entries keep their position and order. Missing nodes are added under the configured level-1 inbox headline. Entries whose target node no longer exists or no longer has the managed tag are removed. Duplicate entries are preserved, synchronized, and reported.
 
 * Citation Entry Format
 Generated citing-node entries for literature nodes are stored as Org keywords under the =:inbox= level-1 headline of each =:cite t= record node:
 
-#+BEGIN_SRC org
-  #+ROAM_CITING_NODE: [[id:node-id][Node title]]
-#+END_SRC
+#+begin_src org
+  ,#+ROAM_CITING_NODE: [[id:node-id][Node title]]
+#+end_src
 
 Managed citation references use the literature node UUID in the source Org text:
 
-#+BEGIN_SRC org
+#+begin_src org
   [cite:@literature-node-uuid]
-#+END_SRC
+#+end_src
 
 When =org-roam-organize-mode= is enabled, managed UUID keys are displayed as
 their literature node titles in Org buffers.  This presentation is automatic
@@ -432,9 +432,9 @@ after changing a literature node title or its managed tag membership.
 
 The corresponding literature node keeps its current external bibliography citekey in exactly one =refs.type = "cite"= =ROAM_REFS= entry:
 
-#+BEGIN_SRC org
+#+begin_src org
   :ROAM_REFS: @external-citekey
-#+END_SRC
+#+end_src
 
 With =:backend citar=, the adapter creates this property after a successful Citar note capture, so the citation record's capture template does not need to declare it. Literature nodes created through another path remain the user's responsibility and are reported by =org-roam-organize-cite-check= when the mapping is missing or ambiguous.
 
@@ -459,9 +459,9 @@ The repository provides separate Nix checks for the core, citation display,
 Citar adapter, and BibLaTeX compatibility ERT suites, plus package-lint;
 =nix flake check= also evaluates the package build and runs the treefmt check:
 
-#+BEGIN_SRC sh
+#+begin_src sh
   nix flake check
-#+END_SRC
+#+end_src
 
 * License
 This project is licensed under the GNU General Public License v3.0. See [[file:LICENSE][LICENSE]] for details.

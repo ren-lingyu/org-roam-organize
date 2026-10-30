@@ -1,4 +1,4 @@
-#+TITLE: v0.2.0 Release Notes
+#+title: v0.2.0 Release Notes
 
 v0.2.0 standardizes variable names and dependency declarations, adds
 autoloads, and moves keybinding ownership into user configuration.

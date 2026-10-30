@@ -1,4 +1,4 @@
-#+TITLE: v0.7.0 Release Notes
+#+title: v0.7.0 Release Notes
 
 v0.7.0 adds an optional Citar integration for managed literature nodes while preserving Org-roam Organize's UUID-based citation model.
 

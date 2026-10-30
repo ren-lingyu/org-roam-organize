@@ -1,4 +1,4 @@
-#+TITLE: v0.4.0 Release Notes
+#+title: v0.4.0 Release Notes
 
 v0.4.0 reorganizes =org-roam-organize= around a registry-driven model for managed Org-roam nodes, MOC files, and citation relationships.
 
@@ -33,7 +33,7 @@ v0.4.0 reorganizes =org-roam-organize= around a registry-driven model for manage
 - Managed entries are represented as:
 
 #+begin_src org
-  #+ROAM_NODE: [[id:node-id][Node title]]
+  ,#+ROAM_NODE: [[id:node-id][Node title]]
 #+end_src
 
 - Synchronization updates titles, adds missing entries, removes stale entries, preserves manual ordering, and reports duplicates.
@@ -50,7 +50,7 @@ v0.4.0 reorganizes =org-roam-organize= around a registry-driven model for manage
 - Generated citing-node entries use:
 
 #+begin_src org
-  #+ROAM_CITING_NODE: [[id:node-id][Node title]]
+  ,#+ROAM_CITING_NODE: [[id:node-id][Node title]]
 #+end_src
 
 - Synchronization updates titles, adds missing citing nodes, removes stale entries, and reports duplicates.

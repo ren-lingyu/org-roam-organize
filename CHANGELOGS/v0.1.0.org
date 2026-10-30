@@ -1,4 +1,4 @@
-#+TITLE: v0.1.0 Release Notes
+#+title: v0.1.0 Release Notes
 
 v0.1.0 introduces Org-roam organization through MOCs, tag-based node groups,
 headline and file operations, and literature backlinks.

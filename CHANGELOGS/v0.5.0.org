@@ -1,4 +1,4 @@
-#+TITLE: v0.5.0 Release Notes
+#+title: v0.5.0 Release Notes
 
 v0.5.0 extends managed node bundles and introduces UUID-based citations for literature nodes.
 

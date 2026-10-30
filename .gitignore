@@ -1,24 +1,20 @@
 *
 */
 
+!/.gitignore
+!/.gitsubmodules
+!/CHANGELOG.org
+!/LICENSE
+!/README.org
+!/flake.lock
+!/flake.nix
+
 !/.github/
 !/.github/**/
 !/.github/**/*.yaml
 
-!/.gitignore
-!/.gitsubmodules
-
-!/CHANGELOG.org
-
 !/CHANGELOGS/
 !/CHANGELOGS/*.org
-
-!/LICENSE
-
-!/README.org
-
-!/flake.lock
-!/flake.nix
 
 !/lisp/
 !/lisp/org-roam-organize*.el
@@ -33,6 +29,6 @@
 !/tests/**/*.nix
 !/tests/**/*.scm
 
-*~
 *#
 **/tmp/
+*~

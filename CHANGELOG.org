@@ -1,7 +1,7 @@
-#+TITLE: Org-roam Organize Changelog
-#+TODO: TODO NEXT WAIT | DONE CANCELED
-#+STARTUP: logdone
-#+PROPERTY: TIMEZONE UTC
+#+title: Org-roam Organize Changelog
+#+todo: TODO NEXT WAIT | DONE CANCELED
+#+startup: logdone
+#+property: TIMEZONE UTC
 
 This file records notable user-visible changes, following Keep a Changelog
 categories in Org format. Released versions are listed newest first, with
@@ -39,7 +39,6 @@ CLOSED: [2026-08-06 Thu 17:23]
 :PROPERTIES:
 :CUSTOM_ID: v0.7.0
 :END:
-
 [[file:CHANGELOGS/v0.7.0.org][Detailed release notes]]
 
 ** Added
@@ -56,7 +55,6 @@ CLOSED: [2026-07-28 Tue 16:22]
 :PROPERTIES:
 :CUSTOM_ID: v0.6.0
 :END:
-
 [[file:CHANGELOGS/v0.6.0.org][Detailed release notes]]
 
 ** Added
@@ -70,7 +68,6 @@ CLOSED: [2026-07-28 Tue 14:34]
 :PROPERTIES:
 :CUSTOM_ID: v0.5.0
 :END:
-
 [[file:CHANGELOGS/v0.5.0.org][Detailed release notes]]
 
 ** Added
@@ -88,7 +85,6 @@ CLOSED: [2026-07-27 Mon 18:20]
 :PROPERTIES:
 :CUSTOM_ID: v0.4.0
 :END:
-
 [[file:CHANGELOGS/v0.4.0.org][Detailed release notes]]
 
 ** Added
@@ -112,7 +108,6 @@ CLOSED: [2026-07-22 Wed 20:45]
 :PROPERTIES:
 :CUSTOM_ID: v0.3.0
 :END:
-
 [[file:CHANGELOGS/v0.3.0.org][Detailed release notes]]
 
 ** Added
@@ -129,7 +124,6 @@ CLOSED: [2026-07-22 Wed 11:53]
 :PROPERTIES:
 :CUSTOM_ID: v0.2.0
 :END:
-
 [[file:CHANGELOGS/v0.2.0.org][Detailed release notes]]
 
 ** Added
@@ -149,7 +143,6 @@ CLOSED: [2026-07-09 Thu 07:14]
 :PROPERTIES:
 :CUSTOM_ID: v0.1.0
 :END:
-
 [[file:CHANGELOGS/v0.1.0.org][Detailed release notes]]
 
 ** Added

@@ -1,4 +1,4 @@
-#+TITLE: v0.3.0 Release Notes
+#+title: v0.3.0 Release Notes
 
 v0.3.0 is a transitional release that deprecates the fixed directory model
 and strengthens startup validation.
