@@ -221,3 +221,29 @@ read-only comparison of committed parent/new blobs matches the reviewed changes,
 committed whitespace checking passes, and the ordinary worktree/index are clean.
 No renderer, Nix check, publishing tool, or state/time mutation was run for this
 narrow edit.
+
+## Root input refresh and expanded formatting scope
+
+The user committed three changes after the standalone-note checkpoint: refresh of
+root nixpkgs/personal-nixpkgs locks, normalization of Org/gitignore presentation,
+and removal of README.org, CHANGELOG.org, CHANGELOGS/*.org and .gitignore from
+explicit treefmt exclusions. The project now explicitly excludes only LICENSE and
+flake.lock and retains flakeCheck = true. Formatter selection/availability was not
+evaluated; inclusion here describes the committed configuration.
+
+Review read the complete flake manifest and lock graph and all three diffs. Only
+the two root locked nodes changed; original input definitions, follows edges and
+all transitive nodes are identical. Nine Org documents were compared against the
+preceding project baseline: the actual diffs are keyword case, whitespace and
+source comma escaping. A normalization comparison corroborates that review; it is
+not an Org rendering test. State keywords and CLOSED values are unchanged. The
+.gitignore nonempty pattern inventory is identical after regrouping; representative
+root/detail documentation ignore checks confirm the files remain trackable.
+All three commits pass git show --check; ordinary worktree/index are clean.
+
+No Nix check/build, formatter execution, network dependency resolution or full Org
+export was performed during this review. No result from the prior lock snapshot
+is represented as validation of these new dependencies or the expanded treefmt
+scope. The checkpoint associates the exact final project tree inspected, rather
+than inferring separate intermediate checkpoint provenance. Historical 0.8.0 note
+preparation and release-state boundaries remain unchanged.

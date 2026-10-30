@@ -22,7 +22,7 @@ authoritative manuscripts and contain no root-summary backlinks. This avoids req
 link rewriting during later extraction/conversion or a matching root summary in the
 successor snapshot used for historical backfill. This user-adopted policy supersedes
 the former temporary backlink retention; remaining file links use relative paths.
-Formatting uses no blank after headlines, lowercase source-block delimiters,
+Formatting uses no blank after headlines, lowercase Org keyword names and block delimiters,
 no trailing whitespace and org-table-align tables.
 
 Record notable user-visible additions, behavior changes, fixes and incompatible
@@ -32,8 +32,11 @@ supplementary. Evidence conflicts belong in reports/memory, not user-facing hist
 README remains the current-use/configuration guide. The 0.8.0 summary and README
 both record ert-citar -> ert-cite-citar and ert-biblatex -> ert-cite-biblatex.
 
-The root and detailed Org changelogs are excluded from treefmt, and the Git whitelist
-permits CHANGELOGS/*.org. For future profile releases, the complete detailed file
+README.org, CHANGELOG.org, CHANGELOGS/*.org and .gitignore are now in treefmt's
+configured scope; only LICENSE and flake.lock remain explicitly excluded in the
+project flake. flakeCheck remains enabled. This supersedes the historical Org
+exclusions. The Git whitelist permits CHANGELOGS/*.org; root-file exceptions are
+grouped before directory groups and *~ is last. For future profile releases, the complete detailed file
 from the release tag is the sole Release Notes manuscript; root is a summary, not
 a publishing fallback. Conversion/publication tooling remains separate. Legacy
 backfill follows the skill's confirmed successor-tag source selection; reviewed
@@ -94,7 +97,12 @@ Test-file interpolation retains Nix dependency context; toString on the path doe
 not. Guile system* passes argument lists, isolates HOME under the build temporary
 directory, propagates failures and creates the output marker only after success.
 Scheme files are whitelisted by Git ignore rules. Treefmt is included in checks.
-Nixpkgs follows unstable; lock refreshes are dependency maintenance.
+Nixpkgs follows unstable; lock refreshes are dependency maintenance. The current
+refresh changes only root nixpkgs and personal-nixpkgs locks; original input URLs,
+personal-nixpkgs following root nixpkgs and all transitive lock nodes are unchanged.
+README, root/detail Org changelogs and .gitignore participate in the configured
+treefmt scope. A dependency refresh requires fresh validation before carrying
+forward earlier runtime/build success claims.
 
 
 ## Citation model

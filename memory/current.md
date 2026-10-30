@@ -1,15 +1,23 @@
-# Org-roam Organize: Standalone release-note navigation update
+# Org-roam Organize: Refreshed inputs and expanded formatting checks
 
 ## Current state and continuation
 
-The user committed the historical Org migration and its follow-up fixes, then
-committed removal of root-summary backlinks from all seven historical detail files
-as docs(changelog): remove root backlinks from release notes. The ordinary project
-worktree and index are clean. The committed seven-file diff exactly matches the
-reviewed backlink-and-blank-line removal; root CHANGELOG.org remains unchanged.
-The standalone-note policy below supersedes the temporary backlink retention in
-the previous checkpoint. The project parent identifies the exact committed
-snapshot inspected for this standalone-note policy and validation result.
+Since the standalone-note checkpoint, the user committed three coordinated updates:
+root lock-input refreshes, Org/gitignore formatting, and expansion of treefmt scope.
+The ordinary project worktree and index are clean. Read-only review covered the
+three commits and their final combined tree; the checkpoint project parent identifies
+that exact reviewed final snapshot. No intermediate checkpoints are reconstructed.
+
+Both root inputs, nixpkgs and personal-nixpkgs, moved to newer revisions. Their
+original source specifications and the full lock graph are unchanged; personal-nixpkgs
+still follows root nixpkgs. No transitive lock node changed. The root flake manifest
+changed only its explicit treefmt exclusion list.
+
+README.org, CHANGELOG.org, CHANGELOGS/*.org and .gitignore are now included in the
+configured treefmt scope. Only LICENSE and flake.lock remain explicitly excluded by
+the project; flakeCheck stays enabled. This supersedes the former Org/gitignore
+exclusions. Actual formatter selection comes from the framework and was not evaluated
+in this review. Do not reintroduce the old exclusions from historical memory.
 
 CHANGELOG.org now contains seven DONE historical versions (v0.1.0-v0.7.0) with
 matching tag CUSTOM_ID values, UTC CLOSED records and local detailed-note links.
@@ -39,7 +47,8 @@ snapshot's root changelog to contain a corresponding summary entry.
 
 Use English and native Org syntax, omit empty categories and internal-only work,
 and preserve meaningful category ordering. Headline-to-first-object spacing has
-no blank line, all source block delimiters are lowercase, trailing spaces are
+no blank line, all Org keyword names and source block delimiters are lowercase,
+trailing spaces are
 removed, and tables are aligned with org-table-align. Preserve Org source-block
 escaping and the user's formatting edits. File links must be repository-relative;
 a machine-specific v0.1.0 backlink was corrected before the user staged/committed it.
@@ -75,12 +84,20 @@ historical tagged trees were not rewritten.
 
 ## Tracking and verification
 
-The committed .gitignore whitelist uses !/CHANGELOGS/*.org. treefmt excludes
-CHANGELOG.org and CHANGELOGS/*.org. The user reported that omitting the existing
-root changelog exclusion made nix flake check fail; that was the reason for the
-separate fix(treefmt) commit. No fresh Nix check after that fix was run or claimed.
+The .gitignore whitelist still uses !/CHANGELOGS/*.org. It now groups root-file
+exceptions before directory groups and places *~ last. Its nonempty pattern inventory
+is unchanged. The nine Org documents changed only keyword case, whitespace and Org
+source escaping; documented version states, times, interfaces and release contents
+are unchanged. Additional comma escaping protects ROAM_NODE/ROAM_CITING_NODE examples.
 
-Static verification covered eight files, 18 local links, seven UTC CLOSED records,
+Read-only verification checked all lock nodes, original root source definitions,
+follows relationships, all nine Org diffs and the gitignore pattern inventory.
+All three commits pass Git whitespace checks and the documentation remains trackable.
+No nix flake check/build, formatter execution, full Org render or dependency resolution
+was run for these new locks or the expanded scope. Earlier passing Nix/package smoke
+results apply to the earlier dependency snapshot, not the refreshed environment.
+
+Earlier history-migration static verification covered eight files, 18 local links, seven UTC CLOSED records,
 25 source blocks, heading spacing, matching/unique per-file IDs, lowercase block
 delimiters, 50 historical project identifiers, ignore coverage and staged/worktree
 whitespace checks. Earlier no-index whitespace checks on new nonempty files accepted
