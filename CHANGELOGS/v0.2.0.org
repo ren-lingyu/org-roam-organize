@@ -1,7 +1,5 @@
 #+TITLE: v0.2.0 Release Notes
 
-[[file:../CHANGELOG.org::#v0.2.0][Changelog summary]]
-
 v0.2.0 standardizes variable names and dependency declarations, adds
 autoloads, and moves keybinding ownership into user configuration.
 

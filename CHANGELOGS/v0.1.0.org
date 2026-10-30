@@ -1,7 +1,5 @@
 #+TITLE: v0.1.0 Release Notes
 
-[[file:../CHANGELOG.org::#v0.1.0][Changelog summary]]
-
 v0.1.0 introduces Org-roam organization through MOCs, tag-based node groups,
 headline and file operations, and literature backlinks.
 

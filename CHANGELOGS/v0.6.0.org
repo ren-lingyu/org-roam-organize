@@ -1,7 +1,5 @@
 #+TITLE: v0.6.0 Release Notes
 
-[[file:../CHANGELOG.org::#v0.6.0][Changelog summary]]
-
 v0.6.0 improves command diagnostics by introducing a dedicated reporting workflow for checks and synchronization commands.
 
 * Changes

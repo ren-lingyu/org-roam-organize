@@ -1,7 +1,5 @@
 #+TITLE: v0.4.0 Release Notes
 
-[[file:../CHANGELOG.org::#v0.4.0][Changelog summary]]
-
 v0.4.0 reorganizes =org-roam-organize= around a registry-driven model for managed Org-roam nodes, MOC files, and citation relationships.
 
 * Changes

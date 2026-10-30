@@ -1,7 +1,5 @@
 #+TITLE: v0.3.0 Release Notes
 
-[[file:../CHANGELOG.org::#v0.3.0][Changelog summary]]
-
 v0.3.0 is a transitional release that deprecates the fixed directory model
 and strengthens startup validation.
 
