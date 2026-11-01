@@ -10,7 +10,7 @@ timestamps are interpreted in UTC. Historical CLOSED timestamps use the
 committer time of the release tag's commit, recorded to minute precision;
 they do not represent hosting-platform publication times.
 
-* NEXT v0.8.0
+* TODO v0.8.0
 :PROPERTIES:
 :CUSTOM_ID: v0.8.0
 :END:
