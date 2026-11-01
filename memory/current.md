@@ -1,15 +1,37 @@
-# Org-roam Organize: Test migration deferred
+# Org-roam Organize: Cite export implementation approved
 
 ## Current state and continuation
 
-Since the standalone-note checkpoint, the user committed three coordinated updates:
-root lock-input refreshes, Org/gitignore formatting, and expansion of treefmt scope.
-Those earlier input/formatting changes are committed. The current project worktree
-has the user's unstaged CHANGELOG.org edit changing v0.8.0 from NEXT to TODO;
-the project index is empty. The user has now deferred testing refactoring/migration.
-Keep existing test layout and execution unchanged; see memory/backlog.md for the
-non-blocking follow-up, discussion and resumption conditions. This deferred work
-is not a prerequisite for 0.8.0 release. No implementation was authorized or made.
+The user approved implementation of the unified cite export plan. The first
+execution write is this memory update and its GAW checkpoint, before project
+implementation. The only project change currently staged is the user's
+CHANGELOG.org transition from NEXT v0.8.0 to TODO v0.8.0. The first ordinary
+project commit must contain only that existing state change; the user explicitly
+selected this boundary. Project commits remain manual under the active Git
+policy. Confirm that commit read-only before starting source changes. No cite
+implementation or runtime validation has been performed for the new plan yet.
+
+The goal is backend-independent conversion of managed UUID citations and their
+optional bibliography metadata into standard Org Cite input. Preserve the existing
+:bibliography opt-in: UUID conversion works independently; only literal t enables
+interactive full-library discovery and export-time scoped bibliography propagation.
+With nil/missing, users may supply bibliography through ordinary Org configuration.
+See memory/design.md, "Approved cite export replacement (not implemented yet)".
+
+The implementation commit candidate will coordinate source, replacement export
+tests/check configuration, README and final v0.8.0 changelog claims. Do not publish
+planned behavior as already implemented. Keep v0.8.0 TODO, historical releases
+unchanged and release publication separate. Maintain current memory as findings
+evolve; checkpoint consequential recovery states rather than every edit.
+
+The broader testing refactor/migration remains deferred; see memory/backlog.md.
+Only the obsolete BibLaTeX repair suite/check is to be replaced by ert-cite-export
+within the existing independent Nix/Guile test mechanism. Do not move general tests
+into package checkPhase, introduce a new runner or reopen that backlog.
+
+Earlier root lock-input refreshes, Org/gitignore formatting and expanded treefmt
+scope are committed. The package's earlier runtime results do not validate the
+refreshed dependencies or the proposed export behavior.
 
 Both root inputs, nixpkgs and personal-nixpkgs, moved to newer revisions. Their
 original source specifications and the full lock graph are unchanged; personal-nixpkgs
@@ -127,9 +149,11 @@ should stay independent of Nix, with Nix supplying dependencies and invoking tho
 entry points. ERT and package metadata do not supply that same unified project
 contract; a thin project-owned runner was discussed, not implemented.
 
-The user's final decision is to defer the entire testing refactor/migration.
+The user's decision is to defer the broader testing refactor/migration.
 None of the candidate directory moves, runner interfaces, checkPhase changes,
-passthru tests, new installation tests or check-name changes are adopted work.
+passthru tests or new installation tests are adopted work. The newly approved
+cite-specific ert-cite-biblatex to ert-cite-export replacement is a separate,
+bounded functional change, not resumption of this broader migration.
 The current independent test derivations and shared Guile support stay as they are.
 This is a non-blocking backlog item, not unfinished 0.8.0 release scope. Resume only
 when the user explicitly reopens it; memory/backlog.md preserves the analysis,

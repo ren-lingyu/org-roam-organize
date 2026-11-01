@@ -9,7 +9,7 @@ Source and Nix package metadata declare v0.8.0, with Emacs 30.1, Org 9.5 and Org
 The adopted Org profile keeps curated English summaries in CHANGELOG.org and
 complete historical release notes in CHANGELOGS/<tag>.org. Seven historical versions
 v0.1.0-v0.7.0 are DONE with matching CUSTOM_ID and UTC CLOSED. The user manually
-froze the candidate as NEXT v0.8.0 with matching ID; its complete detailed manuscript
+returned the candidate to TODO v0.8.0 with matching ID; its complete detailed manuscript
 has not been written, and it has no CLOSED/publication claim. Existing state
 transitions and version-time changes remain human-owned except for the user's
 explicit one-task historical CLOSED authorization already exercised.
@@ -104,6 +104,62 @@ README, root/detail Org changelogs and .gitignore participate in the configured
 treefmt scope. A dependency refresh requires fresh validation before carrying
 forward earlier runtime/build success claims.
 
+
+## Approved cite export replacement (not implemented yet)
+
+The user approved implementation before v0.8.0 release. The existing implementation
+described in the Bibliography and BibLaTeX compatibility sections below remains
+the actual baseline until replaced and validated; the following is the adopted
+target, not a claim of completed behavior.
+
+Preserve tag-based level-0 literature membership, stable UUID citations, exactly
+one cite-type ROAM_REFS per cited managed node, and optional BIBLIOGRAPHY metadata
+in nodes.properties. Put file-level property drawers at the top of examples.
+Global cite-check retains its bijection rule; export validates only cited managed
+nodes. Unmanaged keys, including unmatched UUID-shaped keys, remain unchanged.
+
+Only literal :bibliography t enables automatic bibliography integration: full
+managed discovery for interactive consumers and cited-node-only propagation during
+export. Nil/missing disables both, while UUID-to-citekey conversion still works
+with ordinary document/global bibliography configuration. Missing node bibliography
+is not itself an error. Do not invent files, validate whole libraries, choose a
+processor, insert print_bibliography, or add processor-specific production logic.
+
+First establish export isolation: a mode-owned org-export-as around advice
+dynamically suppresses managed full-library additions throughout that export,
+calling the original once and unwinding after success, exceptions or nested calls.
+The discovery advice preserves native results in that scope. Do not globally
+remove/reinstall advice, infer export from buffer names, or subtract managed paths
+after acquisition: an explicitly configured path may also be managed.
+
+The existing parse-tree filter will discover unique keys after standard export
+preprocessing/pruning, query only matching managed nodes and preserve missing-ref
+nodes for validation, reuse identity mapping diagnostics without prematurely
+deduplicating declarations, rewrite AST keys, and append enabled bibliography paths
+to the shared info :bibliography. Preserve native order; sort and deduplicate added
+absolute paths resolved relative to each literature Org file. Reuse path resolution
+with interactive discovery. Do not read literature files or add a persistent cache.
+Later third-party parse-tree filter mutations require compatible filter ordering.
+
+Before removing the bundled repair layer, verify native standard-input BibLaTeX
+behavior without project extensions and compare new managed input with repair
+disabled. Check the current dependency and declared minimum Org 9.5 for hook order,
+info propagation and native behavior. If standard input fails or minimum-version
+validation cannot be completed, report concrete evidence and stop short of deletion
+or completion claims; do not silently raise dependencies or restore backend fixes.
+
+Replace the repair suite/check with ert-cite-export using the existing independent
+Nix/Guile runner. Real basic and biblatex exports should use temporary Org-roam DB
+and bibliography fixtures and test ordinary-input equivalence, final output and
+processor input, opt-out with centralized bibliography, excluded/include/macro
+citations, shared paths, invalid used/unused nodes, unchanged source/modified state,
+explicit managed-path retention, success/error restoration of interactive discovery,
+consecutive export isolation, lifecycle idempotence, Citar and title display.
+Cover full/body-only BibLaTeX with/without print_bibliography; PDF compilation is
+not an acceptance requirement. Run focused checks, regressions, then complete
+flake checking only with required command authorization, normally 120s timeouts
+and no lock writes. Maintain README/docstrings and only final v0.8.0 claims;
+historical releases, release state and the broader deferred test migration stay put.
 
 ## Citation model
 
