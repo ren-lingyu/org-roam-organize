@@ -1,12 +1,15 @@
-# Org-roam Organize: Refreshed inputs and expanded formatting checks
+# Org-roam Organize: Test migration deferred
 
 ## Current state and continuation
 
 Since the standalone-note checkpoint, the user committed three coordinated updates:
 root lock-input refreshes, Org/gitignore formatting, and expansion of treefmt scope.
-The ordinary project worktree and index are clean. Read-only review covered the
-three commits and their final combined tree; the checkpoint project parent identifies
-that exact reviewed final snapshot. No intermediate checkpoints are reconstructed.
+Those earlier input/formatting changes are committed. The current project worktree
+has the user's unstaged CHANGELOG.org edit changing v0.8.0 from NEXT to TODO;
+the project index is empty. The user has now deferred testing refactoring/migration.
+Keep existing test layout and execution unchanged; see memory/backlog.md for the
+non-blocking follow-up, discussion and resumption conditions. This deferred work
+is not a prerequisite for 0.8.0 release. No implementation was authorized or made.
 
 Both root inputs, nixpkgs and personal-nixpkgs, moved to newer revisions. Their
 original source specifications and the full lock graph are unchanged; personal-nixpkgs
@@ -21,9 +24,11 @@ in this review. Do not reintroduce the old exclusions from historical memory.
 
 CHANGELOG.org now contains seven DONE historical versions (v0.1.0-v0.7.0) with
 matching tag CUSTOM_ID values, UTC CLOSED records and local detailed-note links.
-The user manually set these states and changed the development entry to NEXT
-v0.8.0 with CUSTOM_ID v0.8.0. That entry has no CLOSED or release-date claim.
-The earlier pending human-state-assignment task is complete.
+The user manually set these historical states and has since changed the development
+entry from NEXT v0.8.0 to TODO v0.8.0 while considering an expanded testing scope.
+CUSTOM_ID v0.8.0 remains. That entry has no CLOSED or release-date claim. Deferring
+the migration does not authorize reverting TODO to NEXT; lifecycle state is the
+user's decision. The historical state-assignment task remains complete.
 
 No CHANGELOGS/v0.8.0.org was requested or created in this historical migration.
 Completing and reviewing that detailed manuscript is still a prerequisite for a
@@ -111,3 +116,21 @@ Earlier 0.8.0 package checks and installation smoke validation remain separate
 recorded evidence on x86_64-linux with default Emacs 31.1; they do not establish
 minimum-version, other-system or straight runtime compatibility. See
 memory/validation.md. Actual release operations and publication remain separate.
+
+## Testing discussion and final decision
+
+The user considered moving core/BibLaTeX/display ERT and package-lint into the
+package checkPhase, retaining optional Citar integration and possible installed
+artifact tests as passthru.tests. One coherent implementation commit was discussed.
+The user prefers Cabal-style separation: project-owned test declarations/runners
+should stay independent of Nix, with Nix supplying dependencies and invoking those
+entry points. ERT and package metadata do not supply that same unified project
+contract; a thin project-owned runner was discussed, not implemented.
+
+The user's final decision is to defer the entire testing refactor/migration.
+None of the candidate directory moves, runner interfaces, checkPhase changes,
+passthru tests, new installation tests or check-name changes are adopted work.
+The current independent test derivations and shared Guile support stay as they are.
+This is a non-blocking backlog item, not unfinished 0.8.0 release scope. Resume only
+when the user explicitly reopens it; memory/backlog.md preserves the analysis,
+constraints, alternatives and validation limits instead of an executable plan.
