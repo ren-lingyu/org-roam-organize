@@ -1,4 +1,5 @@
-#+title: Org-roam Organize Changelog
+#+title: Changelog
+#+description: Follows Keep a Changelog 2.0.0 conventions; all timestamps use UTC.
 #+todo: TODO NEXT WAIT | DONE CANCELED
 #+startup: logdone
 #+property: TIMEZONE UTC
