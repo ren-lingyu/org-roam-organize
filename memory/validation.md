@@ -253,9 +253,10 @@ preparation and release-state boundaries remain unchanged.
 
 The user approved the implementation plan and required its planning memory
 checkpoint first, followed by a manual project commit containing only NEXT -> TODO
-for v0.8.0. Both boundaries were fulfilled before source changes. The final cite
-candidate remains uncommitted; no project parent should be inferred from HEAD for
-its test results. Ordinary project commits and release transitions remain human-owned.
+for v0.8.0. Both boundaries were fulfilled before source changes. The candidate
+was uncommitted when tested; later commit confirmation below establishes its exact
+committed contents separately. Ordinary project commits and release transitions
+remain human-owned.
 
 The candidate scopes node/file/properties acquisition to exported keys, reuses the
 existing ref validation query, converts AST identities, propagates opted-in paths,
@@ -317,5 +318,18 @@ All heavy checks had 120s timeouts; the earlier initial system-native probe had
 compilation, minimum-Emacs full package run, other-system runtime validation,
 interactive GUI workflow, release publication or installed-artifact smoke rerun
 is claimed. Temporary artifacts are ignored under tmp and are not formal memory
-dependencies. Only the new export suite's three files were authorized for staging;
-subsequent edits remain partially unstaged and the index is not a complete candidate.
+dependencies. During implementation only the three new export-suite files were
+authorized for agent staging. The user later staged the complete final candidate
+and manually committed it after commit-message preparation.
+
+
+### Committed candidate confirmation
+
+The user committed the complete implementation after staging it. Read-only review
+confirmed the expected cite commit, clean worktree/index, all 45 committed project
+inputs byte-identical to the passing isolated snapshot, and absence of the four
+obsolete repair-module/test files. Commit whitespace checking passes. The GAW
+checkpoint's project parent identifies that exact inspected project snapshot.
+The existing passing test evidence therefore applies to matching committed
+contents; no new runtime check or additional platform certification is claimed.
+The commit does not change the TODO release state or authorize publication.

@@ -1,13 +1,15 @@
-# Org-roam Organize: Cite export implemented and validated
+# Org-roam Organize: Cite export committed and validated
 
 ## Current state and continuation
 
-The approved cite implementation is complete in the project worktree, pending
-manual project commit. The planning GAW checkpoint preceded implementation;
-the user first committed only NEXT -> TODO for v0.8.0. Keep that release state,
+The user committed the complete approved cite implementation. Read-only review
+confirmed a clean project worktree/index and all 45 committed inputs matching
+the isolated validated copy, with obsolete repair files absent. The planning
+GAW checkpoint preceded implementation; the user first committed only NEXT -> TODO
+for v0.8.0. Keep that release state,
 historical releases, dates, dependency declarations and lockfile unchanged.
 
-The candidate implements scoped UUID/citekey/bibliography conversion, preserves
+The committed implementation provides scoped UUID/citekey/bibliography conversion, preserves
 interactive full-library discovery and :bibliography opt-in, removes the bundled
 BibLaTeX repair layer, and replaces its suite/check with ert-cite-export. README,
 docstrings and only the v0.8.0 changelog content describe the final architecture.
@@ -23,8 +25,10 @@ The final filtered copy under ignored tmp/cite-validation/project passed
 nix flake check --no-write-lock-file on x86_64-linux, including package build,
 package-lint, treefmt and all 159 ERT tests (core 90, Citar 48, display 13, export 8).
 Byte comparisons confirmed all 45 selected project inputs match the validated
-copy. Complete project diff whitespace checking also passes. See validation.md
-for version evidence and limits; the tested candidate is uncommitted.
+copy. The subsequent committed tree matches that same copy, and commit whitespace
+checking passes. See validation.md for version evidence and limits. The project
+parent of this confirmation checkpoint identifies the exact inspected commit;
+no tests were rerun merely to establish that association.
 
 The user requires isolated flake validation, superseding earlier system-Emacs
 and direct-download proposals. tmp/cite-validation/minimum passed native standard
@@ -33,12 +37,12 @@ input and info propagation on current Emacs 31.1/Org 9.8.7 and historical nixpkg
 support on Emacs 28. Earlier exact Org 9.5 source checks were also Nix-isolated.
 The user limited historical-version research; no further search is needed.
 
-Next: review/stage the complete final candidate only with explicit authorization,
-then let the user commit. Only three new export-suite files were authorized for
-staging so Git flake could discover them. Later ert.el edits are unstaged; the
-index is incomplete and is not the final implementation candidate. Ordinary
-project commits remain manual. Do not write a commit message for an incomplete
-staged tree or attach current HEAD as provenance for an uncommitted tested state.
+The cite implementation task is complete, including source, regression coverage,
+documentation and manual project commit. No implementation or staging work remains.
+Future release preparation is separate: v0.8.0 stays TODO, its detailed release
+manuscript remains unfinished, and no release tag/publication is implied. Ordinary
+project commits and release-state transitions remain manual. Preserve the existing
+validation limits rather than rerunning or expanding checks without a new reason.
 
 The broader testing migration remains deferred in memory/backlog.md. This bounded
 suite replacement does not reopen package checkPhase migration, new runners or
