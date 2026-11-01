@@ -247,3 +247,75 @@ is represented as validation of these new dependencies or the expanded treefmt
 scope. The checkpoint associates the exact final project tree inspected, rather
 than inferring separate intermediate checkpoint provenance. Historical 0.8.0 note
 preparation and release-state boundaries remain unchanged.
+
+
+## Unified cite export implementation validation
+
+The user approved the implementation plan and required its planning memory
+checkpoint first, followed by a manual project commit containing only NEXT -> TODO
+for v0.8.0. Both boundaries were fulfilled before source changes. The final cite
+candidate remains uncommitted; no project parent should be inferred from HEAD for
+its test results. Ordinary project commits and release transitions remain human-owned.
+
+The candidate scopes node/file/properties acquisition to exported keys, reuses the
+existing ref validation query, converts AST identities, propagates opted-in paths,
+and separates interactive library discovery from native/scoped export discovery.
+The repair module and dedicated suite/configuration are replaced by generic export
+coverage. README, docstrings and v0.8.0 summary describe the resulting behavior.
+Historical release bodies, project dependency declarations and lockfile are unchanged.
+
+A real basic-processor equivalence test exposed missing author/year output when
+only info :bibliography was updated. Official oc-basic source and runtime evidence
+show it obtains entries through org-cite-list-bibliography-files. The common advice
+now provides the same dynamically bound resolved list through that interface;
+there is no processor-specific production branch or persistent bibliography cache.
+An early fixture failure also exposed shared quoted registry mutation; fixture
+configuration is copied before mutation. A test call's body-only argument order
+and an initial missing closing parenthesis were corrected before passing results.
+
+Final validation ran in the filtered, task-owned tmp/cite-validation/project flake,
+using the unchanged project manifest/lock and existing Nix/Guile test mechanism.
+`nix flake check --no-write-lock-file path:/home/lingyu/Projects/org-roam-organize/tmp/cite-validation/project`
+passed on x86_64-linux: package compilation/build, package-lint, treefmt, core ERT
+90/90, Citar ERT 48/48, display ERT 13/13 and export ERT 8/8 (159 total).
+The 45 selected project input files were byte-compared with the tested copy and
+all matched. Complete project diff whitespace checking passed. Formatting changes
+were applied from the isolated treefmt check's patch to the two affected Elisp
+files, followed by the passing full check. No global formatter or system mutation
+was performed. Other systems were omitted by Nix, not certified.
+
+The new export suite uses real temporary Org-roam databases, literature properties
+and bibliography files, with basic/ascii and biblatex/latex standard-input
+comparisons. Coverage includes full/body-only, print/no-print, mixed/repeated/shared
+paths, distinct bibliography files, native explicit/global paths including explicit
+managed files, nil/missing opt-out with centralized bibliography, absent node
+bibliography, excluded/include/macro citations, missing/multiple used refs and
+unused invalid nodes, normal/error interactive restoration, native acquisition,
+consecutive exports, lifecycle idempotence and unchanged source/modified state.
+Changing a node's external key is observed after database sync without changing
+the citing source. Citar/display existing regressions passed separately.
+
+Native compatibility verification was also isolated by flake after the user
+required that approach. Current Emacs 31.1/Org 9.8.7 passed native BibLaTeX
+standard-input and parse-tree info propagation checks. An initial source-based
+flake check passed those same checks with official Org release_9.5 at
+73875939a8b5545ac53a86ec467239f510d14de8, generating only standard autoload/version
+metadata in the Nix sandbox. No direct curl download was executed.
+
+At the user's suggestion, historical nixpkgs was tried instead. Its 21.11 ELPA
+Org 9.5 package could not be fetched because the upstream tar/tar.lz URLs returned
+404; this is not a native export failure. Nixpkgs tag 22.05 at
+ce6aa13369b667ac2542593170993504932eb836 provided cached Emacs 28.1 with builtin
+Org 9.5.2, which passed both native checks with loaded-library paths confirmed.
+This historical runtime validates native Org behavior, not full package support
+on unsupported Emacs 28. The current native check uses flake-provided Emacs,
+not the system executable. The user limited further historical research; no
+additional search is needed and no project minimum version was changed.
+
+All heavy checks had 120s timeouts; the earlier initial system-native probe had
+30s and was superseded by the user's isolated-flake requirement. No PDF/Biber
+compilation, minimum-Emacs full package run, other-system runtime validation,
+interactive GUI workflow, release publication or installed-artifact smoke rerun
+is claimed. Temporary artifacts are ignored under tmp and are not formal memory
+dependencies. Only the new export suite's three files were authorized for staging;
+subsequent edits remain partially unstaged and the index is not a complete candidate.

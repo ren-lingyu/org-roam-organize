@@ -30,7 +30,7 @@ interfaces. Omit internal-only work and empty categories. Breaking entries inclu
 migration guidance. Released source behavior governs; old hosted notes are
 supplementary. Evidence conflicts belong in reports/memory, not user-facing history.
 README remains the current-use/configuration guide. The 0.8.0 summary and README
-both record ert-citar -> ert-cite-citar and ert-biblatex -> ert-cite-biblatex.
+both record ert-citar -> ert-cite-citar and ert-biblatex -> ert-cite-export.
 
 README.org, CHANGELOG.org, CHANGELOGS/*.org and .gitignore are now in treefmt's
 configured scope; only LICENSE and flake.lock remain explicitly excluded in the
@@ -86,7 +86,8 @@ required MOC record.
 
 Tests are discovered through tests.mkChecks and test-overlay.nix, with test.nix
 per leaf. Core ERT is under tests/ert; citation suites have separate ert-cite-*
-directories. Existing check attributes remain unchanged. Tests use real
+directories. The old ert-cite-biblatex check is replaced by ert-cite-export; other check
+attributes remain unchanged. Tests use real
 dependencies, temporary databases and targeted mocks. Citar is added only to its
 suite. Package modules declare package-lint-main-file; lint recursively checks
 all packaged Elisp files and gets the explicit source working directory/load-path.
@@ -105,61 +106,45 @@ treefmt scope. A dependency refresh requires fresh validation before carrying
 forward earlier runtime/build success claims.
 
 
-## Approved cite export replacement (not implemented yet)
+## Unified cite export
 
-The user approved implementation before v0.8.0 release. The existing implementation
-described in the Bibliography and BibLaTeX compatibility sections below remains
-the actual baseline until replaced and validated; the following is the adopted
-target, not a claim of completed behavior.
+The implementation converts managed UUID citations and optional bibliography
+metadata into standard Org Cite input without modifying source. Preserve tag-based
+level-0 membership, one cite-type ROAM_REFS per cited managed node, scoped export
+validation and the global bijection check. Unmanaged keys remain unchanged.
 
-Preserve tag-based level-0 literature membership, stable UUID citations, exactly
-one cite-type ROAM_REFS per cited managed node, and optional BIBLIOGRAPHY metadata
-in nodes.properties. Put file-level property drawers at the top of examples.
-Global cite-check retains its bijection rule; export validates only cited managed
-nodes. Unmanaged keys, including unmatched UUID-shaped keys, remain unchanged.
+Only literal :bibliography t enables interactive full-library discovery and
+export-time cited-node propagation. Nil/missing disables both while UUID conversion
+still works with ordinary document/global bibliography configuration. Missing node
+bibliography is not an error. No processor or print_bibliography is selected.
 
-Only literal :bibliography t enables automatic bibliography integration: full
-managed discovery for interactive consumers and cited-node-only propagation during
-export. Nil/missing disables both, while UUID-to-citekey conversion still works
-with ordinary document/global bibliography configuration. Missing node bibliography
-is not itself an error. Do not invent files, validate whole libraries, choose a
-processor, insert print_bibliography, or add processor-specific production logic.
+Mode-owned org-export-as around advice dynamically binds an export context and
+initially unresolved bibliography. Before transformation, native acquisition has
+no managed expansion. The parse-tree filter collects unique keys after standard
+preprocessing/pruning, queries only matching managed nodes with file/properties,
+and uses existing reference-map validation. Node acquisition does not join refs,
+so missing-ref nodes survive for validation. Keep raw declaration multiplicity
+until validation. Unreferenced invalid nodes do not block export.
 
-First establish export isolation: a mode-owned org-export-as around advice
-dynamically suppresses managed full-library additions throughout that export,
-calling the original once and unwinding after success, exceptions or nested calls.
-The discovery advice preserves native results in that scope. Do not globally
-remove/reinstall advice, infer export from buffer names, or subtract managed paths
-after acquisition: an explicitly configured path may also be managed.
+The filter rewrites AST keys and appends opted-in paths to info :bibliography.
+Preserve native order, then append sorted/deduplicated absolute paths resolved
+relative to each literature file. Interactive discovery shares path resolution.
+Explicitly configured managed paths must not be subtracted. No literature-file
+reads, global bibliography checks or persistent export cache are introduced.
+File-level property drawers belong at the top of examples.
 
-The existing parse-tree filter will discover unique keys after standard export
-preprocessing/pruning, query only matching managed nodes and preserve missing-ref
-nodes for validation, reuse identity mapping diagnostics without prematurely
-deduplicating declarations, rewrite AST keys, and append enabled bibliography paths
-to the shared info :bibliography. Preserve native order; sort and deduplicate added
-absolute paths resolved relative to each literature Org file. Reuse path resolution
-with interactive discovery. Do not read literature files or add a persistent cache.
-Later third-party parse-tree filter mutations require compatible filter ordering.
+Native oc-basic queries discovery for citation entries, so info-only propagation
+is insufficient. After transformation, common discovery advice exposes the same
+resolved per-export bibliography. Dynamic bindings restore state after success,
+errors and nested calls; advice is never removed/reinstalled during an export.
+This handling is independent of processor identity. Later third-party parse-tree
+mutations require compatible filter ordering.
 
-Before removing the bundled repair layer, verify native standard-input BibLaTeX
-behavior without project extensions and compare new managed input with repair
-disabled. Check the current dependency and declared minimum Org 9.5 for hook order,
-info propagation and native behavior. If standard input fails or minimum-version
-validation cannot be completed, report concrete evidence and stop short of deletion
-or completion claims; do not silently raise dependencies or restore backend fixes.
-
-Replace the repair suite/check with ert-cite-export using the existing independent
-Nix/Guile runner. Real basic and biblatex exports should use temporary Org-roam DB
-and bibliography fixtures and test ordinary-input equivalence, final output and
-processor input, opt-out with centralized bibliography, excluded/include/macro
-citations, shared paths, invalid used/unused nodes, unchanged source/modified state,
-explicit managed-path retention, success/error restoration of interactive discovery,
-consecutive export isolation, lifecycle idempotence, Citar and title display.
-Cover full/body-only BibLaTeX with/without print_bibliography; PDF compilation is
-not an acceptance requirement. Run focused checks, regressions, then complete
-flake checking only with required command authorization, normally 120s timeouts
-and no lock writes. Maintain README/docstrings and only final v0.8.0 claims;
-historical releases, release state and the broader deferred test migration stay put.
+The bundled BibLaTeX module and repair suite/configuration are removed after
+native-input and real standard-equivalence validation. ert-cite-export uses the
+existing independent Nix/Guile runner, temporary Org-roam databases/bibliographies
+and basic/biblatex exports. Broader test migration remains deferred. See
+memory/validation.md for exact coverage and limitations.
 
 ## Citation model
 
@@ -195,15 +180,21 @@ With the simple citar symbol, title defaults to the entry title and falls back t
 
 Only literal :bibliography t on the unique :cite registry record enables managed bibliography integration; missing/nil leaves existing discovery unchanged. Restart the mode after changing this setup-time option. Bibliography policy is independent of :backend citar and does not control UUID sync/export identity.
 
-The BIBLIOGRAPHY property on managed level-0 literature nodes supplies paths relative to each note file. Each enabled discovery request queries indexed nodes.properties, resolves paths, deduplicates and sorts without another persistent cache. It neither reads nor validates bibliography files and does not create/synchronize sidecars. Saved property changes require database synchronization before discovery sees them.
+The BIBLIOGRAPHY property on managed level-0 literature nodes supplies paths relative to each note file. Each enabled interactive discovery request queries indexed nodes.properties, resolves paths, deduplicates and sorts without another persistent cache. It neither reads nor validates bibliography files and does not create/synchronize sidecars. Saved property changes require database synchronization before discovery sees them.
 
-Mode-owned filter-return advice appends managed paths to org-cite-list-bibliography-files, preserving existing first-occurrence order/precedence. Citar and export processors consume that common result; the former Citar-specific local-bibliography override is retired. The package does not select a citation export processor, overwrite citar-bibliography or insert print_bibliography for users.
+Mode-owned filter-return advice extends interactive org-cite-list-bibliography-files
+with the full managed library, preserving first-occurrence precedence. During
+export it preserves native acquisition, then exposes the resolved scoped list,
+matching info :bibliography. The Citar-specific discovery override remains retired.
+The package does not choose a processor, overwrite citar-bibliography or insert
+print_bibliography.
 
-## BibLaTeX compatibility
+## Native citation processor ownership
 
-The internal org-roam-organize-cite-biblatex module provides the mode-owned final-output fallback, enabled only with :bibliography t. It applies to LaTeX-derived biblatex exports containing a managed bibliography and adds only missing direct package/resource declarations before begin{document}. Body-only/unrelated exports remain unchanged; printbibliography and processor selection stay user-owned.
-
-Actual final output determines whether upstream already succeeded. Options/style merging delegates to Org's helper, avoiding duplicate brackets or reimplemented precedence. Teardown removes the filter, and failed setup rolls back ownership.
+There is no bundled BibLaTeX repair layer or processor-specific export production
+code. Native processors own rendering, styles and package/resource declarations.
+Remove old compatibility-library requires/calls and use ordinary Org Cite settings.
+Full/body-only and print/no-print behavior is covered by real exports.
 
 ## Citation display
 
@@ -223,9 +214,9 @@ This follows a documented internal Citar contract and remains capability-checked
 
 The public entry remains (require 'org-roam-organize). Core holds registry/configuration/shared diagnostics, capture owns creation, entry owns shared keyword parsing/reconciliation, MOC owns MOC operations, and cite owns citation behavior. Tests and packaging include the corresponding modules explicitly. Shared entry logic is below both MOC and cite so core does not require higher-level citation behavior.
 
-Old org-roam-organize-citar and org-roam-organize-biblatex features/files are removed. Explicit feature consumers use org-roam-organize-cite-citar and org-roam-organize-cite-biblatex. Their implementation symbols use internal -- namespaces. Former setup/teardown/dwim names, even those previously lacking --, have no supported public replacement; remove direct calls/bindings and select the Citar adapter through the registry/mode lifecycle.
+Old org-roam-organize-citar and org-roam-organize-biblatex features/files are removed. Explicit Citar consumers use org-roam-organize-cite-citar; old and transitional BibLaTeX features are absent. Their implementation symbols use internal -- namespaces. Former setup/teardown/dwim names, even those previously lacking --, have no supported public replacement; remove direct calls/bindings and select the Citar adapter through the registry/mode lifecycle.
 
-The reserved Citar notes-source symbol becomes org-roam-organize-cite-citar. Direct users must migrate it. Nix attributes become ert-cite-citar and ert-cite-biblatex. No file/feature/symbol aliases are provided, and normal users need not require implementation modules directly.
+The reserved Citar notes-source symbol becomes org-roam-organize-cite-citar. Direct users must migrate it. Nix attributes become ert-cite-citar and ert-cite-export. No file/feature/symbol aliases are provided, and normal users need not require implementation modules directly.
 
 ## Citation identity implementation
 

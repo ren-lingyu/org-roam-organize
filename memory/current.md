@@ -1,37 +1,50 @@
-# Org-roam Organize: Cite export implementation approved
+# Org-roam Organize: Cite export implemented and validated
 
 ## Current state and continuation
 
-The user approved implementation of the unified cite export plan. The first
-execution write is this memory update and its GAW checkpoint, before project
-implementation. The only project change currently staged is the user's
-CHANGELOG.org transition from NEXT v0.8.0 to TODO v0.8.0. The first ordinary
-project commit must contain only that existing state change; the user explicitly
-selected this boundary. Project commits remain manual under the active Git
-policy. Confirm that commit read-only before starting source changes. No cite
-implementation or runtime validation has been performed for the new plan yet.
+The approved cite implementation is complete in the project worktree, pending
+manual project commit. The planning GAW checkpoint preceded implementation;
+the user first committed only NEXT -> TODO for v0.8.0. Keep that release state,
+historical releases, dates, dependency declarations and lockfile unchanged.
 
-The goal is backend-independent conversion of managed UUID citations and their
-optional bibliography metadata into standard Org Cite input. Preserve the existing
-:bibliography opt-in: UUID conversion works independently; only literal t enables
-interactive full-library discovery and export-time scoped bibliography propagation.
-With nil/missing, users may supply bibliography through ordinary Org configuration.
-See memory/design.md, "Approved cite export replacement (not implemented yet)".
+The candidate implements scoped UUID/citekey/bibliography conversion, preserves
+interactive full-library discovery and :bibliography opt-in, removes the bundled
+BibLaTeX repair layer, and replaces its suite/check with ert-cite-export. README,
+docstrings and only the v0.8.0 changelog content describe the final architecture.
 
-The implementation commit candidate will coordinate source, replacement export
-tests/check configuration, README and final v0.8.0 changelog claims. Do not publish
-planned behavior as already implemented. Keep v0.8.0 TODO, historical releases
-unchanged and release publication separate. Maintain current memory as findings
-evolve; checkpoint consequential recovery states rather than every edit.
+Real oc-basic exports established that info-only propagation is insufficient:
+this processor queries org-cite-list-bibliography-files for entries. The common
+advice now exposes the same resolved per-export list through discovery. Before
+transformation native discovery is preserved; afterwards only that export's
+resolved list is exposed. Dynamic bindings restore interactive discovery on
+success/error. Do not add processor-specific code. See memory/design.md.
 
-The broader testing refactor/migration remains deferred; see memory/backlog.md.
-Only the obsolete BibLaTeX repair suite/check is to be replaced by ert-cite-export
-within the existing independent Nix/Guile test mechanism. Do not move general tests
-into package checkPhase, introduce a new runner or reopen that backlog.
+The final filtered copy under ignored tmp/cite-validation/project passed
+nix flake check --no-write-lock-file on x86_64-linux, including package build,
+package-lint, treefmt and all 159 ERT tests (core 90, Citar 48, display 13, export 8).
+Byte comparisons confirmed all 45 selected project inputs match the validated
+copy. Complete project diff whitespace checking also passes. See validation.md
+for version evidence and limits; the tested candidate is uncommitted.
 
-Earlier root lock-input refreshes, Org/gitignore formatting and expanded treefmt
-scope are committed. The package's earlier runtime results do not validate the
-refreshed dependencies or the proposed export behavior.
+The user requires isolated flake validation, superseding earlier system-Emacs
+and direct-download proposals. tmp/cite-validation/minimum passed native standard
+input and info propagation on current Emacs 31.1/Org 9.8.7 and historical nixpkgs
+22.05 Emacs 28.1/Org 9.5.2. The latter is native Org evidence, not full package
+support on Emacs 28. Earlier exact Org 9.5 source checks were also Nix-isolated.
+The user limited historical-version research; no further search is needed.
+
+Next: review/stage the complete final candidate only with explicit authorization,
+then let the user commit. Only three new export-suite files were authorized for
+staging so Git flake could discover them. Later ert.el edits are unstaged; the
+index is incomplete and is not the final implementation candidate. Ordinary
+project commits remain manual. Do not write a commit message for an incomplete
+staged tree or attach current HEAD as provenance for an uncommitted tested state.
+
+The broader testing migration remains deferred in memory/backlog.md. This bounded
+suite replacement does not reopen package checkPhase migration, new runners or
+general test reorganization. Task-owned validation artifacts remain under ignored
+tmp. Isolated checks use 120s timeouts and no lock writes; no system packages or
+project dependencies were changed.
 
 Both root inputs, nixpkgs and personal-nixpkgs, moved to newer revisions. Their
 original source specifications and the full lock graph are unchanged; personal-nixpkgs
@@ -41,8 +54,8 @@ changed only its explicit treefmt exclusion list.
 README.org, CHANGELOG.org, CHANGELOGS/*.org and .gitignore are now included in the
 configured treefmt scope. Only LICENSE and flake.lock remain explicitly excluded by
 the project; flakeCheck stays enabled. This supersedes the former Org/gitignore
-exclusions. Actual formatter selection comes from the framework and was not evaluated
-in this review. Do not reintroduce the old exclusions from historical memory.
+exclusions. Formatter selection comes from the framework; the later cite candidate passed
+the resulting complete treefmt check. Do not reintroduce the old exclusions from historical memory.
 
 CHANGELOG.org now contains seven DONE historical versions (v0.1.0-v0.7.0) with
 matching tag CUSTOM_ID values, UTC CLOSED records and local detailed-note links.
@@ -104,7 +117,7 @@ without a predecessor. ref.org is recommended literature configuration; ordinary
 node paths default to ${slug}.org.
 
 The final 0.8.0 root summary now explicitly records both Nix check renames:
-ert-citar -> ert-cite-citar and ert-biblatex -> ert-cite-biblatex. README and current
+ert-citar -> ert-cite-citar and ert-biblatex -> ert-cite-export. README and current
 check overlays agree. User-facing history must not narrate release-note mistakes
 or historical research; keep discrepancies in reports/memory. Hosted notes and
 historical tagged trees were not rewritten.
@@ -120,9 +133,9 @@ are unchanged. Additional comma escaping protects ROAM_NODE/ROAM_CITING_NODE exa
 Read-only verification checked all lock nodes, original root source definitions,
 follows relationships, all nine Org diffs and the gitignore pattern inventory.
 All three commits pass Git whitespace checks and the documentation remains trackable.
-No nix flake check/build, formatter execution, full Org render or dependency resolution
-was run for these new locks or the expanded scope. Earlier passing Nix/package smoke
-results apply to the earlier dependency snapshot, not the refreshed environment.
+That earlier review ran no runtime checks. The later cite candidate now passes
+full isolated flake validation with the refreshed inputs and formatting scope;
+earlier installed-package smoke results still describe their original snapshot.
 
 Earlier history-migration static verification covered eight files, 18 local links, seven UTC CLOSED records,
 25 source blocks, heading spacing, matching/unique per-file IDs, lowercase block
