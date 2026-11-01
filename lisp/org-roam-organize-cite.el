@@ -16,14 +16,35 @@
                   "org-roam-organize-cite-citar")
 (declare-function org-roam-organize-cite-citar--teardown
                   "org-roam-organize-cite-citar")
-(declare-function org-roam-organize-cite-biblatex--setup
-                  "org-roam-organize-cite-biblatex")
-(declare-function org-roam-organize-cite-biblatex--teardown
-                  "org-roam-organize-cite-biblatex")
 (declare-function org-roam-organize-cite-display--setup
                   "org-roam-organize-cite-display")
 (declare-function org-roam-organize-cite-display--teardown
                   "org-roam-organize-cite-display")
+
+(defvar org-roam-organize--cite-export-in-progress nil
+  "Non-nil while exporting without interactive bibliography expansion.")
+
+(defvar org-roam-organize--cite-export-bibliography 'unresolved
+  "Bibliography of the current export, or `unresolved' before transformation.")
+
+(defun org-roam-organize--bibliography-path (file properties)
+  "Resolve the bibliography in PROPERTIES relative to node FILE.
+Return nil when the node has no bibliography property.  Do not read or
+validate the bibliography file."
+  (when-let* ((value
+               (cdr
+                (assoc
+                 org-roam-organize--bibliography-property
+                 properties))))
+    (expand-file-name value (file-name-directory file))))
+
+(defun org-roam-organize--cite-around-export (function &rest args)
+  "Call export FUNCTION with ARGS without interactive library expansion.
+The dynamic binding covers native bibliography acquisition and unwinds on
+normal completion, nested exports and errors.  FUNCTION is called once."
+  (let ((org-roam-organize--cite-export-in-progress t)
+        (org-roam-organize--cite-export-bibliography 'unresolved))
+    (apply function args)))
 
 (defun org-roam-organize--bibliography-files ()
   "Return bibliography files declared by managed citation nodes.
@@ -63,15 +84,8 @@ keeping backend-specific global customization outside the core data model."
                 nil
                 (mapcar
                  (lambda (row)
-                   (when-let*
-                       ((value
-                         (cdr
-                          (assoc
-                           org-roam-organize--bibliography-property
-                           (nth 1 row)))))
-                     (expand-file-name value
-                                       (file-name-directory
-                                        (nth 0 row)))))
+                   (org-roam-organize--bibliography-path
+                    (nth 0 row) (nth 1 row)))
                  rows)))
               #'string<)))))
 
@@ -82,6 +96,9 @@ When `org-roam-organize-mode' is enabled in an Org-derived buffer and the
 citation record sets `:bibliography t', append the paths returned by
 `org-roam-organize--bibliography-files' to FILES and remove duplicates while
 preserving first occurrence order.  Otherwise return FILES unchanged.
+During initial export acquisition, return native FILES without full-library
+additions.  After the parse-tree filter, return that export's resolved list
+so processors using discovery and those using export INFO agree.
 Existing Org Cite bibliography files therefore take precedence.  The function
 does not validate, read, or modify any referenced file.
 
@@ -89,34 +106,37 @@ Implementation notes: This function is installed as `:filter-return' advice
 on `org-cite-list-bibliography-files' for the mode lifecycle.  Bibliography
 aggregation remains independent of the optional citation backend.
 
-Rationale: Org Cite is the shared bibliography-discovery boundary for export
-processors and consumers such as Citar, so extending it keeps the metadata
-available without backend-specific dispatch changes."
-  (if (and org-roam-organize-mode (derived-mode-p 'org-mode))
-      (delete-dups
-       (append files (org-roam-organize--bibliography-files)))
-    files))
+Rationale: Interactive consumers such as Citar need uncited entries, whereas
+export receives only the bibliography required by its effective citations."
+  (cond
+   ((not (and org-roam-organize-mode (derived-mode-p 'org-mode)))
+    files)
+   (org-roam-organize--cite-export-in-progress
+    (if (eq org-roam-organize--cite-export-bibliography 'unresolved)
+        files
+      org-roam-organize--cite-export-bibliography))
+   (t
+    (delete-dups
+     (append files (org-roam-organize--bibliography-files))))))
 
 (defun org-roam-organize--setup-cite-integration ()
   "Install the configured core citation integrations.
 
 When a citation record exists, install backend-independent managed UUID title
 display in Org buffers.  Always register the managed UUID export filter.  When
-the citation record sets `:bibliography t', also register the
-bibliography-discovery advice and bundled BibLaTeX final-output compatibility
-filter.  Repeated calls are idempotent.  Return non-nil after installation.
+the citation record sets `:bibliography t', also register interactive
+bibliography discovery and export isolation.  Repeated calls are idempotent.
+Return non-nil after installation.
 The registry is read when this function is called; restart
 `org-roam-organize-mode' after changing it.
 
 Implementation notes: The integrations are global and guard their behavior
-with `org-roam-organize-mode'.  Buffer presentation and BibLaTeX-specific
-behavior are isolated in `org-roam-organize-cite-display' and
-`org-roam-organize-cite-biblatex'.  The matching teardown function removes all
+with `org-roam-organize-mode'.  Buffer presentation is isolated in
+`org-roam-organize-cite-display'.  The matching teardown function removes all
 installed integrations during mode disable and failed setup rollback.
 
-Rationale: Bibliography discovery remains backend-independent, while the
-presentation and version-sensitive LaTeX implementation details stay outside
-the core source file."
+Rationale: Resolve managed metadata into standard Org Cite input and let the
+selected native processor own all output generation."
   (when (org-roam-organize--registry-cite-record)
     (require 'org-roam-organize-cite-display)
     (org-roam-organize-cite-display--setup))
@@ -124,18 +144,19 @@ the core source file."
    'org-export-filter-parse-tree-functions
    #'org-roam-organize--cite-export-filter)
   (when (org-roam-organize--registry-cite-bibliography-p)
-    (require 'org-roam-organize-cite-biblatex)
-    (org-roam-organize-cite-biblatex--setup)
     (advice-add
      'org-cite-list-bibliography-files
-     :filter-return #'org-roam-organize--filter-bibliography-files))
+     :filter-return #'org-roam-organize--filter-bibliography-files)
+    (advice-add
+     'org-export-as
+     :around #'org-roam-organize--cite-around-export))
   t)
 
 (defun org-roam-organize--teardown-cite-integration ()
   "Remove the core citation display and export integrations.
 
 Remove managed UUID title presentation and export filtering, plus any optional
-bibliography-discovery advice and bundled BibLaTeX compatibility filter.
+bibliography-discovery and export-isolation advice.
 Return nil.  Calling this function when any integration is absent is safe."
   (when (fboundp 'org-roam-organize-cite-display--teardown)
     (org-roam-organize-cite-display--teardown))
@@ -145,8 +166,8 @@ Return nil.  Calling this function when any integration is absent is safe."
   (advice-remove
    'org-cite-list-bibliography-files
    #'org-roam-organize--filter-bibliography-files)
-  (when (fboundp 'org-roam-organize-cite-biblatex--teardown)
-    (org-roam-organize-cite-biblatex--teardown))
+  (advice-remove
+   'org-export-as #'org-roam-organize--cite-around-export)
   nil)
 
 (defun org-roam-organize--registry-cite-records ()
@@ -475,6 +496,29 @@ the same hash-table lookup path without special branching."
    :citekey-to-uuids (make-hash-table :test 'equal)
    :nodes nil))
 
+(defun org-roam-organize--cite-export-nodes (tag keys)
+  "Return managed level-0 nodes carrying TAG and cited in KEYS.
+Include file and indexed properties for bibliography resolution.  Nodes
+without cite refs remain present so identity validation can reject them."
+  (when keys
+    (mapcar
+     (lambda (row)
+       (list
+        :id (nth 0 row)
+        :title (nth 1 row)
+        :file (nth 2 row)
+        :properties (nth 3 row)))
+     (org-roam-db-query
+      (vector
+       :select
+       (vector 'n:id 'n:title 'n:file 'n:properties)
+       :from '(as nodes n)
+       :join '(as tags t)
+       :on '(= t:node_id n:id)
+       :where
+       '(and (= n:level 0) (= t:tag $s1) (in n:id $v2)))
+      tag (vconcat keys)))))
+
 (defun org-roam-organize--cite-export-reference-map-data-or-error
     (keys)
   "Return valid cite reference mapping data for managed citation KEYS.
@@ -502,20 +546,15 @@ UUIDs are ignored so ordinary external citekeys remain exportable."
        (t
         (let* ((record (car records))
                (tag (org-roam-organize--record-tag record))
-               (key-table (make-hash-table :test 'equal))
-               selected-nodes)
-          (dolist (key keys)
-            (puthash key t key-table))
-          (dolist (node
-                   (and (stringp tag)
-                        (org-roam-organize--nodes-with-tag tag)))
-            (when (gethash (plist-get node :id) key-table)
-              (push node selected-nodes)))
+               (selected-nodes
+                (and
+                 (stringp tag)
+                 (org-roam-organize--cite-export-nodes tag keys))))
           (let
               ((map-data
                 (if selected-nodes
                     (org-roam-organize--cite-reference-map-data
-                     (nreverse selected-nodes))
+                     selected-nodes)
                   (org-roam-organize--cite-empty-reference-map-data))))
             (unless (org-roam-organize--cite-reference-refs-valid-p
                      map-data)
@@ -523,7 +562,7 @@ UUIDs are ignored so ordinary external citekeys remain exportable."
                "Cite reference validation failed for exported citations: %s missing cite refs, %s multiple cite refs"
                (length (plist-get map-data :missing))
                (length (plist-get map-data :multiple))))
-            map-data)))))))
+            (plist-put map-data :nodes selected-nodes))))))))
 
 (defun org-roam-organize--cite-report-reference-map-data (map-data)
   "Return cite reference diagnostics for MAP-DATA.
@@ -576,10 +615,11 @@ display a single final report."
       (list :valid-p t :lines (nreverse lines)))))
 
 (defun org-roam-organize--cite-export-filter
-    (parse-tree _backend _info)
+    (parse-tree _backend info)
   "Replace managed UUID citation keys in PARSE-TREE before export.
 
-Return the modified PARSE-TREE.  Only citation references whose `:key'
+Return the modified PARSE-TREE and extend INFO's bibliography when enabled.
+Only citation references whose `:key'
 matches a managed literature node UUID are rewritten; other citation keys are
 left unchanged.
 
@@ -588,7 +628,10 @@ Element tree before backend rendering.  This function first collects citation
 keys from the current parse tree, validates and loads cite refs only for
 managed literature UUIDs that appear in that key set, then walks
 `citation-reference' elements and mutates only the `:key' property with
-`org-element-put-property'.  The source buffer is not edited.  The function
+`org-element-put-property'.  With `:bibliography t', append the cited nodes'
+bibliography paths to INFO, retaining native order and sorting new paths,
+and expose the same list through discovery during this export.
+The source buffer is not edited.  The function
 keeps an explicit `org-roam-organize-mode' guard because export hook variables
 are global."
   (when org-roam-organize-mode
@@ -608,9 +651,26 @@ are global."
                   (citekey
                    (and (stringp key) (gethash key uuid-to-citekey))))
              (when citekey
-               (org-element-put-property
-                reference
-                :key citekey))))))))
+               (org-element-put-property reference :key citekey))))))
+      (when (org-roam-organize--registry-cite-bibliography-p)
+        (let (files)
+          (dolist (node (plist-get map-data :nodes))
+            (when-let* ((file
+                         (org-roam-organize--bibliography-path
+                          (plist-get node :file)
+                          (plist-get node :properties))))
+              (push file files)))
+          (when files
+            (setf (plist-get info :bibliography)
+                  (delete-dups
+                   (append
+                    (plist-get info :bibliography)
+                    (sort (delete-dups files) #'string<))))))
+        ;; Processors may use INFO or the ordinary discovery interface.
+        ;; Both see the same per-export list, never the interactive library.
+        (when org-roam-organize--cite-export-in-progress
+          (setq org-roam-organize--cite-export-bibliography
+                (plist-get info :bibliography))))))
   parse-tree)
 
 (defun org-roam-organize--cite-sync-citing-node-entries

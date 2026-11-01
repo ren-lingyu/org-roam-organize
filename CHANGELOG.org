@@ -18,15 +18,16 @@ Changes since 0.7.0. Version 0.8.0 metadata is prepared, but these changes have
 not yet been published as a release.
 
 ** Added
-- Opt-in managed bibliography discovery through =:bibliography t= on the citation registry record. Note-relative =BIBLIOGRAPHY= properties are exposed through Org Cite to export processors and consumers such as Citar, independently of the optional citation backend.
-- Bundled BibLaTeX export compatibility for enabled managed bibliographies, adding missing package and resource declarations without selecting an export processor or inserting =print_bibliography=.
+- Opt-in managed bibliography integration through =:bibliography t= on the citation registry record. Interactive tools discover the full managed collection; export propagates only bibliography paths required by managed UUID citations in the effective export tree, preserving explicit and global Org Cite bibliography configuration. Missing or nil leaves bibliography configuration user-owned while retaining UUID-to-citekey conversion.
+- Backend-independent citation export resolves UUIDs and note-relative =BIBLIOGRAPHY= metadata into standard Org Cite input. Native processors own output generation; the package does not select a processor or insert =print_bibliography=.
 - Backend-independent display of managed UUID citation keys as literature titles, without changing source text. Use =org-roam-organize-cite-display-refresh= after title or managed-membership changes.
 - A packaged Emacs wrapper and an exported =overlays.emacsPackages= overlay for Nix consumers.
 
 ** Changed
 - *Breaking:* Lisp sources moved into =lisp/=. Add that directory to manual =load-path= configurations, select =lisp/*.el= in straight recipes, and install all package modules together. The public entry remains =(require 'org-roam-organize)=.
 - *Breaking:* The Citar library feature changed from =org-roam-organize-citar= to =org-roam-organize-cite-citar=, and its reserved notes-source symbol changed likewise. Update explicit feature/source references. Remove direct calls to adapter lifecycle implementation functions and configure the adapter through the registry and mode lifecycle; no compatibility aliases are supplied.
-- *Breaking:* Nix packages now have explicit =org-roam-organize= and =emacs= outputs, with no default package. Use =nix build .#org-roam-organize= or =nix build .#emacs=. The =ert-citar= and =ert-biblatex= checks were renamed to =ert-cite-citar= and =ert-cite-biblatex=, respectively; the =ert-cite-display= check is also available.
+- *Breaking:* Nix packages now have explicit =org-roam-organize= and =emacs= outputs, with no default package. Use =nix build .#org-roam-organize= or =nix build .#emacs=. The =ert-citar= and =ert-biblatex= checks were replaced by =ert-cite-citar= and =ert-cite-export=, respectively; the =ert-cite-display= check is also available.
+- *Breaking:* The former =org-roam-organize-biblatex= feature and its compatibility-layer calls are removed. Remove explicit requires and configure bibliography export through ordinary Org Cite settings.
 - Nix packaging now uses the personal-nixpkgs framework, MELPA packaging, the default Nixpkgs Emacs package set, and a treefmt check.
 - See the [[file:README.org::*0.8.0 Changes and Migration][0.8.0 migration guide]] for configuration and installation details.
 

@@ -2058,11 +2058,11 @@
             :basic t
             :directory "literature")))
         selected-nodes)
-    (cl-letf (((symbol-function 'org-roam-organize--nodes-with-tag)
-               (lambda (tag)
+    (cl-letf (((symbol-function 'org-roam-organize--cite-export-nodes)
+               (lambda (tag keys)
                  (should (equal tag "ref"))
-                 '((:id "ref-a" :title "Ref A")
-                   (:id "ref-b" :title "Ref B"))))
+                 (should (equal keys '("ref-a" "plain-key")))
+                 '((:id "ref-a" :title "Ref A"))))
               ((symbol-function
                 'org-roam-organize--cite-reference-map-data)
                (lambda (nodes)
@@ -2183,9 +2183,8 @@
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
           (should
-           (memq
-            #'org-roam-organize-cite-biblatex--filter-final-output
-            org-export-filter-final-output-functions))
+           (advice-member-p
+            #'org-roam-organize--cite-around-export 'org-export-as))
           (org-roam-organize-mode -1)
           (should-not
            (memq
@@ -2200,9 +2199,8 @@
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
           (should-not
-           (memq
-            #'org-roam-organize-cite-biblatex--filter-final-output
-            org-export-filter-final-output-functions)))
+           (advice-member-p
+            #'org-roam-organize--cite-around-export 'org-export-as)))
       (org-roam-organize-mode -1))))
 
 (ert-deftest
@@ -2235,9 +2233,8 @@
             #'org-roam-organize--filter-bibliography-files
             'org-cite-list-bibliography-files))
           (should-not
-           (memq
-            #'org-roam-organize-cite-biblatex--filter-final-output
-            org-export-filter-final-output-functions)))
+           (advice-member-p
+            #'org-roam-organize--cite-around-export 'org-export-as)))
       (org-roam-organize-mode -1))))
 
 (ert-deftest

@@ -12,8 +12,8 @@ testSupport.mkErtCheck {
     runCommand
     guile
     replaceVarsWith
+    emacs
     ;
-  inherit emacs;
-  name = "org-roam-organize-cite-biblatex-ert";
+  name = "org-roam-organize-cite-export-ert";
   testFile = ./ert.el;
 }

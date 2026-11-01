@@ -139,10 +139,11 @@ Each record is a plist.  `:name' and `:tag' are required strings.
 checking, and synchronization.  Citation database operations recognize
 level-0 nodes carrying that record's `:tag'; a capture template that creates
 citation nodes is responsible for including the tag in its `filetags' keyword.
-Setting `:bibliography t' on the citation record exposes bibliography paths
-declared by those nodes through Org Cite and enables managed BibLaTeX export
-compatibility.  A missing or nil value leaves bibliography discovery and
-export metadata to Org and user configuration.  Any record using
+Setting `:bibliography t' exposes all those nodes' bibliography paths to
+interactive Org Cite consumers and propagates only cited nodes' paths during
+export.  A missing or nil value leaves bibliography discovery and export
+metadata to Org and user configuration, independently of UUID conversion.
+Any record using
 `:bibliography t' must also use `:cite t'.
 Its optional `:backend' value selects additional interactive integration.  It
 may be a backend name or a proper list whose car is the backend name and whose
@@ -238,8 +239,7 @@ The list maps symbols to capability types checked by
 
 (defconst org-roam-organize--bibliography-capability-alist
   '((org-cite-list-bibliography-files . function)
-    (org-export-derived-backend-p . function)
-    (org-export-filter-final-output-functions . variable))
+    (org-export-as . function))
   "Runtime capabilities required by managed bibliography integration.
 
 The list is appended to `org-roam-organize--capability-alist' only when the

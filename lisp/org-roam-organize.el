@@ -53,8 +53,8 @@
   "Toggle Org-roam Organize mode.
 
 When enabled, the mode validates setup, registers backend-independent Org Cite
-UUID title display and export, installs managed bibliography discovery and
-bundled BibLaTeX export compatibility when the citation record sets
+UUID title display and export, installs interactive bibliography discovery and
+scoped export bibliography propagation when the citation record sets
 `:bibliography t', and installs the configured interactive citation adapter.
 Disabling the mode removes those integrations and the adapter.  Core setup
 failure disables the mode again.  Optional citation adapter failure leaves the
