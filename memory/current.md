@@ -1,6 +1,38 @@
-# Org-roam Organize: Cite export committed and validated
+# Org-roam Organize: MOC template fix committed and reviewed
 
-## Current state and continuation
+## MOC template fix review
+
+The user supplied a fix in core, core ERT, README and
+CHANGELOG for MOC creation incorrectly inheriting the managed record's template.
+Static review found no blocking defect: all MOC creation uses
+`org-roam-organize--record-moc-head`, which now takes properties and keywords
+from the unique `:moc t` record while retaining the managed record's title and
+managed-tag metadata. Capture paths and ordinary node templates are unaffected.
+The two revised ERT cases distinguish MOC and managed-record templates and check
+the complete generated head/target. The user then authorized adding coverage,
+running tests and preparing a commit-message draft. A new core ERT case covers
+an absent MOC template, explicit nil and empty properties/keywords sections;
+all three must generate only the managed metadata and title without inheriting
+the managed record's properties or keywords.
+Existing MOC files are skipped by creation; this fix does not migrate previously
+generated metadata. Isolated Nix validation of the current candidate's `ert`
+check passed all 91 core ERT tests, including the new case, after building the
+package with Emacs 31.1. The 34 tracked manifest/source/package/test inputs were
+copied to ignored tmp for validation; no lock writes were allowed. The initial
+sandbox attempt could not connect to the Nix daemon; the escalated run succeeded.
+Full diff whitespace checking passed. Other ERT suites and full flake/treefmt
+checks were not run for this candidate. Earlier cite validation below does not
+certify this new candidate. The user subsequently committed the complete
+four-file fix and regression coverage as `fix(moc): use the MOC record template
+for file heads`. Read-only confirmation found a clean project worktree/index
+and passing commit whitespace checks. Of the 34 validation inputs, 33 are
+byte-identical to the passing isolated snapshot; only tests/ert/ert.el differs,
+and inspection of the complete comparison shows formatting changes only.
+The 91/91 result was obtained before that formatting, not by rerunning the
+committed tree. `tmp/commit.md` contains the prepared draft; no project staging,
+commit or further implementation remains for this task.
+
+## Earlier cite implementation and continuation
 
 The user committed the complete approved cite implementation. Read-only review
 confirmed a clean project worktree/index and all 45 committed inputs matching
@@ -26,8 +58,8 @@ nix flake check --no-write-lock-file on x86_64-linux, including package build,
 package-lint, treefmt and all 159 ERT tests (core 90, Citar 48, display 13, export 8).
 Byte comparisons confirmed all 45 selected project inputs match the validated
 copy. The subsequent committed tree matches that same copy, and commit whitespace
-checking passes. See validation.md for version evidence and limits. The project
-parent of this confirmation checkpoint identifies the exact inspected commit;
+checking passes. See validation.md for version evidence and limits. The earlier
+cite-confirmation checkpoint's project parent identifies that inspected commit;
 no tests were rerun merely to establish that association.
 
 The user requires isolated flake validation, superseding earlier system-Emacs
