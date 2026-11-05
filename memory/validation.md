@@ -333,3 +333,103 @@ checkpoint's project parent identifies that exact inspected project snapshot.
 The existing passing test evidence therefore applies to matching committed
 contents; no new runtime check or additional platform certification is claimed.
 The commit does not change the TODO release state or authorize publication.
+
+
+## Committed single-file MOC transition
+
+The complete implementation's 45 tracked manifest/source/package/test/doc inputs
+are byte-identical to the final passing isolated snapshot. The subsequent
+documentation commit changes only README.org; the other 44 inputs remain
+identical. Read-only confirmation found a clean ordinary worktree/index and
+passing committed whitespace checks. The README's complete diff was reviewed
+against source, including the explicit alphanumeric-first ID alphabet and the
+fact that UUIDs are one accepted Org ID format.
+
+Full isolated validation used:
+`timeout 120s nix flake check --no-write-lock-file
+path:/home/lingyu/Projects/org-roam-organize/tmp/single-moc-validation/project`
+on x86_64-linux with Emacs 31.1. Package compilation with warnings as errors,
+package-lint, treefmt and all 200 ERT tests passed: core 131, Citar 48,
+display 13, export 8. This was an actual test execution before the user committed.
+Byte comparisons bind that evidence to the matching implementation contents;
+the README follow-up itself was not part of that earlier run.
+
+After committing the README, the user ran `nix flake check` in the clean current
+project and provided exit 0 output with `all checks passed!`. All checks were
+satisfied from cache (`running 0 flake checks`). This is valid successful check
+evidence for the current inputs, not evidence of a fresh ERT execution. The four
+ERT derivations are the same as those in the preceding actual 200-test run.
+Other systems were explicitly omitted. The agent did not rerun project checks
+merely to create the checkpoint.
+
+### Coverage and important regressions
+
+Registry/identity coverage includes invalid tags, literal percent-bearing tags,
+plain-title parser round trips, effective target TODO syntax, required MOC
+filetags, ID/path exclusivity to the MOC record and all four optional declaration
+combinations. Real capture/DB fixtures check simultaneous constraints, moved
+unconstrained paths, occupied IDs/targets, ambiguous tag nodes, join-row
+deduplication, actual file ID/tag disagreement, capture abort and finalization,
+preserved heads and idempotent creation.
+
+Layout tests cover L1/L2/L3, different parents, strict title/CUSTOM_ID agreement,
+duplicate/mixed/nested structure rejection, suspicious same-title unknown IDs
+without automatically adopting manual text, and the final fixed level-1 MOC
+Inbox policy. At L1 append to EOF; at L>1 insert before the active level-1
+Inbox's first child, creating only that container at EOF if absent. Keep L
+without intermediate levels. Duplicate active containers and unsafe new names
+reject before modification.
+
+Capture regressions preserve exact file/DB titles containing percent/date and
+Org-roam placeholders, Lisp-like strings and marker prefixes. Structural
+management text and filetags also remain literal. Other template fields retain
+their native expansion behavior.
+
+Regional tests cover level-0/MOC-file exclusion, cross-tag membership,
+duplicates, stale removal, title refresh, :delete t, malformed diagnostics,
+COMMENT/source exclusion, missing-region partial reporting, globally safe
+edits across changing positions, multiple simultaneous insertions and no-op
+idempotence. Property drawers, planning information and manual Inbox content
+remain attached when the Inbox is childless or has children.
+
+At most one active matching direct-child member Inbox is permitted per present
+region, including empty/complete rosters. Any duplicate rejects the entire sync,
+even when an earlier region already has edits planned, with zero saves/updates.
+Default/custom names, deeper duplicates, other regions, COMMENT/source text and
+no-Inbox/no-missing cases are covered. Cite/Citar/export/display regressions pass
+without changing their production compatibility behavior.
+
+### Scale and parse/save accounting
+
+The reproducible core ERT moc-scale-ten-thousand-entries uses 10,000 entries in
+four regions, real filesystem saves and DB refresh with controlled membership
+lookup. Final observed first sync: 4.314s, one effective save and one DB update.
+Unchanged sync: 2.503s, zero saves and updates. No timing threshold or hard node
+limit is asserted.
+
+The MOC planning pass parses the document once; individual entry values still
+use temporary Org parsing and downstream DB refresh parses separately. Org-roam
+may call save-buffer on an already unchanged buffer; effective-save counts do
+not treat that as a second write.
+
+The formatter ran in the isolated copy using `nix run --no-write-lock-file
+path:<copy>#formatter.x86_64-linux -- --walk filesystem`. This Nix version
+forwards nix fmt positional arguments and interprets the ignored nested flake
+as an untracked Git path; the wrapper already selects the root via flake.nix.
+Only authorized changed project files were copied back.
+
+### Scope and continuation
+
+The checkpoint's project parent identifies the exact inspected committed README
+state, whose implementation matches the actual tested candidate and whose full
+flake check the user subsequently confirmed from cache. It is a current-state
+association, not retrospective proof that older intermediate candidates were
+tested as commits. Relevant newly retained project history consists of shared
+basic directories, entry primitives, single-file MOC and its README clarification;
+their reviewed paths contain project code/tests/docs rather than raw sessions.
+
+No real-note migration, destructive merge/deletion, GUI exercise, minimum-version
+full package run or other-platform certification is claimed. User data migration
+must preserve IDs/incoming links, :delete t, ordering and manual content, resolve
+extra old MOC tags and move members into the declared CUSTOM_ID regions.
+No release transition, dependency/lock change or publication occurred.
