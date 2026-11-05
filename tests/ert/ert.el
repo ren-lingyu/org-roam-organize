@@ -1437,6 +1437,168 @@
             (cadr org-roam-organize-registry))))))))
 
 (ert-deftest
+    org-roam-organize-test-parse-id-link-keyword-entries-in-tree-is-scoped
+    ()
+  (with-temp-buffer
+    (org-mode)
+    (insert
+     "* First\n"
+     "#+ROAM_TEST: [[id:first][First]]\n"
+     "** Nested\n"
+     "#+ROAM_TEST: [[id:nested][Nested]]\n"
+     "* Second\n"
+     "#+ROAM_TEST: [[id:second][Second]]\n")
+    (let* ((tree (org-element-parse-buffer))
+           (first-headline
+            (org-element-map tree 'headline #'identity nil t))
+           (result
+            (org-roam-organize--parse-id-link-keyword-entries-in-tree
+             first-headline "ROAM_TEST")))
+      (should
+       (equal
+        (mapcar
+         (lambda (entry) (plist-get entry :id))
+         (plist-get result :entries))
+        '("first" "nested")))
+      (should-not (plist-get result :malformed)))))
+
+(ert-deftest
+    org-roam-organize-test-plan-id-link-keyword-entries-preserves-order
+    ()
+  (let* ((entries
+          '((:id "node-a" :begin 10 :end 20)
+            (:id "stale-1" :begin 30 :end 40)
+            (:id "node-a" :begin 50 :end 60)
+            (:id "stale-2" :begin 70 :end 80)))
+         (nodes
+          '((:id "node-a" :title "Title A")
+            (:id "node-b" :title "Title B")))
+         (plan
+          (org-roam-organize--plan-id-link-keyword-entries
+           entries nodes)))
+    (should (equal (plist-get plan :duplicates) '("node-a")))
+    (should (equal (plist-get plan :removed) '("stale-2" "stale-1")))
+    (should
+     (equal
+      (mapcar
+       (lambda (edit)
+         (plist-get (car edit) :begin))
+       (plist-get plan :edits))
+      '(70 50 30 10)))
+    (should
+     (equal
+      (mapcar
+       (lambda (node) (plist-get node :id)) (plist-get plan :missing))
+      '("node-b")))))
+
+(ert-deftest
+    org-roam-organize-test-entry-edits-and-insertion-use-caller-region
+    ()
+  (with-temp-buffer
+    (org-mode)
+    (insert
+     "* First\n"
+     "#+ROAM_TEST: [[id:node-a][Old]] :delete t\n"
+     "#+ROAM_TEST: [[id:stale][Stale]]\n"
+     "** Child\nManual content\n"
+     "* Second\n#+ROAM_TEST: [[id:outside][Untouched]]\n")
+    (let* ((tree (org-element-parse-buffer))
+           (region (org-element-map tree 'headline #'identity nil t))
+           (parsed
+            (org-roam-organize--parse-id-link-keyword-entries-in-tree
+             region "ROAM_TEST"
+             (lambda (suffix)
+               (list
+                :delete
+                (org-roam-organize--moc-node-entry-delete-p
+                 suffix)))))
+           (plan
+            (org-roam-organize--plan-id-link-keyword-entries
+             (plist-get parsed :entries)
+             '((:id "node-a" :title "A much longer title")
+               (:id "node-b" :title "Title B")
+               (:id "node-c" :title "Title C"))))
+           (position
+            (copy-marker
+             (org-roam-organize--first-child-headline-begin region)
+             t)))
+      (cl-letf (((symbol-function 'org-element-parse-buffer)
+                 (lambda (&rest _) (ert-fail "Unexpected parse")))
+                ((symbol-function
+                  'org-roam-organize--inbox-insertion-point)
+                 (lambda (&rest _)
+                   (ert-fail "Unexpected Inbox lookup")))
+                ((symbol-function 'save-buffer)
+                 (lambda (&rest _) (ert-fail "Unexpected save"))))
+        (org-roam-organize--apply-id-link-keyword-entry-plan
+         "ROAM_TEST" plan
+         (lambda (entry)
+           (when (plist-get entry :delete)
+             " :delete t")))
+        (org-roam-organize--insert-id-link-keyword-entries
+         "ROAM_TEST" (plist-get plan :missing) position))
+      (set-marker position nil)
+      (should
+       (equal
+        (buffer-string)
+        (concat
+         "* First\n"
+         "#+ROAM_TEST: [[id:node-a][A much longer title]] :delete t\n"
+         "#+ROAM_TEST: [[id:node-b][Title B]]\n"
+         "#+ROAM_TEST: [[id:node-c][Title C]]\n"
+         "** Child\nManual content\n"
+         "* Second\n#+ROAM_TEST: [[id:outside][Untouched]]\n"))))))
+
+(ert-deftest
+    org-roam-organize-test-buffer-sync-creates-missing-inbox-without-saving
+    ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "#+TITLE: Example\n#+ROAM_TEST: [[id:stale][Stale]]\n")
+    (cl-letf (((symbol-function 'save-buffer)
+               (lambda (&rest _) (ert-fail "Unexpected save"))))
+      (let
+          ((result
+            (org-roam-organize--sync-id-link-keyword-entries-in-buffer
+             "ROAM_TEST"
+             '((:id "node-b" :title "Title B")
+               (:id "node-c" :title "Title C"))
+             "Inbox")))
+        (should (equal (plist-get result :removed) '("stale")))
+        (should-not (plist-get result :duplicates))
+        (should-not (plist-get result :malformed))))
+    (should
+     (equal
+      (buffer-string)
+      (concat
+       "#+TITLE: Example\n* Inbox\n"
+       "#+ROAM_TEST: [[id:node-b][Title B]]\n"
+       "#+ROAM_TEST: [[id:node-c][Title C]]\n")))))
+
+(ert-deftest
+    org-roam-organize-test-sync-id-link-keyword-entries-in-buffer-does-not-save
+    ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Inbox\n#+ROAM_TEST: [[id:node-a][Old Title]]\n")
+    (let ((save-calls 0))
+      (cl-letf (((symbol-function 'save-buffer)
+                 (lambda (&rest _)
+                   (setq save-calls (1+ save-calls)))))
+        (let
+            ((result
+              (org-roam-organize--sync-id-link-keyword-entries-in-buffer
+               "ROAM_TEST"
+               '((:id "node-a" :title "New Title"))
+               "Inbox")))
+          (should-not (plist-get result :duplicates))
+          (should
+           (string-match-p
+            (regexp-quote "#+ROAM_TEST: [[id:node-a][New Title]]")
+            (buffer-string)))
+          (should (= save-calls 0)))))))
+
+(ert-deftest
     org-roam-organize-test-sync-id-link-keyword-entries-updates-inbox
     ()
   (let* ((root (org-roam-organize-test--temporary-root))

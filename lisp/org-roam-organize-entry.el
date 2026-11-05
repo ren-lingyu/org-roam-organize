@@ -94,23 +94,22 @@ is passed to SUFFIX-PARSER when provided."
                           (funcall suffix-parser suffix))))))))))
       link-result)))
 
-(defun org-roam-organize--parse-id-link-keyword-entries
-    (keyword-name &optional suffix-parser)
-  "Parse id-link entries for KEYWORD-NAME in the current buffer.
+(defun org-roam-organize--parse-id-link-keyword-entries-in-tree
+    (tree keyword-name &optional suffix-parser)
+  "Parse KEYWORD-NAME id-link entries under Org element TREE.
 
 Return a plist containing `:entries' and `:malformed'.  Entries are plists
 with `:id', `:title', `:begin', and `:end', plus any data supplied by
 SUFFIX-PARSER.
 
-Implementation notes: the current buffer is parsed with Org Element and only
-real keyword elements matching KEYWORD-NAME outside COMMENT context are
-considered.  Malformed lines are retained as strings for reporting, while
-legal entries carry buffer positions so sync can replace or remove them
-later."
+Only real keywords outside COMMENT context are considered.  Malformed lines
+are retained as strings for reporting, while legal entries carry buffer
+positions for later reconciliation.  TREE may be a complete document or a
+headline subtree from a single Org Element parse."
   (let (entries
         malformed)
     (org-element-map
-     (org-element-parse-buffer) 'keyword
+     tree 'keyword
      (lambda (keyword)
        (when (and (string=
                    (org-element-property :key keyword) keyword-name)
@@ -135,6 +134,13 @@ later."
     (list
      :entries (nreverse entries)
      :malformed (nreverse malformed))))
+
+(defun org-roam-organize--parse-id-link-keyword-entries
+    (keyword-name &optional suffix-parser)
+  "Parse KEYWORD-NAME id-link entries in the current buffer."
+  (org-roam-organize--parse-id-link-keyword-entries-in-tree
+   (org-element-parse-buffer) keyword-name
+   suffix-parser))
 
 (defun org-roam-organize--inbox-headline (name)
   "Return the top-level Inbox headline element named NAME in the current buffer.
@@ -203,6 +209,114 @@ appended as a level-1 headline at the end of the file."
       (insert "* " name "\n")
       (point))))
 
+(defun org-roam-organize--plan-id-link-keyword-entries (entries nodes)
+  "Plan reconciliation of parsed ENTRIES against NODES.
+
+Return a plist with `:edits', `:missing', `:duplicates', and `:removed'.
+Each edit is a cons (ENTRY . NODE), where a nil NODE means deletion.  Edits
+are ordered from the end of the buffer toward the beginning so applying them
+preserves the original positions.  Missing nodes retain NODES order; duplicate
+and removal reporting preserves the existing synchronization semantics.  This
+function neither reads nor changes the buffer."
+  (let ((node-table (make-hash-table :test 'equal))
+        (seen-table (make-hash-table :test 'equal))
+        edits
+        missing-nodes
+        duplicate-ids
+        removed-ids)
+    (dolist (node nodes)
+      (puthash (plist-get node :id) node node-table))
+    (dolist (entry entries)
+      (let ((id (plist-get entry :id)))
+        (if (gethash id seen-table)
+            (cl-pushnew id duplicate-ids :test #'equal)
+          (puthash id t seen-table))))
+    (dolist (entry (reverse entries))
+      (let* ((id (plist-get entry :id))
+             (node (gethash id node-table)))
+        (unless node
+          (push id removed-ids))
+        (push (cons entry node) edits)))
+    (dolist (node nodes)
+      (unless (gethash (plist-get node :id) seen-table)
+        (push node missing-nodes)))
+    (list
+     :edits (nreverse edits)
+     :missing (nreverse missing-nodes)
+     :duplicates (nreverse duplicate-ids)
+     :removed (nreverse removed-ids))))
+
+(defun org-roam-organize--apply-id-link-keyword-entry-plan
+    (keyword-name plan &optional suffix-builder)
+  "Apply PLAN's existing-entry edits for KEYWORD-NAME in the current buffer.
+
+SUFFIX-BUILDER receives the existing entry after its old text is deleted.
+The caller owns parsing, insertion of missing nodes, and file lifecycle.
+This function neither parses the buffer nor chooses an insertion region."
+  (dolist (edit (plist-get plan :edits))
+    (let* ((entry (car edit))
+           (node (cdr edit))
+           (begin (plist-get entry :begin))
+           (end (plist-get entry :end)))
+      (goto-char begin)
+      (if node
+          (progn
+            (delete-region begin end)
+            (insert
+             (org-roam-organize--id-link-keyword-entry-line
+              keyword-name
+              (plist-get entry :id)
+              (plist-get node :title)
+              (when suffix-builder
+                (funcall suffix-builder entry)))))
+        (delete-region begin end)))))
+
+(defun org-roam-organize--insert-id-link-keyword-entries
+    (keyword-name nodes position)
+  "Insert KEYWORD-NAME entries for NODES at POSITION in the current buffer.
+
+POSITION is a buffer position or marker chosen by the caller.  NODES retain
+their input order.  A position retained across preceding entry edits should
+use a marker with insertion type t so replacements at that boundary remain
+before the new entries.  This function does not parse, locate headlines, or
+save."
+  (goto-char position)
+  (dolist (node nodes)
+    (insert
+     (org-roam-organize--id-link-keyword-entry-line
+      keyword-name (plist-get node :id) (plist-get node :title)))))
+
+(defun org-roam-organize--sync-id-link-keyword-entries-in-buffer
+    (keyword-name
+     nodes inbox-name &optional suffix-parser suffix-builder)
+  "Sync KEYWORD-NAME entries from NODES in the current buffer.
+
+Parse entries, plan reconciliation, and apply changes without saving the file.
+This compatibility wrapper retains the global Inbox policy: after existing
+entries are edited, locate or create the Inbox for missing nodes.  That lookup
+may parse the modified buffer again.  Region-aware callers can instead reuse
+the tree parser, planner, edit helper, and explicit-position insertion helper.
+Return a plist with duplicate ids, removed ids, and malformed entry lines."
+  (let* ((parse-result
+          (org-roam-organize--parse-id-link-keyword-entries
+           keyword-name
+           suffix-parser))
+         (plan
+          (org-roam-organize--plan-id-link-keyword-entries
+           (plist-get parse-result :entries) nodes)))
+    (org-roam-organize--apply-id-link-keyword-entry-plan
+     keyword-name plan
+     suffix-builder)
+    (when (plist-get plan :missing)
+      (org-roam-organize--insert-id-link-keyword-entries
+       keyword-name
+       (plist-get plan :missing)
+       (org-roam-organize--inbox-insertion-point inbox-name)))
+    (list
+     :duplicates (plist-get plan :duplicates)
+     :removed (plist-get plan :removed)
+     :malformed (plist-get parse-result :malformed))))
+
 (defun org-roam-organize--sync-id-link-keyword-entries
     (keyword-name
      path
@@ -219,76 +333,23 @@ Existing legal entries keep their relative position.  Duplicate entries are
 all synchronized and reported.  Entries whose ids are no longer in NODES are
 removed.  Missing nodes are appended under the Inbox headline.
 
-Implementation notes: NODES are indexed by id in a hash table.  Existing
-entries are parsed with Org Element, using SUFFIX-PARSER for
-keyword-specific metadata.  Duplicates are detected with a second hash table,
-and replacements/removals run from the end of the buffer toward the beginning
-so saved positions remain valid.  Missing nodes are appended after existing
-edits have completed.  SUFFIX-BUILDER receives an existing parsed entry and
-returns text to preserve after the regenerated id link.  MISSING-REASON lets
-callers keep domain-specific failure messages while sharing the same sync
-implementation."
-  (let ((node-table (make-hash-table :test 'equal))
-        (seen-table (make-hash-table :test 'equal))
-        duplicate-ids
-        removed-ids
-        malformed-lines)
-    (dolist (node nodes)
-      (puthash (plist-get node :id) node node-table))
-    (if (not (and path (file-exists-p path)))
-        (list
-         :status 'failed
-         :record record
-         :reason (or missing-reason "Target file does not exist"))
-      (with-current-buffer (find-file-noselect path)
-        (let* ((parse-result
-                (org-roam-organize--parse-id-link-keyword-entries
-                 keyword-name
-                 suffix-parser))
-               (entries (plist-get parse-result :entries)))
-          (setq malformed-lines (plist-get parse-result :malformed))
-          (dolist (entry entries)
-            (let ((id (plist-get entry :id)))
-              (if (gethash id seen-table)
-                  (cl-pushnew id duplicate-ids :test #'equal)
-                (puthash id t seen-table))))
-          (dolist (entry (reverse entries))
-            (let* ((id (plist-get entry :id))
-                   (node (gethash id node-table)))
-              (goto-char (plist-get entry :begin))
-              (if node
-                  (progn
-                    (delete-region
-                     (plist-get entry :begin) (plist-get entry :end))
-                    (insert
-                     (org-roam-organize--id-link-keyword-entry-line
-                      keyword-name
-                      id
-                      (plist-get node :title)
-                      (when suffix-builder
-                        (funcall suffix-builder entry)))))
-                (push id removed-ids)
-                (delete-region
-                 (plist-get entry :begin) (plist-get entry :end)))))
-          (let (missing-nodes)
-            (dolist (node nodes)
-              (unless (gethash (plist-get node :id) seen-table)
-                (push node missing-nodes)))
-            (when missing-nodes
-              (org-roam-organize--inbox-insertion-point inbox-name)
-              (dolist (node (nreverse missing-nodes))
-                (insert
-                 (org-roam-organize--id-link-keyword-entry-line
-                  keyword-name
-                  (plist-get node :id)
-                  (plist-get node :title)))))))
+Implementation notes: the file wrapper retains the missing-file diagnostics
+and save behavior.  The buffer-local synchronizer separates parsing,
+reconciliation, and edits from file opening and saving.  SUFFIX-PARSER and
+SUFFIX-BUILDER retain their keyword-specific meanings."
+  (if (not (and path (file-exists-p path)))
+      (list
+       :status 'failed
+       :record record
+       :reason (or missing-reason "Target file does not exist"))
+    (with-current-buffer (find-file-noselect path)
+      (let
+          ((result
+            (org-roam-organize--sync-id-link-keyword-entries-in-buffer
+             keyword-name nodes inbox-name
+             suffix-parser suffix-builder)))
         (save-buffer)
-        (list
-         :status 'ok
-         :record record
-         :duplicates (nreverse duplicate-ids)
-         :removed (nreverse removed-ids)
-         :malformed malformed-lines)))))
+        (append (list :status 'ok :record record) result)))))
 
 (provide 'org-roam-organize-entry)
 ;;; org-roam-organize-entry.el ends here
