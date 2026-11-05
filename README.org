@@ -128,7 +128,7 @@ The package includes the following main features:
 ** 1. Node Management
 - Check package configuration and runtime capabilities
 - Display detailed check and sync diagnostics in a temporary report buffer
-- Create directories declared by basic registry records
+- Create directories declared by basic registry records; multiple basic records may share one directory
 - Create managed nodes from registry-derived capture templates
 
 ** 2. Tag Processing

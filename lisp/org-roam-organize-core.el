@@ -1104,7 +1104,7 @@ human-readable report.
 Implementation notes: validation is deliberately report-oriented.  It first
 rejects an improper top-level registry, then walks records once, guarding all
 derived values behind plist checks so malformed records are reported instead
-of crashing.  It also checks uniqueness using normalized absolute paths and
+of crashing.  It checks MOC path uniqueness using normalized absolute paths and
 keeps template validation focused on the structured file head shape and the
 tag/filetags invariant.  Provider validation is intentionally shallow: a
 non-nil `:provider' must be callable, while provider return values are
@@ -1116,8 +1116,7 @@ checked when node creation calls the provider."
         (cite-count 0)
         names
         tags
-        paths
-        directories)
+        paths)
     (if (not
          (org-roam-organize--proper-list-p
           org-roam-organize-registry))
@@ -1176,10 +1175,6 @@ checked when node creation calls the provider."
                (moc-title
                 (when plistp
                   (org-roam-organize--record-moc-title record)))
-               (absolute-directory
-                (when (and plistp (stringp directory))
-                  (org-roam-organize--record-absolute-directory
-                   record)))
                (absolute-moc-path
                 (when (and plistp (stringp moc-path))
                   (org-roam-organize--record-absolute-moc-path
@@ -1453,18 +1448,6 @@ checked when node creation calls the provider."
                 "  resolved :moc-path unique? nil (should be t)\n")))
             (when absolute-moc-path
               (push absolute-moc-path paths))
-            (when (and (org-roam-organize--record-basic-p record)
-                       absolute-directory
-                       (member absolute-directory directories))
-              (setq result_bool nil)
-              (setq
-               result_message
-               (concat
-                result_message
-                "  resolved basic :directory unique? nil (should be t)\n")))
-            (when (and (org-roam-organize--record-basic-p record)
-                       absolute-directory)
-              (push absolute-directory directories))
             (unless (stringp moc-title)
               (setq result_bool nil)
               (setq

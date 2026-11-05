@@ -48,6 +48,26 @@
          record)
         (expand-file-name "moc/permanent.org" root))))))
 
+(ert-deftest
+    org-roam-organize-test-registry-allows-shared-basic-directories
+    ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (org-roam-organize-registry
+          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+            (:name
+             "permanent"
+             :tag "zettel"
+             :basic t
+             :directory "permanent")
+            (:name
+             "fleeting"
+             :tag "idea"
+             :basic t
+             :directory "permanent/.")
+            (:name "note" :tag "note" :directory "permanent"))))
+    (should (car (org-roam-organize--validate-registry)))))
+
 (ert-deftest org-roam-organize-test-registry-rejects-unsafe-name ()
   (let ((org-roam-organize-registry
          '((:name
@@ -515,6 +535,11 @@
             (:name
              "permanent"
              :tag "zettel"
+             :basic t
+             :directory "permanent")
+            (:name
+             "fleeting"
+             :tag "idea"
              :basic t
              :directory "permanent"))))
     (should-not (file-exists-p moc-directory))

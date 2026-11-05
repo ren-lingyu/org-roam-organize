@@ -25,6 +25,7 @@ not yet been published as a release.
 - A packaged Emacs wrapper and an exported =overlays.emacsPackages= overlay for Nix consumers.
 
 ** Changed
+- Allow multiple =:basic t= registry records to share a =:directory=, without relaxing path-safety checks.
 - *Breaking:* Lisp sources moved into =lisp/=. Add that directory to manual =load-path= configurations, select =lisp/*.el= in straight recipes, and install all package modules together. The public entry remains =(require 'org-roam-organize)=.
 - *Breaking:* The Citar library feature changed from =org-roam-organize-citar= to =org-roam-organize-cite-citar=, and its reserved notes-source symbol changed likewise. Update explicit feature/source references. Remove direct calls to adapter lifecycle implementation functions and configure the adapter through the registry and mode lifecycle; no compatibility aliases are supplied.
 - *Breaking:* Nix packages now have explicit =org-roam-organize= and =emacs= outputs, with no default package. Use =nix build .#org-roam-organize= or =nix build .#emacs=. The =ert-citar= and =ert-biblatex= checks were replaced by =ert-cite-citar= and =ert-cite-export=, respectively; the =ert-cite-display= check is also available.
