@@ -25,6 +25,8 @@ not yet been published as a release.
 - A packaged Emacs wrapper and an exported =overlays.emacsPackages= overlay for Nix consumers.
 
 ** Changed
+- *Breaking:* MOCs now share one tagged file with same-level management headlines identified by =CUSTOM_ID= equal to each non-MOC record's tag. Titles must match the record's =:moc-title= or derived name; mismatches are reported before editing. Only the MOC record may declare =:moc-path= or the new optional =:moc-id=, and its template must explicitly include its tag in =filetags=. See the [[file:README.org::*Single-file MOC migration][single-file MOC migration guide]] before upgrading: preserve old file IDs/incoming links and manual content, remove the MOC tag from extra old files, and refresh the DB. No automatic destructive migration is performed.
+- MOC create adds only missing structure; sync reconciles existing regions in one buffer, preserving entry order, deletion markers and per-region diagnostics. Missing regions are reported, unchanged files are not saved, and changed files are saved/refreshed once. Missing management headlines default to level 1 or inherit the existing level. Level 1 appends at EOF; deeper levels use the MOC record's configured level-1 Inbox and insert before its first child, creating that Inbox at EOF when absent. No intermediate levels are created; existing contents remain in place and ambiguous Inboxes are rejected before edits.
 - Allow multiple =:basic t= registry records to share a =:directory=, without relaxing path-safety checks.
 - *Breaking:* Lisp sources moved into =lisp/=. Add that directory to manual =load-path= configurations, select =lisp/*.el= in straight recipes, and install all package modules together. The public entry remains =(require 'org-roam-organize)=.
 - *Breaking:* The Citar library feature changed from =org-roam-organize-citar= to =org-roam-organize-cite-citar=, and its reserved notes-source symbol changed likewise. Update explicit feature/source references. Remove direct calls to adapter lifecycle implementation functions and configure the adapter through the registry and mode lifecycle; no compatibility aliases are supplied.
@@ -34,9 +36,15 @@ not yet been published as a release.
 - See the [[file:README.org::*0.8.0 Changes and Migration][0.8.0 migration guide]] for configuration and installation details.
 
 ** Fixed
-- MOC creation now uses the unique =:moc t= record's file-head properties and keywords, while retaining each managed record's MOC title and managed-tag metadata.
+- MOC sync now rejects multiple active matching direct-child member Inboxes in any management region, including when no members are missing. The complete sync is refused before edits; deeper same-name headlines and Inboxes in other regions remain independent.
+- Member insertion preserves childless Inbox property drawers, planning metadata and manual text. Missing regions with same-title unregistered CUSTOM_ID metadata are reported as ambiguous instead of silently duplicated, without adopting ordinary handwritten titles. The MOC file title is captured literally, including percent escapes and Org-roam placeholder-like text.
+- Registry tags now require Org's nonempty tag alphabet, preventing malformed CUSTOM_ID values and headline injection. Management titles must round-trip as plain Org headlines, including target-specific TODO syntax; invalid declarations fail before editing. Structural MOC titles, CUSTOM_ID values and FILETAGS are captured literally instead of expanding capture placeholders.
+- MOC file-head properties and keywords come from the unique =:moc t= record, independently of ordinary record templates.
 - Citar's basic Org Cite activation now recognizes managed UUID keys through temporary aliases to bibliography entries. Mapping failures fall back to ordinary activation without interrupting Font Lock.
 - Configuration examples now close the registry expression correctly, use the standard use-package hook spelling, and add provider records without discarding the required MOC record.
+
+** Removed
+- Per-record MOC file mapping, managed tag/count properties and their configuration variables, and the =:moc_managed_tag= capture info field. Migrate old files and template references manually; CUSTOM_ID headlines do not replace old Org-roam node IDs.
 
 * DONE v0.7.0
 CLOSED: [2026-08-06 Thu 17:23]

@@ -67,7 +67,9 @@
                :tag "map"
                :moc t
                :basic t
-               :directory "moc")
+               :directory "moc"
+               :template
+               ((keywords . ((filetags . ("map"))))))
               (:name
                "literature"
                :tag "ref"

@@ -1134,7 +1134,14 @@ and its formatted message matches REGEXP; otherwise signal a test failure."
          (org-roam-directory root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "literature"
              :tag "ref"

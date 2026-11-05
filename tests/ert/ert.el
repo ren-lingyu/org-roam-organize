@@ -27,26 +27,18 @@
     ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-directory root)
-         (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-            (:name
-             "permanent"
-             :tag "zettel"
-             :basic t
-             :directory "permanent"))))
-    (let ((record (cadr org-roam-organize-registry)))
-      (should
-       (equal
-        (org-roam-organize--record-moc-title record) "Permanent"))
-      (should
-       (equal
-        (org-roam-organize--record-moc-path record)
-        "moc/permanent.org"))
-      (should
-       (equal
-        (org-roam-organize--record-absolute-moc-path
-         record)
-        (expand-file-name "moc/permanent.org" root))))))
+         (moc
+          '(:name "maps" :tag "map" :moc t :basic t :directory "moc"))
+         (record '(:name "permanent" :tag "zettel")))
+    (should
+     (equal (org-roam-organize--record-moc-title record) "Permanent"))
+    (should-not (org-roam-organize--record-moc-path record))
+    (should
+     (equal (org-roam-organize--record-moc-path moc) "moc/maps.org"))
+    (should
+     (equal
+      (org-roam-organize--record-absolute-moc-path moc)
+      (expand-file-name "moc/maps.org" root)))))
 
 (ert-deftest
     org-roam-organize-test-registry-allows-shared-basic-directories
@@ -54,7 +46,14 @@
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "permanent"
              :tag "zettel"
@@ -85,7 +84,14 @@
     ()
   (let ((org-roam-organize-directory "/test/root/")
         (org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name "escape" :tag "escape" :moc-path "../escape.org"))))
     (let ((result (org-roam-organize--validate-registry)))
       (should-not (car result))
@@ -106,9 +112,15 @@
          (org-roam-organize-directory root)
          (org-roam-organize-registry
           (list
-           '(:name "maps" :tag "map" :moc t :basic t :directory "moc")
-           (cons :name "broken")
-           '(:name "idea" :tag "idea"))))
+           '(:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
+           (cons :name "broken") '(:name "idea" :tag "idea"))))
     (let ((result (org-roam-organize--validate-registry)))
       (should-not (car result))
       (should (string-match-p "plist\\?" (cdr result))))))
@@ -118,7 +130,14 @@
     ()
   (let ((org-roam-organize-registry
          (cons
-          '(:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '(:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
           :invalid-tail)))
     (let ((result (org-roam-organize--validate-registry)))
       (should-not (car result))
@@ -127,10 +146,17 @@
 (ert-deftest org-roam-organize-test-registry-requires-one-moc-record
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "other-maps"
-            :tag "other-map"
+            :tag "other_map"
             :moc t
             :basic t
             :directory "other-moc"))))
@@ -150,7 +176,9 @@
               :tag "map"
               :moc t
               :basic t
-              :directory "moc")
+              :directory "moc"
+              :template
+              ((keywords . ((filetags . ("map"))))))
              (:name
               "literature"
               :tag "ref"
@@ -164,7 +192,9 @@
               :tag "map"
               :moc t
               :basic t
-              :directory "moc")
+              :directory "moc"
+              :template
+              ((keywords . ((filetags . ("map"))))))
              (:name
               "literature"
               :tag "ref"
@@ -178,7 +208,14 @@
     org-roam-organize-test-registry-rejects-multiple-cite-records
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -200,7 +237,14 @@
     org-roam-organize-test-registry-rejects-invalid-cite-value
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -223,7 +267,9 @@
                 :tag "map"
                 :moc t
                 :basic t
-                :directory "moc")
+                :directory "moc"
+                :template
+                ((keywords . ((filetags . ("map"))))))
                (:name
                 "literature"
                 :tag "ref"
@@ -237,7 +283,14 @@
     org-roam-organize-test-registry-rejects-invalid-bibliography
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -254,7 +307,14 @@
     org-roam-organize-test-registry-requires-cite-for-bibliography
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -285,7 +345,9 @@
                 :tag "map"
                 :moc t
                 :basic t
-                :directory "moc")
+                :directory "moc"
+                :template
+                ((keywords . ((filetags . ("map"))))))
                (:name
                 "literature"
                 :tag "ref"
@@ -305,7 +367,9 @@
               :tag "map"
               :moc t
               :basic t
-              :directory "moc")
+              :directory "moc"
+              :template
+              ((keywords . ((filetags . ("map"))))))
              (:name
               "literature"
               :tag "ref"
@@ -373,7 +437,14 @@
     org-roam-organize-test-registry-cite-backend-reads-cite-record
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -530,7 +601,14 @@
          (moc-directory (expand-file-name "moc" root))
          (permanent-directory (expand-file-name "permanent" root))
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name "note" :tag "note")
             (:name
              "permanent"
@@ -553,137 +631,71 @@
     ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-directory root)
-         (org-roam-organize-moc-managed-tag-property "MANAGED_TAG")
-         (org-roam-organize-moc-managed-node-count-property
-          "NODE_COUNT")
-         (org-roam-organize-registry
-          '((:name
-             "maps"
-             :tag "map"
-             :moc t
-             :basic t
-             :directory "moc"
-             :template
-             ((keywords
-               .
-               ((author . "Map Author") (filetags . ("map"))))))
-            (:name
-             "idea"
-             :tag "idea"
-             :template
-             ((keywords
-               .
-               ((author . nil)
-                (date . nil)
-                (description . nil)
-                (filetags . ("idea")))))))))
-    (let* ((record (cadr org-roam-organize-registry))
-           (template
-            (org-roam-organize--record-moc-capture-template record))
-           (target (plist-get (nthcdr 4 template) :target)))
-      (should
-       (equal
-        target
-        `(file+head
-          ,(expand-file-name "moc/idea.org" root)
-          ":PROPERTIES:\n:MANAGED_TAG: idea\n:NODE_COUNT:\n:END:\n#+TITLE: Idea\n#+AUTHOR: Map Author\n#+FILETAGS: :map:\n"))))))
+         (record
+          '(:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :moc-title "Navigation"
+            :moc-path "moc/index.org"
+            :template
+            ((keywords
+              .
+              ((author . "Map Author") (filetags . ("map")))))))
+         (template
+          (org-roam-organize--record-moc-capture-template record)))
+    (should
+     (equal
+      (plist-get (nthcdr 4 template) :target)
+      `(file+head
+        ,(expand-file-name "moc/index.org" root)
+        "#+TITLE: Navigation\n#+AUTHOR: Map Author\n#+FILETAGS: :map:\n")))))
 
 (ert-deftest
     org-roam-organize-test-record-moc-head-formats-file-keywords
     ()
-  (let* ((root (org-roam-organize-test--temporary-root))
-         (org-roam-organize-directory root)
-         (org-roam-organize-registry
-          '((:name
-             "maps"
-             :tag "map"
-             :moc t
-             :basic t
-             :directory "moc"
-             :template
-             ((properties
-               .
-               ((moc_role . "navigation") (custom_id . nil)))
-              (keywords
-               .
-               ((author . "Map Author")
-                (email . "moc@example.org")
-                (date . "<%Y>")
-                (description . nil)
-                (filetags . ("map" "navigation"))
-                (author . "Second Map Author")
-                (language . "en")))))
-            (:name
-             "idea"
-             :tag "idea"
-             :template
-             ((properties . ((roam_refs . "@idea-key")))
-              (keywords
-               .
-               ((author . "Idea Author")
-                (filetags . ("idea" "note")))))))))
+  (let ((record
+         '(:name
+           "maps"
+           :tag "map"
+           :moc t
+           :template
+           ((properties
+             .
+             ((moc_role . "navigation") (custom_id . nil)))
+            (keywords
+             .
+             ((author . "Map Author")
+              (email . "moc@example.org")
+              (date . "<%Y>")
+              (description . nil)
+              (filetags . ("map" "navigation"))
+              (author . "Second Map Author")
+              (language . "en")))))))
     (should
      (equal
-      (org-roam-organize--record-moc-head
-       (cadr org-roam-organize-registry))
+      (org-roam-organize--record-moc-head record)
       (concat
-       ":PROPERTIES:\n"
-       ":MOC_MANAGED_TAG: idea\n"
-       ":MOC_MANAGED_NODE_COUNT:\n"
-       ":MOC_ROLE: navigation\n"
-       ":CUSTOM_ID:\n"
-       ":END:\n"
-       "#+TITLE: Idea\n"
-       "#+AUTHOR: Map Author\n"
-       "#+EMAIL: moc@example.org\n"
-       "#+DATE: <%Y>\n"
-       "#+DESCRIPTION:\n"
-       "#+FILETAGS: :map:navigation:\n"
-       "#+AUTHOR: Second Map Author\n"
-       "#+LANGUAGE: en\n")))))
+       ":PROPERTIES:\n:MOC_ROLE: navigation\n:CUSTOM_ID:\n:END:\n"
+       "#+TITLE: Maps\n#+AUTHOR: Map Author\n#+EMAIL: moc@example.org\n"
+       "#+DATE: <%Y>\n#+DESCRIPTION:\n#+FILETAGS: :map:navigation:\n"
+       "#+AUTHOR: Second Map Author\n#+LANGUAGE: en\n")))))
 
 (ert-deftest
     org-roam-organize-test-record-moc-template-does-not-fall-back-to-managed-record
     ()
-  (let* ((root (org-roam-organize-test--temporary-root))
-         (org-roam-organize-directory root)
-         (org-roam-organize-moc-managed-tag-property "MANAGED_TAG")
-         (org-roam-organize-moc-managed-node-count-property
-          "NODE_COUNT")
-         (record
-          '(:name
-            "idea"
-            :tag "idea"
-            :moc-title "Ideas"
-            :template
-            ((properties . ((roam_refs . "@idea-key")))
-             (keywords
-              .
-              ((author . "Idea Author")
-               (filetags . ("idea" "note"))))))))
-    (dolist (template-spec
-             '(nil
-               (:template nil) (:template ((properties) (keywords)))))
-      (let* ((org-roam-organize-registry
-              (list
-               (append
-                '(:name
-                  "maps"
-                  :tag "map"
-                  :moc t
-                  :basic t
-                  :directory "moc")
-                template-spec)
-               record))
-             (template
-              (org-roam-organize--record-moc-capture-template record))
-             (target (plist-get (nthcdr 4 template) :target)))
-        (should
-         (equal
-          target
-          `(file+head
-            ,(expand-file-name "moc/idea.org" root)
-            ":PROPERTIES:\n:MANAGED_TAG: idea\n:NODE_COUNT:\n:END:\n#+TITLE: Ideas\n")))))))
+  (let ((record
+         '(:name
+           "idea"
+           :tag "idea"
+           :template
+           ((properties . ((roam_refs . "@idea-key")))
+            (keywords . ((filetags . ("idea"))))))))
+    (should-not (org-roam-organize--record-moc-head record))
+    (should-not
+     (org-roam-organize--record-moc-capture-template record))))
 
 (ert-deftest
     org-roam-organize-test-record-node-head-formats-properties-and-keywords
@@ -1198,7 +1210,14 @@
 (ert-deftest org-roam-organize-test-registry-rejects-invalid-provider
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "idea"
             :tag "idea"
@@ -1212,7 +1231,14 @@
     org-roam-organize-test-registry-rejects-flat-template-sections
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "idea"
             :tag "idea"
@@ -1228,7 +1254,14 @@
     org-roam-organize-test-registry-rejects-invalid-path-template
     ()
   (let ((org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "idea"
             :tag "idea"
@@ -1262,22 +1295,21 @@
     ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-directory root)
-         (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-            (:name "literature" :tag "ref")))
          (record
           '(:name
-            "literature"
-            :tag "ref"
+            "maps"
+            :tag "map"
+            :moc t
+            :directory "moc"
             :template
             ((path . "ignored-${slug}.org")
-             (keywords . ((filetags . ("ref")))))))
+             (keywords . ((filetags . ("map")))))))
          (template
-          (org-roam-organize--record-moc-capture-template record))
-         (target (plist-get (nthcdr 4 template) :target)))
+          (org-roam-organize--record-moc-capture-template record)))
     (should
      (equal
-      (nth 1 target) (expand-file-name "moc/literature.org" root)))))
+      (nth 1 (plist-get (nthcdr 4 template) :target))
+      (expand-file-name "moc/maps.org" root)))))
 
 (ert-deftest org-roam-organize-test-node-create-uses-default-provider
     ()
@@ -1387,54 +1419,23 @@
       (org-roam-organize-node-create))
     (should-not captured)))
 
-(ert-deftest
-    org-roam-organize-test-moc-node-provider-uses-moc-title-and-tag-info
+(ert-deftest org-roam-organize-test-moc-node-provider-uses-file-title
     ()
-  (let ((record '(:name "idea" :tag "idea" :moc-title "Ideas")))
-    (should
-     (equal
-      (org-roam-organize--moc-node-provider record)
-      '(:title "Ideas" :info (:moc_managed_tag "idea"))))))
+  (should
+   (equal
+    (org-roam-organize--moc-node-provider
+     '(:name "maps" :tag "map" :moc t :moc-title "Navigation"))
+    '(:title "Navigation"))))
 
 (ert-deftest
     org-roam-organize-test-moc-node-provider-uses-derived-moc-title
     ()
-  (let ((record '(:name "literature" :tag "ref")))
-    (should
-     (equal
-      (org-roam-organize--moc-node-provider record)
-      '(:title "Literature" :info (:moc_managed_tag "ref"))))))
+  (should
+   (equal
+    (org-roam-organize--moc-node-provider
+     '(:name "maps" :tag "map" :moc t))
+    '(:title "Maps"))))
 
-(ert-deftest org-roam-organize-test-moc-create-skips-existing-mocs ()
-  (let* ((root (org-roam-organize-test--temporary-root))
-         (existing-path (expand-file-name "moc/maps.org" root))
-         (org-roam-organize-mode t)
-         (org-roam-organize-directory root)
-         (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-            (:name "idea" :tag "idea")))
-         captures)
-    (write-region "" nil existing-path)
-    (cl-letf (((symbol-function 'org-roam-capture-)
-               (lambda (&rest args) (push args captures))))
-      (org-roam-organize-moc-create))
-    (should (= (length captures) 1))
-    (let* ((args (car captures))
-           (templates (plist-get args :templates))
-           (template (car templates))
-           (target (plist-get (nthcdr 4 template) :target)))
-      (should (equal (plist-get args :keys) "m"))
-      (should
-       (equal (plist-get args :info) '(:moc_managed_tag "idea")))
-      (should
-       (equal (org-roam-node-title (plist-get args :node)) "Idea"))
-      (should
-       (equal
-        target
-        `(file+head
-          ,(expand-file-name "moc/idea.org" root)
-          ,(org-roam-organize--record-moc-head
-            (cadr org-roam-organize-registry))))))))
 
 (ert-deftest
     org-roam-organize-test-parse-id-link-keyword-entries-in-tree-is-scoped
@@ -1662,68 +1663,6 @@
         (should (string-match-p "Commented Title" content))
         (should (string-match-p "Source Title" content))))))
 
-(ert-deftest
-    org-roam-organize-test-moc-sync-wrapper-preserves-delete-marker
-    ()
-  (let* ((root (org-roam-organize-test--temporary-root))
-         (org-roam-organize-directory root)
-         (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-            (:name "idea" :tag "idea" :inbox "Inbox")))
-         (path (expand-file-name "moc/idea.org" root))
-         (record '(:name "idea" :tag "idea" :inbox "Inbox"))
-         (nodes '((:id "node-a" :title "Updated Title"))))
-    (write-region
-     (concat
-      "#+TITLE: Idea\n"
-      "* Inbox\n"
-      "#+ROAM_NODE: [[id:node-a][Old Title]] :delete t\n")
-     nil path)
-    (let ((result
-           (org-roam-organize--moc-sync-node-entries record nodes)))
-      (should (eq (plist-get result :status) 'ok)))
-    (with-temp-buffer
-      (insert-file-contents path)
-      (should
-       (search-forward
-        "#+ROAM_NODE: [[id:node-a][Updated Title]] :delete t"
-        nil t)))))
-
-(ert-deftest org-roam-organize-test-moc-sync-collects-failure-messages
-    ()
-  (let ((org-roam-organize-mode t)
-        (org-roam-organize-registry
-         '((:name "idea" :tag "idea" :inbox "Inbox")))
-        messages)
-    (cl-letf (((symbol-function 'org-roam-db) (lambda () t))
-              ((symbol-function 'org-roam-organize--nodes-with-tag)
-               (lambda (_tag) nil))
-              ((symbol-function
-                'org-roam-organize--moc-sync-node-entries)
-               (lambda (&rest _args)
-                 '(:status failed :reason "Missing MOC file")))
-              ((symbol-function 'message)
-               (lambda (format-string &rest args)
-                 (push
-                  (apply #'format format-string args) messages))))
-      (org-roam-organize-moc-sync))
-    (should (= (length messages) 1))
-    (should
-     (string-match-p "Sync MOCs: 0 synced, 1 failed" (car messages)))
-    (should
-     (string-match-p
-      (regexp-quote
-       org-roam-organize--report-buffer-name)
-      (car messages)))
-    (with-current-buffer org-roam-organize--report-buffer-name
-      (should (eq major-mode 'special-mode))
-      (should buffer-read-only)
-      (should
-       (string-match-p
-        "Cannot sync MOC for registry record" (buffer-string)))
-      (should
-       (string-match-p
-        "Sync MOCs: 0 synced, 1 failed" (buffer-string))))))
 
 (ert-deftest
     org-roam-organize-test-cite-citing-node-data-deduplicates-by-reference-and-citing-node
@@ -1936,7 +1875,14 @@
 (ert-deftest org-roam-organize-test-cite-sync-requires-cite-record ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -1952,7 +1898,14 @@
 (ert-deftest org-roam-organize-test-cite-check-requires-cite-record ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -1970,7 +1923,14 @@
     ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -2032,7 +1992,14 @@
          (org-roam-organize-mode t)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "literature"
              :tag "ref"
@@ -2098,7 +2065,14 @@
          (org-roam-organize-mode t)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "literature"
              :tag "ref"
@@ -2149,7 +2123,14 @@
          (org-roam-organize-mode t)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "literature"
              :tag "ref"
@@ -2300,7 +2281,14 @@
     ()
   (let ((org-roam-organize-mode t)
         (org-roam-organize-registry
-         '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+         '((:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template
+            ((keywords . ((filetags . ("map"))))))
            (:name
             "literature"
             :tag "ref"
@@ -2381,7 +2369,14 @@
          (org-roam-directory root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name "idea" :tag "idea")))
          (org-roam-capture-templates nil)
          (org-font-lock-set-keywords-hook nil)
@@ -2405,7 +2400,14 @@
          (org-roam-directory root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "literature"
              :tag "ref"
@@ -2461,7 +2463,14 @@
          (org-roam-directory root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "literature"
              :tag "ref"
@@ -2494,16 +2503,19 @@
          (org-roam-directory root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "idea"
              :tag "idea"
              :basic t
-             :directory "fleeting")))
-         (org-roam-organize-moc-managed-tag-property
-          "MOC_MANAGED_TAG")
-         (org-roam-organize-moc-managed-node-count-property
-          "MOC_MANAGED_NODE_COUNT"))
+             :directory "fleeting"))))
     (let ((result (org-roam-organize--check-setup)))
       (should (car result))
       (should
@@ -2528,16 +2540,19 @@
          (org-roam-directory roam-root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "idea"
              :tag "idea"
              :basic t
-             :directory "fleeting")))
-         (org-roam-organize-moc-managed-tag-property
-          "MOC_MANAGED_TAG")
-         (org-roam-organize-moc-managed-node-count-property
-          "MOC_MANAGED_NODE_COUNT"))
+             :directory "fleeting"))))
     (let ((result (org-roam-organize--check-setup)))
       (should-not (car result))
       (should
@@ -2555,16 +2570,21 @@
          (org-roam-directory roam-root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "idea"
              :tag "idea"
              :basic t
              :directory "fleeting")))
-         (org-roam-organize-moc-managed-tag-property
-          "MOC_MANAGED_TAG")
-         (org-roam-organize-moc-managed-node-count-property
-          "MOC_MANAGED_NODE_COUNT")
+
+
          messages
          displayed-buffer)
     (when-let* ((buffer
@@ -2603,16 +2623,21 @@
          (org-roam-directory root)
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords . ((filetags . ("map"))))))
             (:name
              "idea"
              :tag "idea"
              :basic t
              :directory "fleeting")))
-         (org-roam-organize-moc-managed-tag-property
-          "MOC_MANAGED_TAG")
-         (org-roam-organize-moc-managed-node-count-property
-          "MOC_MANAGED_NODE_COUNT")
+
+
          messages
          display-called)
     (when-let* ((buffer
@@ -2629,28 +2654,6 @@
     (should (= (length messages) 1))
     (should (string-match-p "setup checks passed" (car messages)))))
 
-(ert-deftest
-    org-roam-organize-test-registry-tag-id-alist-reports-missing-records
-    ()
-  (let* ((root (org-roam-organize-test--temporary-root))
-         (org-roam-organize-directory root)
-         (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
-            (:name "missing" :tag "missing")))
-         (queries nil))
-    (cl-letf (((symbol-function 'org-roam-db-query)
-               (lambda (&rest args)
-                 (push args queries)
-                 (if (string=
-                      (cadr args)
-                      (expand-file-name "moc/maps.org" root))
-                     '(("map-id"))
-                   nil))))
-      (let ((result (org-roam-organize--registry-tag-id-alist)))
-        (should (equal (car result) '(("map" . "map-id"))))
-        (should
-         (equal (cdr result) '((:name "missing" :tag "missing"))))
-        (should (= (length queries) 2))))))
 
 (ert-deftest
     org-roam-organize-test-capability-check-reports-missing-capabilities
@@ -2690,6 +2693,1345 @@
      (assq
       'org-cite-list-bibliography-files
       (org-roam-organize--required-capabilities)))))
+
+
+;; Single-file MOC fixtures use real Org-roam databases and capture.
+(defmacro org-roam-organize-test--with-moc (&rest body)
+  "Run BODY with isolated registry, files and a real Org-roam database."
+  (declare (indent 0) (debug t))
+  `(let* ((root (org-roam-organize-test--temporary-root))
+          (default-directory root)
+          (org-roam-directory root)
+          (org-roam-organize-directory root)
+          (org-roam-db-location (expand-file-name "roam.db" root))
+          (org-id-locations-file (expand-file-name "ids" root))
+          (org-roam-db-update-on-save nil)
+          (org-roam-organize-mode t)
+          (org-roam-organize-registry
+           (copy-tree
+            '((:name
+               "maps"
+               :tag "map"
+               :moc t
+               :basic t
+               :directory "moc"
+               :template
+               ((keywords . ((filetags . ("map"))))))
+              (:name "idea" :tag "idea" :basic t :directory "notes")
+              (:name
+               "note"
+               :tag "note"
+               :basic t
+               :directory "notes")))))
+     (unwind-protect
+         (progn
+           ,@body)
+       (dolist (buffer (buffer-list))
+         (when (and (buffer-file-name buffer)
+                    (file-in-directory-p
+                     (buffer-file-name buffer) root))
+           (with-current-buffer buffer
+             (set-buffer-modified-p nil))
+           (kill-buffer buffer)))
+       (org-roam-db--close-all)
+       (delete-directory root t))))
+
+(defun org-roam-organize-test--write-node
+    (file id title tags &optional body)
+  "Write and index a real node FILE with ID, TITLE, TAGS and BODY."
+  (make-directory (file-name-directory file) t)
+  (with-temp-file file
+    (insert
+     (format
+      ":PROPERTIES:\n:ID: %s\n:END:\n#+TITLE: %s\n#+FILETAGS: :%s:\n"
+      id title (mapconcat #'identity tags ":"))
+     (or body "")))
+  (org-roam-db-update-file file)
+  file)
+
+(defun org-roam-organize-test--write-moc (&optional body file)
+  "Write a tagged MOC with BODY at FILE or the default creation target."
+  (org-roam-organize-test--write-node (or
+                                       file
+                                       (expand-file-name
+                                        "moc/maps.org"
+                                        org-roam-organize-directory))
+                                      "map-id" "Maps" '("map")
+                                      body))
+
+(ert-deftest org-roam-organize-test-moc-registry-declarations ()
+  (org-roam-organize-test--with-moc
+    (let ()
+      (dolist (template
+               '(nil
+                 ((keywords . ((filetags . nil))))
+                 ((keywords . ((filetags . ("other")))))
+                 ((keywords . ((filetags . "map"))))))
+        (setf (plist-get (car org-roam-organize-registry) :template)
+              template)
+        (should-not (car (org-roam-organize--validate-registry))))
+      (setf (plist-get (car org-roam-organize-registry) :template)
+            '((keywords . ((filetags . ("map" "nav"))))))
+      (should (car (org-roam-organize--validate-registry)))
+      (dolist (id '(nil "" "bad id" "bad\nID" "bad/id"))
+        (setf (plist-get (car org-roam-organize-registry) :moc-id) id)
+        (should-not (car (org-roam-organize--validate-registry))))
+      (setf (plist-get (car org-roam-organize-registry) :moc-id)
+            "7d713c24-20f2-167a-9a98-67a704ac31ec")
+      (should (car (org-roam-organize--validate-registry)))
+      (dolist (path
+               '(nil
+                 "/tmp/index.org" "../escape.org" "moc/index.txt"))
+        (setf (plist-get (car org-roam-organize-registry) :moc-path)
+              path)
+        (should-not (car (org-roam-organize--validate-registry))))
+      (setf (plist-get (car org-roam-organize-registry) :moc-path)
+            "moc/index.org")
+      (should (car (org-roam-organize--validate-registry)))
+      (setf (plist-get (car org-roam-organize-registry) :template)
+            '((properties . ((ID . "conflicting")))
+              (keywords . ((filetags . ("map"))))))
+      (should-not (car (org-roam-organize--validate-registry))))
+    (dolist (key '(:moc-id :moc-path))
+      (let ((org-roam-organize-registry
+             (copy-tree org-roam-organize-registry)))
+        (setf (plist-get (cadr org-roam-organize-registry) key)
+              "value")
+        (should-not (car (org-roam-organize--validate-registry)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-discovery-independent-constraints
+    ()
+  (org-roam-organize-test--with-moc
+    (let* ((file
+            (org-roam-organize-test--write-moc
+             nil (expand-file-name "moved/index.org" root)))
+           (moc (car org-roam-organize-registry)))
+      (should
+       (equal
+        (plist-get (org-roam-organize--moc-discover) :file) file))
+      (setf (plist-get (car org-roam-organize-registry) :moc-id)
+            "map-id")
+      (should
+       (eq (plist-get (org-roam-organize--moc-discover) :status) 'ok))
+      (setf (plist-get (car org-roam-organize-registry) :moc-path)
+            "moved/index.org")
+      (should
+       (eq (plist-get (org-roam-organize--moc-discover) :status) 'ok))
+      (setf (plist-get (car org-roam-organize-registry) :moc-id)
+            "other-id")
+      (should-error
+       (org-roam-organize--moc-discover t)
+       :type 'user-error)
+      (setf
+       (plist-get (car org-roam-organize-registry) :moc-id) "map-id"
+       (plist-get (car org-roam-organize-registry) :moc-path) "moc/maps.org")
+      (should-error
+       (org-roam-organize--moc-discover t)
+       :type 'user-error))))
+
+(ert-deftest org-roam-organize-test-moc-discovery-conflicts ()
+  (org-roam-organize-test--with-moc
+    (should-error (org-roam-organize--moc-discover) :type 'user-error)
+    (should
+     (eq
+      (plist-get
+       (org-roam-organize--moc-discover t)
+       :status)
+      'missing))
+    (let ((moc (car org-roam-organize-registry)))
+      (setf (plist-get (car org-roam-organize-registry) :moc-id)
+            "taken-id")
+      (org-roam-organize-test--write-node
+       (expand-file-name "other.org" root)
+       "taken-id"
+       "Other"
+       '("other"))
+      (should-error
+       (org-roam-organize--moc-discover t)
+       :type 'user-error))
+    (setf (plist-get (car org-roam-organize-registry) :moc-id) nil)
+    (let ((file (org-roam-organize-test--write-moc)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "second.org" root)
+       "second-id"
+       "Second"
+       '("map"))
+      (should-error
+       (org-roam-organize--moc-discover t)
+       :type 'user-error)
+      (should (file-exists-p file)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-discovery-deduplicates-join-rows
+    ()
+  (org-roam-organize-test--with-moc
+    (let ((file (org-roam-organize-test--write-moc)))
+      (cl-letf (((symbol-function
+                  'org-roam-organize--nodes-with-tag-and-file)
+                 (lambda (_tag)
+                   (list
+                    (list :id "map-id" :file file)
+                    (list :id "map-id" :file file)))))
+        (should
+         (eq
+          (plist-get
+           (org-roam-organize--moc-discover)
+           :status)
+          'ok))))))
+
+(ert-deftest org-roam-organize-test-moc-create-capture-combinations ()
+  (dolist (explicit-id '(nil t))
+    (dolist (explicit-path '(nil t))
+      (org-roam-organize-test--with-moc
+        (let* ((moc (car org-roam-organize-registry))
+               (file
+                (expand-file-name (if explicit-path
+                                      "custom/index.org"
+                                    "moc/maps.org")
+                                  root))
+               (capture-count 0)
+               (capture (symbol-function 'org-roam-capture-)))
+          (when explicit-id
+            (setf (plist-get (car org-roam-organize-registry) :moc-id)
+                  "chosen-id"))
+          (when explicit-path
+            (setf (plist-get
+                   (car org-roam-organize-registry)
+                   :moc-path)
+                  "custom/index.org"))
+          (cl-letf (((symbol-function 'org-roam-capture-)
+                     (lambda (&rest args)
+                       (setq capture-count (1+ capture-count))
+                       (apply capture args))))
+            (should
+             (eq
+              (plist-get
+               (org-roam-organize-moc-create)
+               :status)
+              'ok)))
+          (should (= capture-count 1))
+          (should (file-exists-p file))
+          (with-current-buffer (find-file-noselect file)
+            (should
+             (equal
+              (org-entry-get (point-min) "ID")
+              (if explicit-id
+                  "chosen-id"
+                (plist-get (org-roam-organize--moc-discover) :id))))
+            (let ((text (buffer-string)))
+              (should
+               (string-match-p (regexp-quote "#+TITLE: Maps") text))
+              (should
+               (string-match-p
+                (regexp-quote "#+FILETAGS: :map:") text))
+              (should (string-match-p ":CUSTOM_ID: idea" text))
+              (should (string-match-p ":CUSTOM_ID: note" text))
+              (should-not (string-match-p ":CUSTOM_ID: map\\b" text))
+              (should-not
+               (string-match-p
+                "MOC_MANAGED\\|Inbox\\|ROAM_NODE" text))))
+          (should
+           (= (plist-get (org-roam-organize-moc-create) :created)
+              0)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-abort-and-target-conflict
+    ()
+  (org-roam-organize-test--with-moc
+    (cl-letf (((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest _) nil)))
+      (should
+       (eq
+        (plist-get (org-roam-organize-moc-create) :status) 'failed)))
+    (should-not
+     (file-exists-p (expand-file-name "moc/maps.org" root)))
+    (write-region
+     "Manual content" nil (expand-file-name "moc/maps.org" root))
+    (should
+     (eq (plist-get (org-roam-organize-moc-create) :status) 'failed))
+    (with-temp-buffer
+      (insert-file-contents (expand-file-name "moc/maps.org" root))
+      (should (equal (buffer-string) "Manual content")))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-preserves-existing-file-and-regions
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((body
+          "Manual preface\n* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\nHandwritten\n")
+         (file (org-roam-organize-test--write-moc body)))
+      (cl-letf (((symbol-function 'org-roam-organize--capture-node)
+                 (lambda (&rest _)
+                   (ert-fail "Existing file must not be captured"))))
+        (should
+         (= (plist-get (org-roam-organize-moc-create) :created) 1)))
+      (with-current-buffer (find-file-noselect file)
+        (should (string-match-p (regexp-quote body) (buffer-string))))
+      (cl-letf (((symbol-function 'save-buffer)
+                 (lambda (&rest _)
+                   (ert-fail "Repeated create must not save"))))
+        (should
+         (= (plist-get (org-roam-organize-moc-create) :created)
+            0))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-common-level-and-inbox-policy
+    ()
+  (dolist (level '(1 2 3))
+    (dolist (parent '(nil t))
+      (org-roam-organize-test--with-moc
+        (let*
+            ((body
+              (concat
+               (unless (= level 1)
+                 "* Knowledge\n")
+               (org-roam-organize--moc-region-text
+                (cadr org-roam-organize-registry) level)
+               (when parent
+                 "* Inbox\nManual intro\n** Existing child\nChild text\n")))
+             (file (org-roam-organize-test--write-moc body))
+             (before
+              (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-string)))
+             (new
+              (org-roam-organize--moc-region-text
+               (caddr org-roam-organize-registry) level))
+             (expected
+              (cond
+               ((= level 1)
+                (concat before new))
+               (parent
+                (replace-regexp-in-string (regexp-quote
+                                           "** Existing child\n")
+                                          (concat
+                                           new "** Existing child\n")
+                                          before
+                                          t t))
+               (t
+                (concat before "* Inbox\n" new)))))
+          (should
+           (= (plist-get (org-roam-organize-moc-create) :created) 1))
+          (with-current-buffer (find-file-noselect file)
+            (should (equal (buffer-string) expected))
+            (let* ((tree (org-element-parse-buffer))
+                   (layout (org-roam-organize--moc-regions tree)))
+              (should (= (plist-get layout :level) level))
+              (should-not (plist-get layout :missing))
+              (when (and (= level 3) (not parent))
+                (should-not
+                 (org-element-map
+                  tree 'headline
+                  (lambda (h)
+                    (when (= (org-element-property :level h) 2)
+                      h))
+                  nil t))))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-inbox-uses-ast-and-first-child
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (car org-roam-organize-registry) :inbox)
+          "Incoming")
+    (let*
+        ((body
+          (concat
+           "#+begin_src org\n,* Incoming\n#+end_src\n"
+           "* COMMENT Incoming\nIgnored content\n"
+           "* Manual\n** Incoming\nNested content\n"
+           "* Knowledge\n*** Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+           "* Incoming :container:\n:PROPERTIES:\n:NOTE: Keep property\n:END:\nManual intro\n"
+           "** First child\nChild text\n*** Deeper child\nDeep text\n"
+           "* Tail\nKeep tail\n"))
+         (file (org-roam-organize-test--write-moc body))
+         (before
+          (with-temp-buffer
+            (insert-file-contents file)
+            (buffer-string)))
+         (new
+          (org-roam-organize--moc-region-text
+           (caddr org-roam-organize-registry) 3))
+         (expected
+          (replace-regexp-in-string (regexp-quote "** First child\n")
+                                    (concat
+                                     new "** First child\n")
+                                    before
+                                    t t)))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 1))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let* ((layout
+                (org-roam-organize--moc-regions
+                 (org-element-parse-buffer)))
+               (note (cdr (assoc "note" (plist-get layout :regions))))
+               (parent (org-element-lineage note '(headline))))
+          (should (= (org-element-property :level note) 3))
+          (should (= (org-element-property :level parent) 1))
+          (should
+           (equal
+            (org-element-property :raw-value parent) "Incoming")))))))
+
+(ert-deftest org-roam-organize-test-moc-structure-errors-are-atomic ()
+  (dolist
+      (body
+       '("* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+         "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n** Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+         "* Renamed\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+         "* COMMENT Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"))
+    (org-roam-organize-test--with-moc
+      (let* ((file (org-roam-organize-test--write-moc body))
+             (before
+              (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-string))))
+        (dolist (command
+                 '(org-roam-organize-moc-create
+                   org-roam-organize-moc-sync))
+          (should (eq (plist-get (funcall command) :status) 'failed))
+          (with-current-buffer (find-file-noselect file)
+            (should (equal (buffer-string) before))
+            (should-not (buffer-modified-p))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-sync-batch-scope-and-idempotence
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((body
+          (concat
+           "#+ROAM_NODE: [[id:outside][Outside]]\n"
+           "* Parent A\n** Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+           "#+ROAM_NODE: [[id:a][Old]] :delete t\n"
+           "#+ROAM_NODE: [[id:a][Duplicate]]\n"
+           "#+ROAM_NODE: [[id:stale][Stale]]\n"
+           "#+ROAM_NODE: malformed\n"
+           "*** Inbox\nHandwritten\n**** Child\nKeep\n"
+           "*** COMMENT Hidden\n#+ROAM_NODE: [[id:hidden][Old]]\n"
+           "#+begin_src org\n#+ROAM_NODE: [[id:source][Old]]\n#+end_src\n"
+           "* Parent B\n** Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+           "*** Manual\n#+ROAM_NODE: [[id:a][Short]]\n"
+           "* Outside\n#+ROAM_NODE: [[id:outside][Outside]]\n"))
+         (file (org-roam-organize-test--write-moc body))
+         (save-count 0)
+         (db-count 0)
+         (parse-count 0)
+         (save (symbol-function 'save-buffer))
+         (db (symbol-function 'org-roam-db-update-file))
+         (parse (symbol-function 'org-element-parse-buffer)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root)
+       "a"
+       "A much longer title"
+       '("idea" "note"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "b.org" root) "b" "B" '("idea" "note"))
+      (cl-letf (((symbol-function 'save-buffer)
+                 (lambda (&rest args)
+                   (when (buffer-modified-p)
+                     (setq save-count (1+ save-count)))
+                   (apply save args)))
+                ((symbol-function 'org-roam-db-update-file)
+                 (lambda (&rest args)
+                   (setq db-count (1+ db-count))
+                   (apply db args)))
+                ((symbol-function 'org-element-parse-buffer)
+                 (lambda (&rest args)
+                   (when (equal buffer-file-name file)
+                     (setq parse-count (1+ parse-count)))
+                   (apply parse args))))
+        (let* ((result (org-roam-organize-moc-sync))
+               (first (car (plist-get result :results))))
+          (should (eq (plist-get result :status) 'ok))
+          (should (equal (plist-get first :duplicates) '("a")))
+          (should (equal (plist-get first :removed) '("stale")))
+          (should
+           (equal
+            (plist-get first :malformed)
+            '("#+ROAM_NODE: malformed"))))
+        (should (= save-count 1))
+        (should (= db-count 1))
+        ;; The explicit document parse is once; the DB refresh parses separately.
+        (should (<= parse-count 2))
+        (setq
+         save-count 0
+         db-count 0
+         parse-count 0)
+        (should-not (plist-get (org-roam-organize-moc-sync) :saved))
+        (should (= save-count 0))
+        (should (= db-count 0))
+        (should (= parse-count 1)))
+      (with-current-buffer (find-file-noselect file)
+        (let ((text (buffer-string)))
+          (should
+           (string-match-p
+            (regexp-quote "[[id:a][A much longer title]] :delete t")
+            text))
+          (should
+           (string-match-p
+            (regexp-quote
+             "*** Inbox\nHandwritten\n#+ROAM_NODE: [[id:b][B]]\n**** Child\nKeep")
+            text))
+          (should
+           (string-match-p
+            (regexp-quote
+             "*** Manual\n#+ROAM_NODE: [[id:a][A much longer title]]\n*** Inbox\n#+ROAM_NODE: [[id:b][B]]\n* Outside")
+            text))
+          (should (string-match-p "malformed" text))
+          (should
+           (string-match-p (regexp-quote "[[id:hidden][Old]]") text))
+          (should
+           (string-match-p (regexp-quote "[[id:source][Old]]") text))
+          (should (string-prefix-p ":PROPERTIES:" text))
+          (should
+           (= (how-many "\\[\\[id:outside" (point-min) (point-max))
+              2)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-sync-missing-region-does-not-create
+    ()
+  (org-roam-organize-test--with-moc
+    (let ((file
+           (org-roam-organize-test--write-moc
+            "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n")))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "a" "A" '("idea"))
+      (let ((result (org-roam-organize-moc-sync)))
+        (should (eq (plist-get result :status) 'partial))
+        (should
+         (eq
+          (plist-get
+           (cadr (plist-get result :results))
+           :status)
+          'failed)))
+      (with-current-buffer (find-file-noselect file)
+        (should (string-match-p "\\[\\[id:a" (buffer-string)))
+        (should-not
+         (string-match-p ":CUSTOM_ID: note" (buffer-string)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-level-zero-identity-and-members
+    ()
+  (org-roam-organize-test--with-moc
+    (org-roam-organize-test--write-node
+     (expand-file-name "headlines.org" root)
+     "ordinary"
+     "Ordinary"
+     '("other")
+     "* A headline :map:idea:\n:PROPERTIES:\n:ID: headline-id\n:END:\n")
+    (should
+     (eq
+      (plist-get
+       (org-roam-organize--moc-discover t)
+       :status)
+      'missing))
+    (let
+        ((file
+          (org-roam-organize-test--write-moc
+           "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n* Headline :idea:\n:PROPERTIES:\n:ID: nested-id\n:END:\n")))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should-not
+         (string-match-p
+          (regexp-quote "#+ROAM_NODE:") (buffer-string)))))))
+
+(ert-deftest org-roam-organize-test-moc-open-validates-moved-file ()
+  (org-roam-organize-test--with-moc
+    (let* ((file
+            (org-roam-organize-test--write-moc
+             nil (expand-file-name "moved.org" root)))
+           opened)
+      (cl-letf (((symbol-function 'find-file)
+                 (lambda (path &rest _) (setq opened path))))
+        (org-roam-organize-moc-open-index)
+        (should (equal opened file))
+        (setq opened nil)
+        (setf (plist-get (car org-roam-organize-registry) :moc-id)
+              "wrong-id")
+        (should
+         (eq
+          (plist-get
+           (org-roam-organize-moc-open-index)
+           :status)
+          'failed))
+        (should-not opened)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-file-identity-preflight-is-atomic
+    ()
+  (dolist (replacement '(":ID: stale-id" "#+FILETAGS: :other:"))
+    (org-roam-organize-test--with-moc
+      (let
+          ((file
+            (org-roam-organize-test--write-moc
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n#+ROAM_NODE: [[id:stale][Keep until fixed]]\n")))
+        (with-current-buffer (find-file-noselect file)
+          (goto-char (point-min))
+          (re-search-forward
+           (if (string-prefix-p ":ID" replacement)
+               "^:ID:.*$"
+             "^#\\+FILETAGS:.*$"))
+          (replace-match replacement t t)
+          (let ((before (buffer-string)))
+            (should
+             (eq
+              (plist-get
+               (org-roam-organize-moc-sync)
+               :status)
+              'failed))
+            (should (equal before (buffer-string)))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-discovery-rejects-invalid-db-identities
+    ()
+  (org-roam-organize-test--with-moc
+    (let ((file (org-roam-organize-test--write-moc)))
+      (dolist (node
+               (list
+                (list :id "bad id" :file file)
+                (list :id "map-id" :file "/outside/index.org")
+                (list
+                 :id "map-id"
+                 :file
+                 (expand-file-name "absent.org" root))))
+        (cl-letf (((symbol-function
+                    'org-roam-organize--nodes-with-tag-and-file)
+                   (lambda (_tag) (list node))))
+          (should-error
+           (org-roam-organize--moc-discover t)
+           :type 'user-error))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-duplicate-level-one-inboxes-rejected
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((file
+          (org-roam-organize-test--write-moc
+           "* First\n** Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n* Inbox\nFirst manual\n* Inbox\nSecond manual\n* Tail\nKeep\n"))
+         (before
+          (with-temp-buffer
+            (insert-file-contents file)
+            (buffer-string))))
+      (cl-letf (((symbol-function 'save-buffer)
+                 (lambda (&rest _)
+                   (ert-fail "Ambiguous Inbox must not save"))))
+        (should
+         (eq
+          (plist-get (org-roam-organize-moc-create) :status)
+          'failed)))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) before))
+        (should-not (buffer-modified-p))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-invalid-declarations-have-no-effects
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (car org-roam-organize-registry) :template) nil)
+    (cl-letf (((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest _)
+                 (ert-fail "Invalid declaration must not capture"))))
+      (should
+       (eq
+        (plist-get (org-roam-organize-moc-create) :status) 'failed)))
+    (should-not
+     (file-exists-p (expand-file-name "moc/maps.org" root)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-sync-excludes-live-blocks-and-moc-file
+    ()
+  (org-roam-organize-test--with-moc
+    (let
+        ((file
+          (org-roam-organize-test--write-moc
+           (concat
+            "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+            "#+begin_src org\n#+ROAM_NODE: [[id:source][Keep source]]\n#+end_src\n"
+            "** COMMENT Hidden\n#+ROAM_NODE: [[id:comment][Keep comment]]\n"
+            "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))))
+      (with-current-buffer (find-file-noselect file)
+        (goto-char (point-min))
+        (search-forward "#+FILETAGS: :map:")
+        (replace-match "#+FILETAGS: :map:idea:" t t)
+        (save-buffer))
+      (org-roam-db-update-file file)
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved))
+      (with-current-buffer (find-file-noselect file)
+        (should
+         (string-match-p
+          (regexp-quote
+           "[[id:source][Keep source]]")
+          (buffer-string)))
+        (should
+         (string-match-p
+          (regexp-quote
+           "[[id:comment][Keep comment]]")
+          (buffer-string)))
+        (should-not
+         (string-match-p
+          (regexp-quote "[[id:map-id]") (buffer-string)))))))
+
+(ert-deftest org-roam-organize-test-moc-scale-ten-thousand-entries ()
+  (org-roam-organize-test--with-moc
+    (setq org-roam-organize-registry
+          (cons
+           (car org-roam-organize-registry)
+           (cl-loop
+            for n below 4 collect
+            (list
+             :name (format "region%d" n)
+             :tag (format "tag%d" n)))))
+    (let ((nodes (make-hash-table :test 'equal))
+          (saves 0)
+          (updates 0)
+          (save (symbol-function 'save-buffer))
+          (db (symbol-function 'org-roam-db-update-file)))
+      (with-current-buffer (find-file-noselect
+                            (org-roam-organize-test--write-moc))
+        (goto-char (point-max))
+        (dotimes (region 4)
+          (insert
+           (format
+            "* Region%d\n:PROPERTIES:\n:CUSTOM_ID: tag%d\n:END:\n"
+            region region))
+          (let (members)
+            (dotimes (n 2500)
+              (let ((id (format "node-%d-%d" region n)))
+                (insert
+                 (org-roam-organize--moc-node-entry-line id "Old"))
+                (push (list
+                       :id id
+                       :title "Updated"
+                       :file "/member.org")
+                      members)))
+            (puthash
+             (format "tag%d" region) (nreverse members) nodes)))
+        (cl-letf (((symbol-function
+                    'org-roam-organize--nodes-with-tag-and-file)
+                   (lambda (tag) (gethash tag nodes)))
+                  ((symbol-function 'save-buffer)
+                   (lambda (&rest args)
+                     (when (buffer-modified-p)
+                       (setq saves (1+ saves)))
+                     (apply save args)))
+                  ((symbol-function 'org-roam-db-update-file)
+                   (lambda (&rest args)
+                     (setq updates (1+ updates))
+                     (apply db args))))
+          (let* ((start (float-time))
+                 (tree (org-element-parse-buffer))
+                 (layout (org-roam-organize--moc-regions tree)))
+            (should
+             (plist-get
+              (org-roam-organize--moc-sync-buffer
+               layout buffer-file-name)
+              :saved))
+            (message
+             "MOC benchmark: 10000 entries, first %.3fs, saves=%d DB updates=%d"
+             (- (float-time) start) saves updates))
+          (setq
+           saves 0
+           updates 0)
+          (let* ((start (float-time))
+                 (tree (org-element-parse-buffer))
+                 (layout (org-roam-organize--moc-regions tree)))
+            (should-not
+             (plist-get
+              (org-roam-organize--moc-sync-buffer
+               layout buffer-file-name)
+              :saved))
+            (message
+             "MOC benchmark: 10000 entries, unchanged %.3fs, saves=%d DB updates=%d"
+             (- (float-time) start) saves updates))
+          (should (= saves 0))
+          (should (= updates 0)))))))
+
+
+(ert-deftest org-roam-organize-test-registry-tags-use-org-alphabet ()
+  (dolist (index '(0 1))
+    (dolist (tag
+             '(nil
+               10
+               ""
+               "bad\n* Unexpected"
+               "bad\r:END:"
+               "bad\tvalue"
+               "with space"
+               "bad:tag"
+               "bad-tag"
+               "bad[link]"
+               "bad\0value"))
+      (org-roam-organize-test--with-moc
+        (setf (plist-get (nth index org-roam-organize-registry) :tag)
+              tag)
+        (let ((result (org-roam-organize--validate-registry)))
+          (should-not (car result))
+          (should
+           (string-match-p
+            ":tag valid nonempty Org tag" (cdr result))))))
+    (dolist (tag '("alpha" "A0_@#%" "@work" "#ref" "100%" "科研"))
+      (org-roam-organize-test--with-moc
+        (setf (plist-get (nth index org-roam-organize-registry) :tag)
+              tag)
+        (when (= index 0)
+          (setf (plist-get (car org-roam-organize-registry) :template)
+                `((keywords . ((filetags . (,tag)))))))
+        (should (car (org-roam-organize--validate-registry)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-title-round-trips-with-org-parser
+    ()
+  (dolist (title
+           '("Research"
+             "Research: physics"
+             "Research [1/2]"
+             "*bold* research"
+             "TODO-related research"
+             "研究"))
+    (should (org-roam-organize--moc-headline-title-p title)))
+  (dolist (title
+           '(nil
+             10
+             ""
+             " "
+             " Research"
+             "Research "
+             "Research\n* Unexpected"
+             "Research\rUnexpected"
+             "Research\tvalue"
+             "TODO Research"
+             "DONE Research"
+             "[#A] Research"
+             "COMMENT Research"
+             "Research :physics:"
+             "Research :ARCHIVE:"
+             "Footnotes"))
+    (should-not (org-roam-organize--moc-headline-title-p title)))
+  (let ((org-todo-keywords '((sequence "WAIT" "|" "FINISHED"))))
+    (should-not
+     (org-roam-organize--moc-headline-title-p "WAIT Research"))
+    (should-not
+     (org-roam-organize--moc-headline-title-p "FINISHED Research"))
+    (should
+     (org-roam-organize--moc-headline-title-p "TODO Research"))))
+
+(ert-deftest
+    org-roam-organize-test-registry-rejects-nonliteral-region-titles
+    ()
+  (org-roam-organize-test--with-moc
+    (dolist (title
+             '(""
+               " "
+               "Research\n* Unexpected"
+               "TODO Research"
+               "[#A] Research"
+               "COMMENT Research"
+               "Research :physics:"))
+      (setf (plist-get (cadr org-roam-organize-registry) :moc-title)
+            title)
+      (let ((result (org-roam-organize--validate-registry)))
+        (should-not (car result))
+        (should
+         (string-match-p
+          "management titles must round-trip" (cdr result)))))
+    (setf (plist-get (cadr org-roam-organize-registry) :moc-title)
+          "Research")
+    (should (car (org-roam-organize--validate-registry)))
+    (setf (plist-get (car org-roam-organize-registry) :moc-title)
+          "Maps\n#+FILETAGS: :other:")
+    (should-not (car (org-roam-organize--validate-registry)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-unsafe-structure-declarations-do-not-capture
+    ()
+  (dolist (declaration
+           '((:tag . "bad\n* Unexpected")
+             (:moc-title . "Research :physics:")
+             (:moc-title . "Research\n* Unexpected")))
+    (org-roam-organize-test--with-moc
+      (setf (plist-get
+             (cadr org-roam-organize-registry) (car declaration))
+            (cdr declaration))
+      (cl-letf (((symbol-function 'org-roam-organize--capture-node)
+                 (lambda (&rest _)
+                   (ert-fail "Invalid metadata must not capture")))
+                ((symbol-function 'make-directory)
+                 (lambda (&rest _)
+                   (ert-fail
+                    "Invalid metadata must not create directories"))))
+        (should
+         (eq
+          (plist-get (org-roam-organize-moc-create) :status)
+          'failed)))
+      (should-not
+       (file-exists-p (expand-file-name "moc/maps.org" root))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-new-titles-respect-file-todo-keywords
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :moc-title)
+          "WAIT Research")
+    (should (car (org-roam-organize--validate-registry)))
+    (let ((file
+           (org-roam-organize-test--write-moc
+            "#+TODO: WAIT | DONE\n")))
+      (with-current-buffer (find-file-noselect file)
+        (let ((before (buffer-string)))
+          (should
+           (eq
+            (plist-get
+             (org-roam-organize-moc-create)
+             :status)
+            'failed))
+          (should (equal before (buffer-string)))
+          (should-not (buffer-modified-p)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-new-titles-respect-template-todo-keywords
+    ()
+  (org-roam-organize-test--with-moc
+    (setf
+     (plist-get (cadr org-roam-organize-registry) :moc-title) "WAIT Research"
+     (plist-get (car org-roam-organize-registry) :moc-path) "new/deep/index.org"
+     (plist-get (car org-roam-organize-registry) :template) '((keywords . ((filetags . ("map")) (todo . "WAIT | DONE")))))
+    (should (car (org-roam-organize--validate-registry)))
+    (cl-letf (((symbol-function 'org-roam-organize--capture-node)
+               (lambda (&rest _)
+                 (ert-fail "Invalid title must not capture"))))
+      (should
+       (eq
+        (plist-get (org-roam-organize-moc-create) :status) 'failed)))
+    (should-not (file-exists-p (expand-file-name "new" root)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-capture-keeps-structural-text-literal
+    ()
+  (org-roam-organize-test--with-moc
+    (let ((title "Research ${title} %t %<%Y>"))
+      (setf
+       (plist-get (car org-roam-organize-registry) :tag) "map%t"
+       (plist-get (car org-roam-organize-registry) :template) '((keywords . ((filetags . ("map%t" "nav%t")))))
+       (plist-get (cadr org-roam-organize-registry) :tag) "idea%t"
+       (plist-get (cadr org-roam-organize-registry) :moc-title) title)
+      (should (car (org-roam-organize--validate-registry)))
+      (should
+       (eq (plist-get (org-roam-organize-moc-create) :status) 'ok))
+      (with-current-buffer (find-file-noselect
+                            (expand-file-name "moc/maps.org" root))
+        (let* ((layout
+                (org-roam-organize--moc-regions
+                 (org-element-parse-buffer)))
+               (region
+                (cdr (assoc "idea%t" (plist-get layout :regions)))))
+          (should region)
+          (should
+           (equal (org-element-property :raw-value region) title))
+          (should
+           (equal
+            (org-element-property :CUSTOM_ID region) "idea%t"))))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 0))
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved)))))
+
+
+(ert-deftest
+    org-roam-organize-test-moc-create-empty-layout-defaults-to-level-one
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (car org-roam-organize-registry) :inbox)
+          "Incoming")
+    (let* ((file
+            (org-roam-organize-test--write-moc "Manual preface\n"))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (expected
+            (concat
+             before
+             (org-roam-organize--moc-region-text
+              (cadr org-roam-organize-registry) 1)
+             (org-roam-organize--moc-region-text
+              (caddr org-roam-organize-registry) 1))))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 2))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (should-not
+         (string-match-p
+          (regexp-quote "* Incoming") (buffer-string)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-create-invalid-new-inbox-is-atomic
+    ()
+  (dolist (name
+           '("WAIT Incoming"
+             "Incoming\n* Unexpected"
+             "Incoming :tag:"))
+    (org-roam-organize-test--with-moc
+      (setf (plist-get (car org-roam-organize-registry) :inbox) name)
+      (let*
+          ((file
+            (org-roam-organize-test--write-moc
+             "#+TODO: WAIT | DONE\n* Knowledge\n*** Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string))))
+        (should
+         (eq
+          (plist-get (org-roam-organize-moc-create) :status) 'failed))
+        (with-current-buffer (find-file-noselect file)
+          (should (equal (buffer-string) before))
+          (should-not (buffer-modified-p)))))))
+
+
+(ert-deftest
+    org-roam-organize-test-moc-member-inbox-keeps-headline-metadata
+    ()
+  (dolist (child '(nil t))
+    (dolist
+        (manual
+         '(""
+           "Introductory text\n:LOGBOOK:\n- Keep this note\n:END:\n"))
+      (org-roam-organize-test--with-moc
+        (let*
+            ((body
+              (concat
+               "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+               "** Inbox\nSCHEDULED: <2026-11-05 Thu>\n"
+               ":PROPERTIES:\n:CUSTOM_ID: idea-inbox\n:NOTE: Keep property\n:END:\n"
+               manual
+               (when child
+                 "*** Child\nChild text\n")
+               "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+             (file (org-roam-organize-test--write-moc body))
+             (before
+              (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-string)))
+             (anchor
+              (if child
+                  "*** Child\n"
+                "* Note\n"))
+             (expected
+              (replace-regexp-in-string
+               (regexp-quote anchor)
+               (concat "#+ROAM_NODE: [[id:node-a][Example]]\n" anchor)
+               before
+               t
+               t)))
+          (org-roam-organize-test--write-node
+           (expand-file-name "member.org" root)
+           "node-a"
+           "Example"
+           '("idea"))
+          (should
+           (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+          (with-current-buffer (find-file-noselect file)
+            (should (equal (buffer-string) expected))
+            (let*
+                ((tree (org-element-parse-buffer))
+                 (inbox
+                  (org-element-map
+                   tree 'headline
+                   (lambda (headline)
+                     (when (equal
+                            (org-element-property
+                             :raw-value headline)
+                            "Inbox")
+                       headline))
+                   nil t))
+                 (entries
+                  (org-roam-organize--parse-id-link-keyword-entries-in-tree
+                   inbox "ROAM_NODE")))
+              (should
+               (equal
+                (org-element-property :CUSTOM_ID inbox) "idea-inbox"))
+              (should
+               (equal
+                (org-element-property :NOTE inbox) "Keep property"))
+              (should (org-element-property :scheduled inbox))
+              (should
+               (equal
+                (mapcar
+                 (lambda (entry)
+                   (plist-get entry :id))
+                 (plist-get entries :entries))
+                '("node-a")))))
+          (should-not
+           (plist-get (org-roam-organize-moc-sync) :saved)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-region-unknown-custom-id-conflict
+    ()
+  (dolist (wrong-id '("wrong-id" ""))
+    (org-roam-organize-test--with-moc
+      (let* ((body
+              (concat
+               "* Idea\n:PROPERTIES:\n:CUSTOM_ID: "
+               wrong-id
+               "\n:END:\n"
+               "#+ROAM_NODE: [[id:stale][Do not remove]]\n"
+               "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+             (file (org-roam-organize-test--write-moc body))
+             (before
+              (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-string))))
+        (cl-letf (((symbol-function 'save-buffer)
+                   (lambda (&rest _)
+                     (ert-fail "Conflicting region must not save"))))
+          (dolist (command
+                   '(org-roam-organize-moc-create
+                     org-roam-organize-moc-sync))
+            (let ((result (funcall command)))
+              (should (eq (plist-get result :status) 'failed))
+              (should
+               (string-match-p
+                "identity conflict" (plist-get result :reason))))))
+        (with-current-buffer (find-file-noselect file)
+          (should (equal (buffer-string) before))
+          (should-not (buffer-modified-p)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-region-title-alone-does-not-claim-identity
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((body
+          (concat
+           "* Idea\n:PROPERTIES:\n:ID: handwritten-id\n:END:\nManual text\n"
+           "* Handwritten\n:PROPERTIES:\n:CUSTOM_ID: manual\n:END:\nKeep this\n"
+           "* COMMENT Idea\n:PROPERTIES:\n:CUSTOM_ID: archived-idea\n:END:\nArchive\n"))
+         (file (org-roam-organize-test--write-moc body)))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 2))
+      (with-current-buffer (find-file-noselect file)
+        (should (string-match-p (regexp-quote body) (buffer-string)))
+        (let ((layout
+               (org-roam-organize--moc-regions
+                (org-element-parse-buffer))))
+          (should (= (length (plist-get layout :regions)) 2))
+          (should-not (plist-get layout :missing))))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 0)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-region-known-identity-wins-over-unclaimed-title
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((body
+          (concat
+           "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+           "** Note\n:PROPERTIES:\n:CUSTOM_ID: manual-note\n:END:\nManual child\n"
+           "* Idea\n:PROPERTIES:\n:CUSTOM_ID: manual-idea\n:END:\n"
+           "#+ROAM_NODE: [[id:manual][Keep manual entry]]\n"))
+         (file (org-roam-organize-test--write-moc body)))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 1))
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved))
+      (with-current-buffer (find-file-noselect file)
+        (should
+         (string-match-p (regexp-quote body) (buffer-string)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-regions-allow-shared-declared-titles
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (caddr org-roam-organize-registry) :moc-title)
+          "Idea")
+    (let ((file
+           (org-roam-organize-test--write-moc
+            "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n")))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 1))
+      (with-current-buffer (find-file-noselect file)
+        (let ((layout
+               (org-roam-organize--moc-regions
+                (org-element-parse-buffer))))
+          (should
+           (equal
+            (mapcar #'car (plist-get layout :regions))
+            '("idea" "note")))
+          (should-not (plist-get layout :missing)))))))
+
+(ert-deftest org-roam-organize-test-moc-capture-file-title-is-literal
+    ()
+  (dolist (title
+           '("Navigation %t"
+             "Navigation ${title} %<%Y>"
+             "Navigation %(error \"must stay literal\")"
+             "Navigation __ORGANIZE_LITERAL_PERCENT___TITLE %t"))
+    (org-roam-organize-test--with-moc
+      (setf (plist-get (car org-roam-organize-registry) :moc-title)
+            title)
+      (should
+       (eq (plist-get (org-roam-organize-moc-create) :status) 'ok))
+      (let* ((identity (org-roam-organize--moc-discover))
+             (file (plist-get identity :file)))
+        (should
+         (equal
+          (caar
+           (org-roam-db-query
+            [:select [title] :from nodes :where (= id $s1)]
+            (plist-get identity :id)))
+          title))
+        (with-current-buffer (find-file-noselect file)
+          (should
+           (string-match-p
+            (regexp-quote
+             (concat "#+TITLE: " title "\n"))
+            (buffer-string)))))
+      (should
+       (= (plist-get (org-roam-organize-moc-create) :created) 0)))))
+
+
+(ert-deftest
+    org-roam-organize-test-moc-member-inbox-duplicates-reject-entire-sync
+    ()
+  (dolist (name '("Inbox" "Incoming"))
+    (dolist (state '(empty complete missing))
+      (org-roam-organize-test--with-moc
+        (setf (plist-get (caddr org-roam-organize-registry) :inbox)
+              name)
+        (let*
+            ((body
+              (concat
+               "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+               "#+ROAM_NODE: [[id:node-a][Old title]]\n** Inbox\nIdea text\n"
+               "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+               "** "
+               name
+               "\nFirst text\n"
+               (when (eq state 'complete)
+                 "#+ROAM_NODE: [[id:node-b][B]]\n")
+               "** "
+               name
+               "\nSecond text\n"))
+             (file (org-roam-organize-test--write-moc body))
+             (before
+              (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-string))))
+          ;; The earlier valid region has an actual update ready to apply.
+          (org-roam-organize-test--write-node
+           (expand-file-name "a.org" root)
+           "node-a"
+           "New title"
+           '("idea"))
+          (unless (eq state 'empty)
+            (org-roam-organize-test--write-node
+             (expand-file-name "b.org" root) "node-b" "B" '("note")))
+          (cl-letf
+              (((symbol-function 'save-buffer)
+                (lambda (&rest _)
+                  (ert-fail "Ambiguous member Inbox must not save")))
+               ((symbol-function 'org-roam-db-update-file)
+                (lambda (&rest _)
+                  (ert-fail
+                   "Ambiguous member Inbox must not refresh DB"))))
+            (let ((result (org-roam-organize-moc-sync)))
+              (should (eq (plist-get result :status) 'failed))
+              (should
+               (string-match-p
+                "Multiple direct-child Inboxes"
+                (plist-get result :reason)))
+              (should
+               (string-match-p
+                "MOC region note" (plist-get result :reason)))))
+          (with-current-buffer (find-file-noselect file)
+            (should (equal (buffer-string) before))
+            (should-not (buffer-modified-p))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-inbox-names-are-region-and-level-local
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((body
+          (concat
+           "* Parent A\n** Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+           "#+begin_src org\n,*** Inbox\n#+end_src\n"
+           "*** COMMENT Inbox\nCommented content\n"
+           "*** Inbox\nIdea intro\n**** Child\nChild content\n"
+           "*** Manual\n**** Inbox\nFirst deep text\n**** Inbox\nSecond deep text\n"
+           "* Parent B\n** Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+           "*** Inbox\nNote intro\n"))
+         (file (org-roam-organize-test--write-moc body))
+         (before
+          (with-temp-buffer
+            (insert-file-contents file)
+            (buffer-string)))
+         (line "#+ROAM_NODE: [[id:shared][Example]]\n")
+         (expected
+          (concat
+           (replace-regexp-in-string (regexp-quote "**** Child\n")
+                                     (concat line "**** Child\n")
+                                     before
+                                     t
+                                     t)
+           line)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "shared.org" root)
+       "shared"
+       "Example"
+       '("idea" "note"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let ((layout
+               (org-roam-organize--moc-regions
+                (org-element-parse-buffer))))
+          (dolist (record (org-roam-organize--moc-records))
+            (let* ((headline
+                    (cdr
+                     (assoc
+                      (plist-get record :tag)
+                      (plist-get layout :regions))))
+                   (inbox
+                    (org-roam-organize--moc-region-inbox
+                     headline record)))
+              (should (= (org-element-property :level inbox) 3))
+              (should
+               (equal
+                (mapcar
+                 (lambda (entry) (plist-get entry :id))
+                 (plist-get
+                  (org-roam-organize--parse-id-link-keyword-entries-in-tree
+                   inbox "ROAM_NODE")
+                  :entries))
+                '("shared")))))))
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-inbox-is-not-created-without-missing-members
+    ()
+  (org-roam-organize-test--with-moc
+    (let*
+        ((file
+          (org-roam-organize-test--write-moc
+           "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\nManual idea\n* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\nManual note\n"))
+         (before
+          (with-temp-buffer
+            (insert-file-contents file)
+            (buffer-string))))
+      (cl-letf (((symbol-function 'save-buffer)
+                 (lambda (&rest _)
+                   (ert-fail "No missing members must not save"))))
+        (let ((result (org-roam-organize-moc-sync)))
+          (should (eq (plist-get result :status) 'ok))
+          (should-not (plist-get result :saved))))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) before))
+        (should-not (buffer-modified-p))))))
 
 (provide 'org-roam-organize-test)
 ;;; org-roam-organize-test.el ends here

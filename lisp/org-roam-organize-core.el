@@ -35,18 +35,6 @@
   :type 'directory
   :group 'org-roam-organize)
 
-(defcustom org-roam-organize-moc-managed-tag-property
-  "MOC_MANAGED_TAG"
-  "标记 MOC 所管理 FILETAG 的属性名"
-  :type 'string
-  :group 'org-roam-organize)
-
-(defcustom org-roam-organize-moc-managed-node-count-property
-  "MOC_MANAGED_NODE_COUNT"
-  "标记 MOC 所管理的 nodes 总数的属性名"
-  :type 'string
-  :group 'org-roam-organize)
-
 (defcustom org-roam-organize-registry
   (list
    (list
@@ -133,6 +121,7 @@
   "Registry of MOC records managed by Org-roam Organize.
 
 Each record is a plist.  `:name' and `:tag' are required strings.
+Tags must contain only letters, digits and _@#%, with no colons or whitespace.
 `:moc', `:basic', `:cite', and `:bibliography' are optional booleans.  A
 `:moc t' record must also be `:basic t'.  At most one record may use
 `:cite t'; that record identifies literature nodes for citation export,
@@ -154,8 +143,15 @@ ignored with a warning when the mode is enabled.  A basic record must have a
 relative `:directory';
 non-basic records may also use `:directory' to create managed nodes in an
 existing kind directory.
-`:moc-path' and `:moc-title' are optional overrides resolved from the record
-name when absent.  `:inbox' is an optional level-1 headline name used for
+Only the unique `:moc t' record may declare optional `:moc-id' and
+`:moc-path'.  They independently constrain its actual ID and path; without
+an explicit path, the default <directory>/<name>.org is used only at creation.
+The MOC template must explicitly include its tag in `keywords.filetags' and
+must not write ID.  Each other record maps to a CUSTOM_ID headline equal to
+its tag.  `:moc-title' supplies a nonblank, control-free single-line title.
+Management titles must round-trip as plain Org headlines with identical
+raw values, without TODO, priority, COMMENT or trailing-tag semantics.
+`:inbox' is an optional headline name used for
 newly added generated entries and defaults to \"Inbox\".
 `:template' is an optional structured alist for the generated capture
 template.  Its `path' entry controls the ordinary managed node file path
@@ -202,8 +198,6 @@ does not insert it into capture templates or validate the referenced file.")
 
 (defconst org-roam-organize--variable-type-alist
   '((org-roam-organize-directory . directory)
-    (org-roam-organize-moc-managed-tag-property . string)
-    (org-roam-organize-moc-managed-node-count-property . string)
     (org-roam-organize-registry . list)))
 
 (defconst org-roam-organize--capability-alist
@@ -250,7 +244,7 @@ unique citation registry record sets `:bibliography t'.")
   "Regexp matching a safe Org-roam Organize registry record name.")
 
 (defconst org-roam-organize--moc-capture-key "m"
-  "Capture key used internally when creating MOC files.")
+  "Capture key used internally when creating the MOC file.")
 
 (defconst org-roam-organize--node-capture-key "n"
   "Capture key used internally when creating managed node files.")
@@ -501,6 +495,13 @@ without slugifying or escaping."
 Implementation notes: this is a thin registry accessor; validation decides
 whether the returned value is acceptable."
   (plist-get record :tag))
+
+(defun org-roam-organize--record-tag-p (tag)
+  "Return non-nil if TAG is a nonempty Org tag safe for CUSTOM_ID.
+
+Use Org's tag alphabet: letters, digits, underscore, at, hash and percent.
+Colons, whitespace and control characters cannot enter a property value."
+  (and (stringp tag) (string-match-p "\\`[[:alnum:]_@#%]+\\'" tag)))
 
 (defun org-roam-organize--record-moc-p (record)
   "Return non-nil if RECORD manages MOC nodes.
@@ -785,28 +786,68 @@ record name is converted with `upcase-initials'."
      (t
       nil))))
 
-(defun org-roam-organize--record-moc-path (record)
-  "Return RECORD's relative MOC file path.
+(defun org-roam-organize--moc-title-single-line-p (title)
+  "Return non-nil if TITLE is a nonblank single line without controls."
+  (and (stringp title)
+       (not (org-roam-organize--blank-string-p title))
+       (not (string-match-p "[[:cntrl:]]" title))))
 
-Implementation notes: explicit `:moc-path' wins unless it is explicitly
-non-string.  Without an override, the path is derived from the single MOC
-record's directory plus RECORD's safe name and `.org' suffix."
-  (let ((explicit-path (plist-get record :moc-path))
-        (name (org-roam-organize--record-name record)))
-    (cond
-     ((stringp explicit-path)
-      explicit-path)
-     ((plist-member record :moc-path)
-      nil)
-     (t
-      (let* ((moc-record (org-roam-organize--registry-moc-record))
-             (directory
-              (when moc-record
-                (org-roam-organize--record-directory moc-record))))
-        (when (and (org-roam-organize--record-name-p name)
-                   (stringp directory))
-          (concat
-           (file-name-as-directory directory) name ".org")))))))
+(defun org-roam-organize--moc-headline-title-p
+    (title &optional prologue)
+  "Return non-nil if TITLE round-trips as a plain Org headline title.
+
+Parse a generated headline with Org rather than guessing TODO, priority,
+COMMENT or trailing-tag syntax.  PROLOGUE optionally supplies the target
+file's keyword context.  No source buffer or file is modified."
+  (and (org-roam-organize--moc-title-single-line-p title)
+       (with-temp-buffer
+         (when prologue
+           (insert prologue "\n"))
+         (let ((begin (point)))
+           (insert "* " title "\n")
+           (delay-mode-hooks
+             (org-mode))
+           (goto-char begin)
+           (let ((headline (org-element-at-point)))
+             (and (eq (org-element-type headline) 'headline)
+                  (= (org-element-property :level headline) 1)
+                  (equal
+                   (org-element-property :raw-value headline) title)
+                  (not (org-element-property :todo-keyword headline))
+                  (not (org-element-property :priority headline))
+                  (not (org-element-property :commentedp headline))
+                  (not (org-element-property :tags headline))
+                  (not
+                   (org-element-property
+                    :footnote-section-p headline))))))))
+
+(defun org-roam-organize--record-moc-id (record)
+  "Return RECORD's optional explicit MOC file ID."
+  (plist-get record :moc-id))
+
+(defun org-roam-organize--record-moc-explicit-path (record)
+  "Return RECORD's optional explicit MOC file path constraint."
+  (plist-get record :moc-path))
+
+(defun org-roam-organize--moc-id-p (id)
+  "Return non-nil when ID is a nonempty, link-safe Org ID string.
+
+UUIDs of any version are supported, as are existing custom Org IDs."
+  (and (stringp id)
+       (string-match-p "\\`[[:alnum:]][[:alnum:]_.:@+-]*\\'" id)))
+
+(defun org-roam-organize--record-moc-path (record)
+  "Return the unique MOC RECORD's relative creation path, or nil.
+
+The default is only a creation target, never a constraint on a moved file."
+  (when (org-roam-organize--record-moc-p record)
+    (if (plist-member record :moc-path)
+        (org-roam-organize--record-moc-explicit-path record)
+      (let ((directory (org-roam-organize--record-directory record))
+            (name (org-roam-organize--record-name record)))
+        (when (and (stringp directory)
+                   (org-roam-organize--record-name-p name))
+          (concat (file-name-as-directory directory) name ".org"))))))
 
 (defun org-roam-organize--path-inside-root-p (path)
   "Return non-nil if relative PATH resolves inside root directory.
@@ -856,10 +897,10 @@ missing directories."
     (org-roam-organize--absolute-path-in-root directory)))
 
 (defun org-roam-organize--record-absolute-moc-path (record)
-  "Return RECORD's absolute MOC file path.
+  "Return the unique MOC RECORD's absolute creation target.
 
-Implementation notes: the derived or explicit MOC path is resolved through
-the shared root-safe path helper before any file operation sees it."
+Resolve the default or explicit path safely inside the organizing root.
+Existing files must instead be discovered by tag and explicit constraints."
   (let ((path (org-roam-organize--record-moc-path record)))
     (org-roam-organize--absolute-path-in-root path)))
 
@@ -1000,8 +1041,7 @@ reversed so repeated keys and user-specified ordering are preserved."
 
 Implementation notes: only the `properties' section is emitted here.  The
 returned string contains property lines without the surrounding drawer markers
-so callers can merge package-managed properties and user-declared properties
-into one drawer."
+so callers can wrap user-declared properties in one drawer."
   (let ((properties
          (org-roam-organize--record-template-section
           record 'properties))
@@ -1015,10 +1055,9 @@ into one drawer."
 (defun org-roam-organize--record-file-property-drawer (record)
   "Return optional Org property drawer for RECORD.
 
-Implementation notes: ordinary managed nodes only get a property drawer when
-the record declares a non-empty `properties' section.  MOC heads use
-`org-roam-organize--record-file-property-lines' directly to merge custom
-properties with package-managed MOC metadata."
+Implementation notes: ordinary managed nodes and the unique MOC get a property
+drawer only when the record declares a non-empty `properties' section.
+Org-roam capture adds the file ID independently."
   (let ((properties
          (org-roam-organize--record-file-property-lines record)))
     (if (string= properties "")
@@ -1039,27 +1078,57 @@ keywords.  ID writing is left to Org-roam capture."
        (org-roam-organize--record-file-keyword-lines record)))))
 
 (defun org-roam-organize--record-moc-head (record)
-  "Return the Org file head for RECORD's MOC file.
+  "Return the unique MOC RECORD's file head, without an ID.
 
-RECORD supplies the managed tag and title, while the unique `:moc t'
-registry record supplies the file-head template.
+Org-roam capture owns the file ID.  Per-region metadata is represented by
+CUSTOM_ID headlines instead of file-level managed tag/count properties."
+  (when (org-roam-organize--record-moc-p record)
+    (concat
+     (org-roam-organize--record-file-property-drawer record)
+     (format "#+TITLE: %s\n"
+             (org-roam-organize--record-moc-title record))
+     (org-roam-organize--record-file-keyword-lines record))))
 
-Implementation notes: package-managed MOC metadata and MOC template
-properties share a leading property drawer; file keywords (including
-FILETAGS) also come from the MOC record."
-  (let ((moc-record (org-roam-organize--registry-moc-record))
-        (tag (org-roam-organize--record-tag record))
-        (title (org-roam-organize--record-moc-title record)))
-    (when (and moc-record (stringp tag) (stringp title))
-      (concat
-       (format ":PROPERTIES:\n:%s: %s\n:%s:\n"
-               org-roam-organize-moc-managed-tag-property
-               tag
-               org-roam-organize-moc-managed-node-count-property)
-       (org-roam-organize--record-file-property-lines moc-record)
-       ":END:\n"
-       (format "#+TITLE: %s\n" title)
-       (org-roam-organize--record-file-keyword-lines moc-record)))))
+(defun org-roam-organize--moc-declaration-errors (record)
+  "Return errors in RECORD's single-file MOC declarations."
+  (let ((moc (org-roam-organize--record-moc-p record))
+        errors)
+    (dolist (key '(:moc-id :moc-path))
+      (when (and (plist-member record key) (not moc))
+        (push
+         (format
+          "%s is only allowed on :moc t; migrate per-record MOC files"
+          key)
+         errors)))
+    (when moc
+      (when (and (plist-member record :moc-id)
+                 (not
+                  (org-roam-organize--moc-id-p
+                   (org-roam-organize--record-moc-id record))))
+        (push ":moc-id must be a nonempty link-safe Org ID" errors))
+      (let* ((entry
+              (org-roam-organize--record-template-filetags-entry
+               record))
+             (tags (cdr-safe entry)))
+        (unless (and entry
+                     tags (org-roam-organize--proper-list-p tags)
+                     (seq-every-p
+                      #'org-roam-organize--record-tag-p tags)
+                     (member
+                      (org-roam-organize--record-tag record) tags))
+          (push
+           ":moc t requires explicit :template filetags including :tag"
+           errors)))
+      (when (seq-some
+             (lambda (entry)
+               (and (symbolp (car-safe entry))
+                    (string=
+                     (upcase (symbol-name (car entry))) "ID")))
+             (org-roam-organize--record-template-section
+              record 'properties))
+        (push
+         "MOC template must not declare ID; use :moc-id" errors)))
+    (nreverse errors)))
 
 (defun org-roam-organize--node-request-valid-p (request)
   "Return non-nil if REQUEST can create a managed node.
@@ -1104,7 +1173,7 @@ human-readable report.
 Implementation notes: validation is deliberately report-oriented.  It first
 rejects an improper top-level registry, then walks records once, guarding all
 derived values behind plist checks so malformed records are reported instead
-of crashing.  It checks MOC path uniqueness using normalized absolute paths and
+of crashing.  It validates the unique MOC file declarations and
 keeps template validation focused on the structured file head shape and the
 tag/filetags invariant.  Provider validation is intentionally shallow: a
 non-nil `:provider' must be callable, while provider return values are
@@ -1115,8 +1184,7 @@ checked when node creation calls the provider."
         (moc-count 0)
         (cite-count 0)
         names
-        tags
-        paths)
+        tags)
     (if (not
          (org-roam-organize--proper-list-p
           org-roam-organize-registry))
@@ -1174,11 +1242,7 @@ checked when node creation calls the provider."
                   (org-roam-organize--record-moc-path record)))
                (moc-title
                 (when plistp
-                  (org-roam-organize--record-moc-title record)))
-               (absolute-moc-path
-                (when (and plistp (stringp moc-path))
-                  (org-roam-organize--record-absolute-moc-path
-                   record))))
+                  (org-roam-organize--record-moc-title record))))
           (setq result_message
                 (concat
                  result_message
@@ -1192,6 +1256,12 @@ checked when node creation calls the provider."
                   (concat
                    result_message "  plist? nil (should be t)\n")))
           (when plistp
+            (dolist (error
+                     (org-roam-organize--moc-declaration-errors
+                      record))
+              (setq
+               result_bool nil
+               result_message (concat result_message "  " error "\n")))
             (unless (org-roam-organize--record-name-p name)
               (setq result_bool nil)
               (setq
@@ -1199,12 +1269,13 @@ checked when node creation calls the provider."
                (concat
                 result_message
                 "  :name safe string? nil (should match [A-Za-z0-9_-]+)\n")))
-            (unless (stringp tag)
+            (unless (org-roam-organize--record-tag-p tag)
               (setq result_bool nil)
-              (setq result_message
-                    (concat
-                     result_message
-                     "  :tag string? nil (should be t)\n")))
+              (setq
+               result_message
+               (concat
+                result_message
+                "  :tag valid nonempty Org tag? nil (letters, digits, _@#% only)\n")))
             (when (and moc (not (booleanp moc)))
               (setq result_bool nil)
               (setq result_message
@@ -1394,6 +1465,16 @@ checked when node creation calls the provider."
                     (concat
                      result_message
                      "  :moc-path relative? nil (should be t)\n")))
+            (when (and (org-roam-organize--record-moc-p record)
+                       (not
+                        (and (stringp moc-path)
+                             (string-suffix-p ".org" moc-path))))
+              (setq
+               result_bool nil
+               result_message
+               (concat
+                result_message
+                "  :moc-path must name an Org file\n")))
             (when (and (stringp moc-path)
                        (not
                         (org-roam-organize--path-inside-root-p
@@ -1438,23 +1519,17 @@ checked when node creation calls the provider."
                      "  :tag unique? nil (should be t)\n")))
             (when (stringp tag)
               (push tag tags))
-            (when (and absolute-moc-path
-                       (member absolute-moc-path paths))
+            (unless (if (org-roam-organize--record-moc-p record)
+                        (org-roam-organize--moc-title-single-line-p
+                         moc-title)
+                      (org-roam-organize--moc-headline-title-p
+                       moc-title))
               (setq result_bool nil)
               (setq
                result_message
                (concat
                 result_message
-                "  resolved :moc-path unique? nil (should be t)\n")))
-            (when absolute-moc-path
-              (push absolute-moc-path paths))
-            (unless (stringp moc-title)
-              (setq result_bool nil)
-              (setq
-               result_message
-               (concat
-                result_message
-                "  resolved :moc-title string? nil (should be t)\n")))
+                "  resolved :moc-title must be a single line; management titles must round-trip as plain Org headlines\n")))
             (unless (stringp inbox)
               (setq result_bool nil)
               (setq

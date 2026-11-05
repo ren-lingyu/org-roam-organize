@@ -172,7 +172,8 @@ dynamic context."
   (bound-and-true-p org-note-abort))
 
 (defun org-roam-organize--capture-node
-    (title template &optional info props managed-record on-success)
+    (title
+     template &optional info props managed-record on-success node-id)
   "Capture an Org-roam node with TITLE and TEMPLATE.
 
 INFO and PROPS are passed through to `org-roam-capture-'.  When MANAGED-RECORD
@@ -181,7 +182,8 @@ capture preface phase and clean the managed bundle root after capture.  When
 ON-SUCCESS is non-nil, it must be a function of no arguments; call it once in
 the capture buffer after successful finalization, but not when capture is
 aborted.  Signal `user-error' before starting capture when ON-SUCCESS is
-neither nil nor a function.
+neither nil nor a function.  Optional NODE-ID supplies a preset MOC file ID;
+ordinary capture leaves it nil and retains Org-roam ID generation.
 
 Implementation notes: this helper centralizes the capture call boundary used
 by managed ordinary nodes and MOC nodes.  Ordinary nodes pass their registry
@@ -202,7 +204,7 @@ interactive `org-roam-capture-' return as proof of successful finalization."
       (user-error "Cannot capture node without a valid template"))
     (unless (or (null on-success) (functionp on-success))
       (user-error "Capture success callback must be a function"))
-    (let ((node (org-roam-node-create :title title)))
+    (let ((node (org-roam-node-create :title title :id node-id)))
       (let (created-directory
             finalize-hook)
         (cl-labels
@@ -250,21 +252,9 @@ interactive `org-roam-capture-' return as proof of successful finalization."
               (signal (car err) (cdr err))))))))))
 
 (defun org-roam-organize--moc-node-provider (record)
-  "Return RECORD's MOC node creation request.
-
-The return value is nil when RECORD cannot produce a MOC title, otherwise a
-plist with `:title' and optional `:info'.
-
-Implementation notes: MOC creation uses the same provider request protocol as
-ordinary managed node creation, but the provider is selected internally by the
-MOC creation command instead of being read from the registry.  The title is
-derived from `org-roam-organize--record-moc-title'.  The capture info keeps
-the existing `:moc_managed_tag' field so templates that still reference it
-continue to receive the same dynamic value."
-  (let ((title (org-roam-organize--record-moc-title record))
-        (tag (org-roam-organize--record-tag record)))
-    (when (stringp title)
-      (list :title title :info `(:moc_managed_tag ,tag)))))
+  "Return the unique MOC RECORD's file creation request."
+  (when (org-roam-organize--record-moc-p record)
+    (list :title (org-roam-organize--record-moc-title record))))
 
 (defun org-roam-organize--record-node-capture-template (record)
   "Return a managed node capture template for RECORD.
