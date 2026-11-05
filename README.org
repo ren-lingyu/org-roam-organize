@@ -283,7 +283,7 @@ The following aliases are optional user configuration examples:
 3. Run =org-roam-organize-check-setup= to verify your configuration and runtime capabilities
 4. After first-time setup or registry directory changes, run =org-roam-organize-create-directories= to create basic registry directories
 5. Use =org-roam-organize-node-create= to create managed non-MOC nodes from registry records with =:directory=
-6. After adding registry records, run =org-roam-organize-moc-create= to add missing management headlines to the unique MOC
+6. Run =org-roam-organize-moc-create= to create the unique MOC file if needed and add missing management headlines
 7. Use =org-roam-organize-moc-sync= to sync MOC region entries
 8. Use =org-roam-organize-cite-check= to check managed citation reference consistency
 9. Use =org-roam-organize-cite-sync= to sync citing-node entries
@@ -302,6 +302,7 @@ An example of configuration is shown here.
      (list (list :name "navigation"
                  :tag "map"
                  :moc t
+                 :moc-id "7d713c24-20f2-467a-9a98-67a704ac31ec"
                  :basic t
                  :directory "navigation"
                  :inbox "Inbox"
@@ -372,6 +373,8 @@ An example of configuration is shown here.
      ("C-c o c s" . org-roam-organize-cite-sync))
     :hook (after-init . org-roam-organize-mode))
 #+end_src
+
+The =:moc-id= above is illustrative. This package accepts Org IDs that begin with an alphanumeric character and contain only alphanumeric characters or =_.:@+-=. UUIDs of any version satisfy this format. Replace the example with the preserved file-level ID of your own MOC when migrating, or omit it to let Org-roam generate a new ID.
 
 * Managed Node Creation
 The command =org-roam-organize-node-create= creates ordinary managed Org-roam nodes from non-MOC registry records that declare =:directory=. It prompts for a registry record, asks that record's provider for a node creation request, then calls =org-roam-capture-= with a registry-derived template. The default provider prompts for a node title.
@@ -450,11 +453,34 @@ The unique MOC file has a file-level Org-roam ID and the MOC record's tag. Each 
   :END:
 #+end_src
 
-=moc-create= preserves the existing file head and handwritten contents, and adds only missing management headlines. New layouts default to level 1. Later additions inherit the existing common level L. At L=1, new management headlines always append at EOF. At L>1, the MOC record's =:inbox= names a level-1 container, independently of L. Org AST lookup identifies the non-commented level-1 Inbox and its subtree; missing regions are inserted before its first child headline, after its introductory text and properties. If it has no children, they append inside that Inbox. If it does not exist, create a level-1 Inbox at EOF and insert the regions there. The new management headlines retain level L, even when L>2: no intermediate levels are created, and existing regions are never moved. Multiple matching level-1 Inboxes are ambiguous and cause a preflight error. A newly created Inbox name must also be a plain single-line Org headline in the target syntax. Empty member Inboxes are not pre-created.
+=org-roam-organize-moc-create= creates the unique MOC file when absent, or adds missing management headlines without replacing the file head or handwritten content. New files and layouts without existing management headlines use level 1; all later additions inherit the existing common level =L=. This command does not synchronize =#+ROAM_NODE= entries.
 
-=moc-sync= only reconciles existing regions. Missing members are added under that record's direct child =:inbox= at level L+1, created inside its region when needed. Each region may have at most one non-commented matching direct-child Inbox. Sync checks this even when no members are missing; multiple matches in any valid region reject the entire sync before edits, saving or DB refresh. Deeper same-name headlines and matching Inboxes in other regions are independent and may repeat. A missing Inbox is created only when members need insertion. Entries are placed before the first Inbox child headline; when childless, they append after the Inbox's metadata and existing text, preserving property drawers, planning information and handwritten content. Existing valid entries throughout the region keep their relative positions, including entries in manual subsections. Titles are refreshed, stale entries removed, duplicates preserved/reported per region, and malformed entries reported without alteration. The same node may appear in different tag regions. COMMENT subtrees, source blocks, non-managed areas and headline nodes are excluded; only tagged level-0 nodes outside the MOC file are members.
+For new management headlines, the MOC record's =:inbox= is used only when =L>1=. The target is always a non-commented level-1 headline with that title, regardless of =L=. Missing management headlines are inserted before its first child headline, or at the end of its subtree when it has no children. If no such Inbox exists, create it at EOF. At level 1, append the new management headlines directly at EOF instead. Do not create intermediate levels when =L>2= or move existing management headlines. Multiple matching level-1 Inboxes are an error; a newly generated Inbox title must be a plain Org headline.
 
-The MOC document is parsed once for regional synchronization (individual entry values still use temporary Org buffers). Existing edits are applied globally from the end of the file; insertion markers track boundaries. A changed MOC is saved and its DB entry refreshed once; unchanged sync writes nothing. Missing regions can be reported while other valid regions synchronize. Identity or structural conflicts reject the whole operation. Cite continues to use its existing per-file level-1 Inbox behavior.
+=org-roam-organize-moc-sync= updates existing management regions only; missing regions are reported and must be created separately. Each non-MOC record's =:inbox= names a direct child headline at level =L+1= *inside its own management region*, not a global Inbox. It is created only if new member entries require insertion. Entries are placed before its first child headline, or after its existing metadata and text when childless. Duplicate active direct-child Inboxes invalidate the entire sync even when there are no missing members. Deeper or other regions' same-name Inboxes are independent.
+
+For example, after moving the management headlines to level 2, the MOC record's =:inbox= and two ordinary records' =:inbox= values may all be ="Inbox"= without conflict:
+
+#+begin_src org
+  ,* Inbox
+  ,** Fleeting
+  :PROPERTIES:
+  :CUSTOM_ID: idea
+  :END:
+  ,*** Inbox
+  ,#+ROAM_NODE: [[id:idea-id][Idea title]]
+
+  ,** Permanent
+  :PROPERTIES:
+  :CUSTOM_ID: zettel
+  :END:
+  ,*** Inbox
+  ,#+ROAM_NODE: [[id:note-id][Note title]]
+#+end_src
+
+Existing valid entries keep their original positions, including manually organized subsections; link descriptions are refreshed, stale entries removed, and duplicates retained and reported within each region. Malformed entries are reported without alteration, and a node carrying several tags may belong to several independent regions. COMMENT subtrees, source blocks, unrelated areas and headline nodes are excluded; only tagged level-0 nodes outside the MOC file are members.
+
+MOC sync parses the document once to find the management regions (individual entry values still use temporary Org buffers), edits existing entries from the end of the file, and uses markers to retain local Inbox insertion positions. A changed file is saved and its Org-roam DB entry refreshed once; an unchanged sync writes nothing. Identity or structural conflicts prevent all edits, while missing regions can be reported without blocking valid regions. The =:cite t= record also uses its =:inbox= in *literature files* for =#+ROAM_CITING_NODE= entries; this independent Cite behavior continues to use a file-level level-1 Inbox.
 
 * Citation Entry Format
 Generated citing-node entries for literature nodes are stored as Org keywords under the =:inbox= level-1 headline of each =:cite t= record node:
@@ -494,10 +520,14 @@ When =org-roam-organize-mode= is enabled, export-time citation conversion is reg
 * Reports
 Detailed command diagnostics are written to the temporary buffer =*Org-roam Organize Report*=. The buffer is overwritten for each displayed report, uses =special-mode=, and is read-only. Report history is not retained.
 
-The commands =org-roam-organize-check-variables=, =org-roam-organize-check-setup=, =org-roam-organize-moc-sync=, =org-roam-organize-cite-check=, and =org-roam-organize-cite-sync= use this buffer when they have detailed failures or warnings to show. Clean successful runs only print a short summary in the minibuffer.
+The setup checks, MOC sync, citation check and citation sync commands use this buffer for detailed failures or warnings. MOC open and create commands also report validation, discovery and capture failures here. Clean successful operations generally print a short minibuffer summary.
 
 * Implementation Details
-The package uses Org-roam's database queries to resolve MOC nodes by file path, query level-0 nodes by tag, count managed nodes, map managed literature node UUIDs to external citekeys, and compute citing-node relationships. MOC and citation entry synchronization is implemented through shared id-link keyword helpers that parse real Org keyword elements with Org Element, update link descriptions with Org link formatting, preserve duplicate entries, remove stale entries, and insert missing entries under the configured level-1 inbox headline. Export-time citation conversion uses Org export's parse-tree filter and only rewrites citation-reference keys in the exported tree. It includes configuration validation, root directory validation, runtime capability validation, report-buffer display for detailed diagnostics, and short minibuffer notices for report-producing commands. Runtime capability validation checks the Org-roam capture interfaces, Org Element parsing and mutation functions, Org export filter hook, Org link formatting, Org capture finalize hook, and Seq helpers used by the current implementation.
+The unique MOC is discovered by querying Org-roam's database for its record's tag on level-0 nodes, not by scanning a directory or selecting a derived file path. An explicit =:moc-id= or =:moc-path= adds an identity constraint; neither is a fallback lookup mechanism. MOC file content is checked against the database identity before structural changes.
+
+MOC synchronization parses the file's Org AST once to identify =CUSTOM_ID= management regions and their entries. Per-region reconciliation plans share the entry primitives with citation synchronization; existing edits are applied globally in descending buffer-position order, and markers retain insertion locations for each region's Inbox. Only a changed MOC buffer is saved and its Org-roam DB entry refreshed. Citation synchronization still operates on individual literature files and uses their own level-1 Inbox headlines.
+
+The package also queries Org-roam's database to count tagged nodes, map managed literature node UUIDs to external citekeys, and compute citing-node relationships. Export-time citation conversion rewrites citation-reference keys only in the exported Org parse tree. Setup validation covers the registry, root directory and required runtime capabilities, including capture, Org Element, Org export, Org link formatting, finalize hooks and Seq helpers.
 
 The mode includes a startup hook that validates setup when the mode is enabled.
 
