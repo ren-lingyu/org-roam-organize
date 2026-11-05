@@ -196,6 +196,8 @@ The package does not insert node properties, scan directories, read literature s
 
 The optional =:template= value is a structured alist for the generated managed capture template. Its optional =path= entry controls the ordinary node file path inside the =${id}/= bundle directory and defaults to =${slug}.org=. The =path= entry may contain bundle-internal subdirectories, is ignored by MOC capture, and cannot be declared by the =:moc t= record. Its =properties= section is emitted inside an Org property drawer. Its =keywords= section is emitted as Org file keywords. Entries are emitted in alist order. Repeated keys are emitted repeatedly. A nil value emits an empty property or keyword value. String values are written into the generated Org-roam capture template, so Org capture escapes such as =%<...>= and Org-roam placeholders such as =${field}= may be expanded by =org-roam-capture-=. The =filetags= keyword expects a string list and is formatted as Org file tags, for example =("zettel" "note")= becomes =:zettel:note:=. Other values are written directly as strings. When a record declares both =:tag= and a =filetags= entry in the =keywords= section, =filetags= must include the record tag.
 
+MOC creation takes file-head properties and keywords (including =filetags=) from the unique =:moc t= record's =:template=, while the managed record supplies the MOC title and =MOC_MANAGED_TAG= value. MOCs do not inherit the managed record's filetags; include the MOC record's =:tag= in its =filetags= template to identify MOCs by tag.
+
 For a dynamic date, use Org capture's time escape syntax:
 
 #+begin_src emacs-lisp

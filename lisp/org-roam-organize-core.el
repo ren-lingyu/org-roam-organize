@@ -1041,21 +1041,25 @@ keywords.  ID writing is left to Org-roam capture."
 (defun org-roam-organize--record-moc-head (record)
   "Return the Org file head for RECORD's MOC file.
 
-Implementation notes: MOC files get a leading property drawer that merges
-package-managed MOC metadata with user-declared template properties, followed
-by a title and user-declared file keywords."
-  (let ((tag (org-roam-organize--record-tag record))
+RECORD supplies the managed tag and title, while the unique `:moc t'
+registry record supplies the file-head template.
+
+Implementation notes: package-managed MOC metadata and MOC template
+properties share a leading property drawer; file keywords (including
+FILETAGS) also come from the MOC record."
+  (let ((moc-record (org-roam-organize--registry-moc-record))
+        (tag (org-roam-organize--record-tag record))
         (title (org-roam-organize--record-moc-title record)))
-    (when (and (stringp tag) (stringp title))
+    (when (and moc-record (stringp tag) (stringp title))
       (concat
        (format ":PROPERTIES:\n:%s: %s\n:%s:\n"
                org-roam-organize-moc-managed-tag-property
                tag
                org-roam-organize-moc-managed-node-count-property)
-       (org-roam-organize--record-file-property-lines record)
+       (org-roam-organize--record-file-property-lines moc-record)
        ":END:\n"
        (format "#+TITLE: %s\n" title)
-       (org-roam-organize--record-file-keyword-lines record)))))
+       (org-roam-organize--record-file-keyword-lines moc-record)))))
 
 (defun org-roam-organize--node-request-valid-p (request)
   "Return non-nil if REQUEST can create a managed node.

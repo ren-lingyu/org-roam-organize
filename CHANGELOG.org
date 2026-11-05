@@ -33,6 +33,7 @@ not yet been published as a release.
 - See the [[file:README.org::*0.8.0 Changes and Migration][0.8.0 migration guide]] for configuration and installation details.
 
 ** Fixed
+- MOC creation now uses the unique =:moc t= record's file-head properties and keywords, while retaining each managed record's MOC title and managed-tag metadata.
 - Citar's basic Org Cite activation now recognizes managed UUID keys through temporary aliases to bibliography entries. Mapping failures fall back to ordinary activation without interrupting Font Lock.
 - Configuration examples now close the registry expression correctly, use the standard use-package hook spelling, and add provider records without discarding the required MOC record.
 

@@ -532,7 +532,16 @@
          (org-roam-organize-moc-managed-node-count-property
           "NODE_COUNT")
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((keywords
+               .
+               ((author . "Map Author") (filetags . ("map"))))))
             (:name
              "idea"
              :tag "idea"
@@ -552,7 +561,7 @@
         target
         `(file+head
           ,(expand-file-name "moc/idea.org" root)
-          ":PROPERTIES:\n:MANAGED_TAG: idea\n:NODE_COUNT:\n:END:\n#+TITLE: Idea\n#+AUTHOR:\n#+DATE:\n#+DESCRIPTION:\n#+FILETAGS: :idea:\n"))))))
+          ":PROPERTIES:\n:MANAGED_TAG: idea\n:NODE_COUNT:\n:END:\n#+TITLE: Idea\n#+AUTHOR: Map Author\n#+FILETAGS: :map:\n"))))))
 
 (ert-deftest
     org-roam-organize-test-record-moc-head-formats-file-keywords
@@ -560,23 +569,34 @@
   (let* ((root (org-roam-organize-test--temporary-root))
          (org-roam-organize-directory root)
          (org-roam-organize-registry
-          '((:name "maps" :tag "map" :moc t :basic t :directory "moc")
+          '((:name
+             "maps"
+             :tag "map"
+             :moc t
+             :basic t
+             :directory "moc"
+             :template
+             ((properties
+               .
+               ((moc_role . "navigation") (custom_id . nil)))
+              (keywords
+               .
+               ((author . "Map Author")
+                (email . "moc@example.org")
+                (date . "<%Y>")
+                (description . nil)
+                (filetags . ("map" "navigation"))
+                (author . "Second Map Author")
+                (language . "en")))))
             (:name
              "idea"
              :tag "idea"
              :template
-             ((properties
-               .
-               ((roam_refs . "@${citar-key}") (custom_id . nil)))
+             ((properties . ((roam_refs . "@idea-key")))
               (keywords
                .
-               ((author . "Lingyu Ren")
-                (email . "lingyu@example.org")
-                (date . "<%Y>")
-                (description . nil)
-                (filetags . ("idea" "note"))
-                (author . "John Doe")
-                (language . "en"))))))))
+               ((author . "Idea Author")
+                (filetags . ("idea" "note")))))))))
     (should
      (equal
       (org-roam-organize--record-moc-head
@@ -585,17 +605,60 @@
        ":PROPERTIES:\n"
        ":MOC_MANAGED_TAG: idea\n"
        ":MOC_MANAGED_NODE_COUNT:\n"
-       ":ROAM_REFS: @${citar-key}\n"
+       ":MOC_ROLE: navigation\n"
        ":CUSTOM_ID:\n"
        ":END:\n"
        "#+TITLE: Idea\n"
-       "#+AUTHOR: Lingyu Ren\n"
-       "#+EMAIL: lingyu@example.org\n"
+       "#+AUTHOR: Map Author\n"
+       "#+EMAIL: moc@example.org\n"
        "#+DATE: <%Y>\n"
        "#+DESCRIPTION:\n"
-       "#+FILETAGS: :idea:note:\n"
-       "#+AUTHOR: John Doe\n"
+       "#+FILETAGS: :map:navigation:\n"
+       "#+AUTHOR: Second Map Author\n"
        "#+LANGUAGE: en\n")))))
+
+(ert-deftest
+    org-roam-organize-test-record-moc-template-does-not-fall-back-to-managed-record
+    ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (org-roam-organize-moc-managed-tag-property "MANAGED_TAG")
+         (org-roam-organize-moc-managed-node-count-property
+          "NODE_COUNT")
+         (record
+          '(:name
+            "idea"
+            :tag "idea"
+            :moc-title "Ideas"
+            :template
+            ((properties . ((roam_refs . "@idea-key")))
+             (keywords
+              .
+              ((author . "Idea Author")
+               (filetags . ("idea" "note"))))))))
+    (dolist (template-spec
+             '(nil
+               (:template nil) (:template ((properties) (keywords)))))
+      (let* ((org-roam-organize-registry
+              (list
+               (append
+                '(:name
+                  "maps"
+                  :tag "map"
+                  :moc t
+                  :basic t
+                  :directory "moc")
+                template-spec)
+               record))
+             (template
+              (org-roam-organize--record-moc-capture-template record))
+             (target (plist-get (nthcdr 4 template) :target)))
+        (should
+         (equal
+          target
+          `(file+head
+            ,(expand-file-name "moc/idea.org" root)
+            ":PROPERTIES:\n:MANAGED_TAG: idea\n:NODE_COUNT:\n:END:\n#+TITLE: Ideas\n")))))))
 
 (ert-deftest
     org-roam-organize-test-record-node-head-formats-properties-and-keywords
