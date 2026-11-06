@@ -1525,10 +1525,6 @@
              t)))
       (cl-letf (((symbol-function 'org-element-parse-buffer)
                  (lambda (&rest _) (ert-fail "Unexpected parse")))
-                ((symbol-function
-                  'org-roam-organize--inbox-insertion-point)
-                 (lambda (&rest _)
-                   (ert-fail "Unexpected Inbox lookup")))
                 ((symbol-function 'save-buffer)
                  (lambda (&rest _) (ert-fail "Unexpected save"))))
         (org-roam-organize--apply-id-link-keyword-entry-plan
@@ -1551,7 +1547,7 @@
          "* Second\n#+ROAM_TEST: [[id:outside][Untouched]]\n"))))))
 
 (ert-deftest
-    org-roam-organize-test-buffer-sync-creates-missing-inbox-without-saving
+    org-roam-organize-test-buffer-sync-inserts-in-initial-section-without-saving
     ()
   (with-temp-buffer
     (org-mode)
@@ -1563,8 +1559,7 @@
             (org-roam-organize--sync-id-link-keyword-entries-in-buffer
              "ROAM_TEST"
              '((:id "node-b" :title "Title B")
-               (:id "node-c" :title "Title C"))
-             "Inbox")))
+               (:id "node-c" :title "Title C")))))
         (should (equal (plist-get result :removed) '("stale")))
         (should-not (plist-get result :duplicates))
         (should-not (plist-get result :malformed))))
@@ -1572,7 +1567,7 @@
      (equal
       (buffer-string)
       (concat
-       "#+TITLE: Example\n* Inbox\n"
+       "#+TITLE: Example\n\n"
        "#+ROAM_TEST: [[id:node-b][Title B]]\n"
        "#+ROAM_TEST: [[id:node-c][Title C]]\n")))))
 
@@ -1589,9 +1584,7 @@
         (let
             ((result
               (org-roam-organize--sync-id-link-keyword-entries-in-buffer
-               "ROAM_TEST"
-               '((:id "node-a" :title "New Title"))
-               "Inbox")))
+               "ROAM_TEST" '((:id "node-a" :title "New Title")))))
           (should-not (plist-get result :duplicates))
           (should
            (string-match-p
@@ -1600,7 +1593,7 @@
           (should (= save-calls 0)))))))
 
 (ert-deftest
-    org-roam-organize-test-sync-id-link-keyword-entries-updates-inbox
+    org-roam-organize-test-sync-id-link-keyword-entries-preserves-old-inbox
     ()
   (let* ((root (org-roam-organize-test--temporary-root))
          (path (expand-file-name "moc/maps.org" root))
@@ -1625,7 +1618,7 @@
      nil path)
     (let ((result
            (org-roam-organize--sync-id-link-keyword-entries
-            "ROAM_TEST" path nodes "Inbox")))
+            "ROAM_TEST" path nodes)))
       (should (eq (plist-get result :status) 'ok))
       (should (equal (plist-get result :duplicates) '("node-a")))
       (should (equal (plist-get result :removed) '("removed")))
@@ -1654,9 +1647,11 @@
            "* Inbox\n#+ROAM_TEST: [[id:node-a][Title A]]")
           content))
         (should
-         (string-match-p
-          (regexp-quote
-           "#+ROAM_TEST: [[id:node-b][Title B]]\n** Child")
+         (string-prefix-p
+          (concat
+           "#+TITLE: Maps\n\n"
+           "#+ROAM_TEST: [[id:node-b][Title B]]\n\n"
+           "* Inbox\n")
           content))
         (should-not (string-match-p "Removed Title" content))
         (should (string-match-p "COMMENT Ignored" content))
@@ -1858,19 +1853,50 @@
   (let* ((root (org-roam-organize-test--temporary-root))
          (path (expand-file-name "literature/ref.org" root))
          (record
-          '(:name "literature" :tag "ref" :cite t :inbox "Inbox"))
+          '(:name
+            "literature"
+            :tag "ref"
+            :cite t
+            :inbox "UnusedForCite"))
          (nodes '((:id "citing-a" :title "Citing A"))))
-    (write-region "#+TITLE: Ref\n" nil path)
+    (write-region
+     "#+TITLE: Ref\n* COMMENT Draft\nKeep private\n" nil path)
     (let ((result
            (org-roam-organize--cite-sync-citing-node-entries
             record path nodes)))
       (should (eq (plist-get result :status) 'ok)))
     (with-temp-buffer
       (insert-file-contents path)
-      (should (search-forward "* Inbox" nil t))
       (should
-       (search-forward "#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]"
-                       nil t)))))
+       (equal
+        (buffer-string)
+        (concat
+         "#+TITLE: Ref\n\n"
+         "#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]\n\n"
+         "* COMMENT Draft\nKeep private\n"))))))
+
+(ert-deftest org-roam-organize-test-cite-initial-section-boundaries ()
+  (let ((nodes '((:id "citing-a" :title "Citing A"))))
+    (dolist
+        (case
+         '(("#+TITLE: Ref\n"
+            .
+            "#+TITLE: Ref\n\n#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]\n")
+           ("#+TITLE: Ref"
+            .
+            "#+TITLE: Ref\n\n#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]\n")
+           ("#+TITLE: Ref\n\n* Notes\nText\n"
+            .
+            "#+TITLE: Ref\n\n#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]\n\n* Notes\nText\n")
+           ("#+TITLE: Ref\n#+BEGIN_SRC org\n,* Fake\n\n#+END_SRC\n* Notes\n"
+            .
+            "#+TITLE: Ref\n#+BEGIN_SRC org\n,* Fake\n\n#+END_SRC\n\n#+ROAM_CITING_NODE: [[id:citing-a][Citing A]]\n\n* Notes\n")))
+      (with-temp-buffer
+        (org-mode)
+        (insert (car case))
+        (org-roam-organize--sync-id-link-keyword-entries-in-buffer
+         "ROAM_CITING_NODE" nodes)
+        (should (equal (buffer-string) (cdr case)))))))
 
 (ert-deftest org-roam-organize-test-cite-sync-requires-cite-record ()
   (let ((org-roam-organize-mode t)

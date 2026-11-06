@@ -680,13 +680,12 @@ are global."
 Implementation notes: this cite-specific wrapper delegates the shared
 id-link-keyword synchronization work to
 `org-roam-organize--sync-id-link-keyword-entries'.  It supplies the
-`#+ROAM_CITING_NODE' keyword and the record's inbox headline name.  Citation
-entries do not currently use suffix metadata."
+`#+ROAM_CITING_NODE' keyword.  New entries belong to the initial section,
+independent of the record's MOC Inbox; existing entries remain in place."
   (org-roam-organize--sync-id-link-keyword-entries
    org-roam-organize--cite-citing-node-keyword
    path
    nodes
-   (org-roam-organize--record-inbox record)
    nil
    nil
    record
@@ -821,7 +820,9 @@ with that record's tag, validates that each reference node has exactly one
 non-blocking data quality warnings through the shared cite reference reporter,
 computes citing-node relationships from `refs' and `citations', and
 synchronizes `#+ROAM_CITING_NODE' keyword entries in each reference node's
-configured Inbox headline.  The sync is intentionally global so stale entries
+file.  Missing entries go in the initial Org section before the first headline
+(or at EOF without headlines); existing entries are updated in place.  Sync
+is intentionally global so stale entries
 can be removed from reference nodes that no longer have incoming citations.
 Detailed citation and per-node sync diagnostics are displayed in the report
 buffer when present; clean runs only produce a summary message."

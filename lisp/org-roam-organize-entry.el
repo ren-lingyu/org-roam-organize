@@ -142,32 +142,11 @@ headline subtree from a single Org Element parse."
    (org-element-parse-buffer) keyword-name
    suffix-parser))
 
-(defun org-roam-organize--inbox-headline (name)
-  "Return the top-level Inbox headline element named NAME in the current buffer.
-
-Implementation notes: this scans headline elements and accepts only the first
-non-commented level-1 headline whose raw title equals NAME.  Regex matching
-is avoided so source blocks, COMMENT subtrees, and nested headlines do not
-become false inboxes."
-  (let (inbox)
-    (org-element-map
-     (org-element-parse-buffer) 'headline
-     (lambda (headline)
-       (when (and (not inbox)
-                  (= (or (org-element-property :level headline) 0) 1)
-                  (string=
-                   (org-element-property :raw-value headline) name)
-                  (not
-                   (org-roam-organize--element-commented-p headline)))
-         (setq inbox headline))))
-    inbox))
-
 (defun org-roam-organize--first-child-headline-begin (headline)
   "Return the beginning position of HEADLINE's first child headline.
 
 Implementation notes: the child search is constrained to HEADLINE's parsed
-element tree.  The returned position lets insertion happen inside the Inbox
-section before nested child headings."
+element tree.  This position precedes nested child headings."
   (let ((contents-begin
          (org-element-property :contents-begin headline))
         (end (org-element-property :end headline))
@@ -184,30 +163,32 @@ section before nested child headings."
       (when (and child-begin end (< child-begin end))
         child-begin))))
 
-(defun org-roam-organize--inbox-insertion-point (name)
-  "Return the insertion point for new generated entries.
+(defun org-roam-organize--initial-section-insertion-point ()
+  "Prepare the end of the initial Org section for generated entries.
 
-Create the level-1 Inbox headline named NAME when it is missing.
-
-Implementation notes: existing inboxes receive new entries before their first
-child headline, preserving manual subsection structure.  Missing inboxes are
-appended as a level-1 headline at the end of the file."
-  (let ((inbox (org-roam-organize--inbox-headline name)))
-    (if inbox
-        (let ((child-begin
-               (org-roam-organize--first-child-headline-begin inbox))
-              (contents-begin
-               (org-element-property :contents-begin inbox))
-              (end (org-element-property :end inbox)))
-          (goto-char (or child-begin contents-begin end))
-          (unless (bolp)
-            (insert "\n"))
-          (point))
-      (goto-char (point-max))
-      (unless (or (bobp) (bolp))
-        (insert "\n"))
-      (insert "* " name "\n")
-      (point))))
+Use the first headline's AST begin position, or EOF when there are no
+headlines.  Ensure one separating blank line before the entries when prior
+content exists, and one before the first headline.  Return the position
+between these separators, without creating any headline."
+  (let ((headline
+         (org-element-map
+          (org-element-parse-buffer) 'headline #'identity nil t)))
+    (goto-char
+     (if headline
+         (org-element-property :begin headline)
+       (point-max)))
+    (unless (bolp)
+      (insert "\n"))
+    (when (and (not (bobp))
+               (not
+                (save-excursion
+                  (forward-line -1)
+                  (looking-at-p "[ \t]*$"))))
+      (insert "\n"))
+    (when headline
+      (insert "\n")
+      (backward-char))
+    (point)))
 
 (defun org-roam-organize--plan-id-link-keyword-entries (entries nodes)
   "Plan reconciliation of parsed ENTRIES against NODES.
@@ -287,16 +268,14 @@ save."
       keyword-name (plist-get node :id) (plist-get node :title)))))
 
 (defun org-roam-organize--sync-id-link-keyword-entries-in-buffer
-    (keyword-name
-     nodes inbox-name &optional suffix-parser suffix-builder)
+    (keyword-name nodes &optional suffix-parser suffix-builder)
   "Sync KEYWORD-NAME entries from NODES in the current buffer.
 
 Parse entries, plan reconciliation, and apply changes without saving the file.
-This compatibility wrapper retains the global Inbox policy: after existing
-entries are edited, locate or create the Inbox for missing nodes.  That lookup
-may parse the modified buffer again.  Region-aware callers can instead reuse
-the tree parser, planner, edit helper, and explicit-position insertion helper.
-Return a plist with duplicate ids, removed ids, and malformed entry lines."
+Existing entries remain in place; missing entries go at the end of the initial
+Org section, before the first headline or at EOF.  Region-aware callers can
+instead use the tree parser, planner, edit helper and explicit-position
+insertion helper.  Return duplicate ids, removed ids and malformed lines."
   (let* ((parse-result
           (org-roam-organize--parse-id-link-keyword-entries
            keyword-name
@@ -311,7 +290,7 @@ Return a plist with duplicate ids, removed ids, and malformed entry lines."
       (org-roam-organize--insert-id-link-keyword-entries
        keyword-name
        (plist-get plan :missing)
-       (org-roam-organize--inbox-insertion-point inbox-name)))
+       (org-roam-organize--initial-section-insertion-point)))
     (list
      :duplicates (plist-get plan :duplicates)
      :removed (plist-get plan :removed)
@@ -321,7 +300,6 @@ Return a plist with duplicate ids, removed ids, and malformed entry lines."
     (keyword-name
      path
      nodes
-     inbox-name
      &optional
      suffix-parser
      suffix-builder
@@ -331,7 +309,7 @@ Return a plist with duplicate ids, removed ids, and malformed entry lines."
 
 Existing legal entries keep their relative position.  Duplicate entries are
 all synchronized and reported.  Entries whose ids are no longer in NODES are
-removed.  Missing nodes are appended under the Inbox headline.
+removed.  Missing nodes are inserted in the initial Org section.
 
 Implementation notes: the file wrapper retains the missing-file diagnostics
 and save behavior.  The buffer-local synchronizer separates parsing,
@@ -346,7 +324,7 @@ SUFFIX-BUILDER retain their keyword-specific meanings."
       (let
           ((result
             (org-roam-organize--sync-id-link-keyword-entries-in-buffer
-             keyword-name nodes inbox-name
+             keyword-name nodes
              suffix-parser suffix-builder)))
         (save-buffer)
         (append (list :status 'ok :record record) result)))))
