@@ -69,7 +69,7 @@ When a region is missing, a non-commented same-title headline with an unregister
 
 Every present management region may have at most one active matching direct-child member Inbox at L+1. Sync checks uniqueness even for empty or complete rosters. Any duplicate rejects the whole sync before edits/save/DB refresh; deeper same-title headings, COMMENT/source text and other regions' Inboxes do not count. Zero matches create nothing unless members are missing. A shared AST lookup returns the validated Inbox, and insertion uses its first child or subtree end, never contents-begin. Thus childless Inbox property drawers, planning metadata and handwritten content remain attached, and entries append after them. Cite's global file compatibility path retains its own prior behavior.
 
-Adopted pending extension: a non-MOC record may explicitly declare `:inbox nil`
+Adopted and implemented: a non-MOC record may explicitly declare `:inbox nil`
 to insert missing members into the management headline's own initial section,
 before its first child headline or at its subtree end when childless. No Inbox
 is located, created or removed under the nil policy, and existing same-name
@@ -80,12 +80,14 @@ policy. The unique MOC record must still resolve to a string, and its
 management-headline creation and level-1 container policy are unchanged.
 Inbox configuration controls missing-entry insertion only; reconciliation
 still spans the whole management subtree and existing entries are never
-migrated on policy changes. Status: adopted, implementation pending; this is
-not yet implemented project behavior.
+migrated on policy changes. The accessor distinguishes absent from explicit
+nil via `plist-member`; a shared validity predicate guards both validator
+checks, and the nil path reuses the existing AST first-child boundary and
+marker-based insertion planning with the management headline as target.
 
 Initial management text is inserted literally before capture finalization. The MOC file title uses a collision-free marker restored to its exact declared value, and filetag percent signs are temporarily protected/restored, so structural titles and tags are not changed by capture expansion. Other template fields keep native expansion.
 
-Membership remains #+ROAM_NODE: ID-link keywords within each region, including manual subsections. Only tagged level-0 nodes outside the MOC file are members. COMMENT/source text is excluded. Existing entries retain relative order, titles update, stale entries disappear, malformed lines remain and are reported, and duplicate entries plus :delete t semantics are preserved per region. A node can appear in multiple tag regions. Missing members go to a region-local direct child :inbox at L+1, before its children. Missing regions are reported by sync while other valid regions can proceed; sync does not create regions.
+Membership remains #+ROAM_NODE: ID-link keywords within each region, including manual subsections. Only tagged level-0 nodes outside the MOC file are members. COMMENT/source text is excluded. Existing entries retain relative order, titles update, stale entries disappear, malformed lines remain and are reported, and duplicate entries plus :delete t semantics are preserved per region. A node can appear in multiple tag regions. Missing members go to a region-local direct child :inbox at L+1 before its children, or, for an explicit `:inbox nil`, directly into the management headline's own initial section before its first child (or at its subtree end when childless). Missing regions are reported by sync while other valid regions can proceed; sync does not create regions.
 
 MOC sync reuses one document AST, per-region entry plans, globally descending existing edits and advancing insertion markers cleaned with unwind-protect. Unchanged text is not rewritten. Changed files are saved and DB-refreshed once; unchanged files are neither saved nor refreshed. Individual entry values still use temporary Org parsing, and the downstream DB refresh has its own parse. Cite retains the original file/global-Inbox compatibility wrapper. The old per-record mapping, managed tag/count properties/configuration and :moc_managed_tag capture info are removed. Old data migration is manual: preserve file IDs/incoming links and handwritten content, move members to tagged CUSTOM_ID regions, remove extra map tags and sync the DB. No old files or user properties are deleted automatically.
 

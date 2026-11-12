@@ -433,3 +433,21 @@ full package run or other-platform certification is claimed. User data migration
 must preserve IDs/incoming links, :delete t, ordering and manual content, resolve
 extra old MOC tags and move members into the declared CUSTOM_ID regions.
 No release transition, dependency/lock change or publication occurred.
+
+## nil Inbox implementation validation
+
+The nil-Inbox feature was implemented on the uncommitted worktree candidate
+based at the session's project HEAD. On x86_64-linux, `nix fmt` normalized the
+candidate, core ERT ran 146 tests with 15 new nil-Inbox tests passing (registry
+value matrix plus MOC sync cases for metadata, childless regions, EOF,
+COMMENT first child, source blocks, skipped levels, Inbox preservation, policy
+transitions, mixed policies and atomic failure), Citar 48, cite export 8 and
+cite display 13 all passed, package-lint and treefmt passed, both named package
+builds succeeded, and `nix flake check` exited 0. The user then committed the candidate as
+`269b2a7d3eecc24c690cfdf32c2ca2a5ce201fb0` (feat(moc): support nil inbox for
+member insertion). The committed tree is identical to the tested candidate:
+its diff against the base commit is byte-identical (md5
+3b6f928d59e32a0e7d9a1648c45b0777) to the staged diff that was verified, and
+the ordinary worktree is clean. No check was re-run on the committed
+snapshot itself; the tree-identity correspondence is the basis for the
+checkpoint's project parent association.

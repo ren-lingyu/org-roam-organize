@@ -1,24 +1,27 @@
-# Org-roam Organize: nil Inbox design adopted
+# Org-roam Organize: nil Inbox support implemented
 
 ## Current state and next action
 
-The design for an explicit `:inbox nil` on non-MOC records is adopted;
-implementation is pending. A read-only review confirmed the intended change
-sites against the current project HEAD, whose worktree and index are clean:
-the `org-roam-organize--record-inbox` accessor, the two `:inbox` checks in
-`org-roam-organize--validate-registry` (declared value and resolved value),
-and the MOC region Inbox lookup plus insertion planner. No source, test or
-documentation edit has been made yet.
+The explicit `:inbox nil` policy for non-MOC records is implemented across
+the registry accessor and validator, the MOC region Inbox lookup and
+insertion planner, ERT coverage, README, defcustom/docstring and CHANGELOG,
+and committed as feat(moc): support nil inbox for member insertion. The
+ordinary worktree and index are clean.
 
-The next action is the implementation node: registry resolution and
-validation, the nil insertion policy, ERT coverage, README,
-defcustom/docstring and CHANGELOG updates, then full Nix verification. The
-completed single-file MOC transition described below remains the implemented
-baseline. Old user data migration is still manual and was not performed.
-Future feature work, broader test migration and release preparation require
-their own scope. Current contracts are in memory/design.md; evidence and
-limits are in memory/validation.md; deferred testing work is in
-memory/backlog.md.
+Verification on x86_64-linux passed on the candidate before commit: `nix
+fmt`, core ERT 146 tests (15 new), Citar 48, cite export 8, cite display 13,
+package-lint, treefmt and both named package builds; `nix flake check`
+exited 0. The committed snapshot is tree-identical to the tested candidate
+(diff correspondence verified), so the evidence applies to the commit; no
+check was re-run on the committed snapshot itself.
+
+The task is complete. No further implementation or verification is required
+by this scope. The completed single-file MOC transition described below
+remains the implemented baseline. Old user data migration is still manual
+and was not performed. Future feature work, broader test migration and
+release preparation require their own scope. Current contracts are in
+memory/design.md; evidence and limits are in memory/validation.md; deferred
+testing work is in memory/backlog.md.
 
 ## Motivation and completed stages
 
@@ -37,13 +40,13 @@ behavior remain outside the functional change.
 The earlier MOC template-source fix is incorporated: MOC file heads use the
 unique MOC record's template. The newer model now has only that one file.
 
-## Adopted nil Inbox design (implementation pending)
+## Nil Inbox insertion policy
 
 The single-file MOC model reconciles entries across the whole management
-subtree, but missing members currently require a named direct-child Inbox.
+subtree, but missing members previously required a named direct-child Inbox.
 Some layouts should support unclassified entries directly in the management
-headline's own section. The adopted extension lets non-MOC records explicitly
-declare `:inbox nil`.
+headline's own section. The implemented extension lets non-MOC records
+explicitly declare `:inbox nil`.
 
 - Omission still resolves to the default "Inbox"; a string retains the
   existing named-Inbox policy. Only an explicit nil selects the management
@@ -57,13 +60,14 @@ declare `:inbox nil`.
   entries are never migrated when the policy changes. Under nil, existing
   Inbox headlines are ordinary user content: not located, created, removed or
   checked for duplicates.
-- Implementation direction: distinguish absent from explicit nil via
-  `plist-member` in the accessor; reject only illegal values in the validator
-  (both the declared-value and resolved-value checks, ideally one shared
-  predicate); bypass the named-Inbox lookup for nil; reuse the existing
-  AST-based `org-roam-organize--first-child-headline-begin` boundary and the
-  retained-marker insertion planning with the management headline as target.
-- Current state: design adopted; implementation and verification are pending.
+- Implementation: distinguishes absent from explicit nil via `plist-member`
+  in the accessor; rejects only illegal values in both validator checks
+  through one shared predicate; bypasses the named-Inbox lookup for nil;
+  reuses the existing AST-based
+  `org-roam-organize--first-child-headline-begin` boundary and the
+  retained-marker insertion planning with the management headline as
+  target.
+- Current state: implemented, verified and committed.
 
 ## Final MOC decisions
 
@@ -89,8 +93,8 @@ declare `:inbox nil`.
   Deeper names and other regions are independent. Create an absent member Inbox
   only when missing members need insertion. First-child/subtree-end placement
   preserves properties, planning metadata and handwritten text.
-  Once implemented, records declaring `:inbox nil` skip this lookup and its
-  duplicate preflight entirely; see the adopted design section above.
+  Records declaring `:inbox nil` skip this lookup and its duplicate preflight
+  entirely; see the nil Inbox policy section above.
 - Missing-region same-title headlines with unknown/empty CUSTOM_ID outside
   known managed subtrees are suspicious and reject preflight. Title alone
   cannot establish identity; plain no-CUSTOM_ID manual headings and valid
