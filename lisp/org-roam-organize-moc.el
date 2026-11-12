@@ -359,48 +359,53 @@ before its first child, creating only that level-1 container when absent."
 (defun org-roam-organize--moc-region-inbox (headline record)
   "Return RECORD's unique active direct-child Inbox under HEADLINE, or nil.
 
-Reject multiple matches even when no members need insertion.  Deeper names,
-COMMENT subtrees and other management regions do not participate."
-  (let ((level (1+ (org-element-property :level headline)))
-        inbox)
-    (org-element-map
-     headline 'headline
-     (lambda (child)
-       (when (and (= (org-element-property :level child) level)
-                  (equal
-                   (org-element-property :raw-value child)
-                   (org-roam-organize--record-inbox record))
-                  (not
-                   (org-roam-organize--element-commented-p child)))
-         (when inbox
-           (user-error
-            "Multiple direct-child Inboxes named %s in MOC region %s"
-            (org-roam-organize--record-inbox record)
-            (org-roam-organize--record-tag record)))
-         (setq inbox child))))
+A nil resolved `:inbox' returns nil without any named lookup: missing
+entries then target the management headline's own initial section.
+Otherwise reject multiple matches even when no members need insertion.
+Deeper names, COMMENT subtrees and other management regions do not
+participate."
+  (let* ((name (org-roam-organize--record-inbox record))
+         (level (1+ (org-element-property :level headline)))
+         inbox)
+    (when name
+      (org-element-map
+       headline 'headline
+       (lambda (child)
+         (when (and (= (org-element-property :level child) level)
+                    (equal
+                     (org-element-property :raw-value child) name)
+                    (not
+                     (org-roam-organize--element-commented-p child)))
+           (when inbox
+             (user-error
+              "Multiple direct-child Inboxes named %s in MOC region %s"
+              name (org-roam-organize--record-tag record)))
+           (setq inbox child)))))
     inbox))
 
 (defun org-roam-organize--moc-region-insertion (headline record inbox)
   "Plan insertion under HEADLINE for RECORD using validated INBOX or nil.
 
-Return (:position MARKER :prefix TEXT).  The marker advances at edit
-boundaries; callers must clear it even on error."
-  (let ((level (1+ (org-element-property :level headline))))
+A nil resolved `:inbox' targets the management headline's own initial
+section, before its first child headline or at its subtree end.  A named
+Inbox reuses its own initial section; a missing one is created at the
+management subtree end.  Return (:position MARKER :prefix TEXT).  The
+marker advances at edit boundaries; callers must clear it even on error."
+  (let* ((name (org-roam-organize--record-inbox record))
+         (target (or inbox headline))
+         (create-inbox (and name (not inbox)))
+         (level (1+ (org-element-property :level headline))))
     (list
      :position
      (copy-marker
-      (if inbox
-          (or (org-roam-organize--first-child-headline-begin inbox)
-              (org-element-property :end inbox))
-        (org-element-property :end headline))
+      (if create-inbox
+          (org-element-property :end headline)
+        (or (org-roam-organize--first-child-headline-begin target)
+            (org-element-property :end target)))
       t)
      :prefix
-     (unless inbox
-       (concat
-        (make-string level ?*)
-        " "
-        (org-roam-organize--record-inbox record)
-        "\n")))))
+     (when create-inbox
+       (concat (make-string level ?*) " " name "\n")))))
 
 (defun org-roam-organize--moc-sync-buffer (layout file)
   "Sync regions using validated LAYOUT for MOC FILE.

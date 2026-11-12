@@ -151,8 +151,13 @@ must not write ID.  Each other record maps to a CUSTOM_ID headline equal to
 its tag.  `:moc-title' supplies a nonblank, control-free single-line title.
 Management titles must round-trip as plain Org headlines with identical
 raw values, without TODO, priority, COMMENT or trailing-tag semantics.
-`:inbox' is an optional headline name used for
-newly added generated entries and defaults to \"Inbox\".
+`:inbox' is an optional headline name used for newly added generated
+entries and defaults to \"Inbox\".  For a non-MOC record, an explicit
+`:inbox nil' selects the management headline's own initial section as the
+insertion target instead of a named child Inbox.  The unique `:moc t'
+record must use a string value; its management headline creation policy is
+unchanged.  A citation record's `:inbox' still controls only its MOC
+management region.
 `:template' is an optional structured alist for the generated capture
 template.  Its `path' entry controls the ordinary managed node file path
 inside the `${id}/' bundle directory and defaults to \"${slug}.org\".  `path'
@@ -586,19 +591,28 @@ normalization are intentionally handled by the path helper functions."
   (plist-get record :directory))
 
 (defun org-roam-organize--record-inbox (record)
-  "Return RECORD's Inbox headline name.
+  "Return RECORD's Inbox headline name or nil.
 
-Implementation notes: an absent `:inbox' key falls back to the package
-default, while an explicitly non-string value returns nil so registry
-validation can report it."
-  (let ((inbox (plist-get record :inbox)))
-    (cond
-     ((stringp inbox)
-      inbox)
-     ((plist-member record :inbox)
-      nil)
-     (t
-      org-roam-organize--moc-default-inbox-headline))))
+An absent `:inbox' defaults to the package's Inbox headline name.  An
+explicit nil selects the management headline's own section for a non-MOC
+record.
+
+Implementation notes: `plist-member' distinguishes an absent key from an
+explicit nil.  Non-string values are returned verbatim so registry
+validation can report them."
+  (if (plist-member record :inbox)
+      (plist-get record :inbox)
+    org-roam-organize--moc-default-inbox-headline))
+
+(defun org-roam-organize--record-inbox-valid-p (record inbox)
+  "Return non-nil if RECORD's resolved INBOX value is valid.
+
+A string is always valid.  An explicit nil is valid only for non-MOC
+records, selecting the management headline's own initial section.  Any
+other value is invalid and reported by registry validation."
+  (or (stringp inbox)
+      (and (null inbox)
+           (not (org-roam-organize--record-moc-p record)))))
 
 (defun org-roam-organize--record-template (record)
   "Return RECORD's structured capture template spec.
@@ -1364,12 +1378,17 @@ checked when node creation calls the provider."
                      result_message
                      "  :moc-title string? nil (should be t)\n")))
             (when (and (plist-member record :inbox)
-                       (not (stringp (plist-get record :inbox))))
+                       (not
+                        (org-roam-organize--record-inbox-valid-p
+                         record (plist-get record :inbox))))
               (setq result_bool nil)
-              (setq result_message
-                    (concat
-                     result_message
-                     "  :inbox string? nil (should be t)\n")))
+              (setq
+               result_message
+               (concat
+                result_message
+                (if (org-roam-organize--record-moc-p record)
+                    "  :inbox must be a string for the MOC record\n"
+                  "  :inbox string or nil? nil (should be t)\n"))))
             (when (and provider (not (functionp provider)))
               (setq result_bool nil)
               (setq result_message
@@ -1530,13 +1549,16 @@ checked when node creation calls the provider."
                (concat
                 result_message
                 "  resolved :moc-title must be a single line; management titles must round-trip as plain Org headlines\n")))
-            (unless (stringp inbox)
+            (unless (org-roam-organize--record-inbox-valid-p
+                     record inbox)
               (setq result_bool nil)
               (setq
                result_message
                (concat
                 result_message
-                "  resolved :inbox string? nil (should be t)\n"))))))
+                (if (org-roam-organize--record-moc-p record)
+                    "  resolved :inbox must be a string for the MOC record\n"
+                  "  resolved :inbox string or nil? nil (should be t)\n")))))))
       (unless (= moc-count 1)
         (setq result_bool nil)
         (setq result_message

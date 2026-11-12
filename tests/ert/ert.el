@@ -3508,6 +3508,111 @@
                 `((keywords . ((filetags . (,tag)))))))
         (should (car (org-roam-organize--validate-registry)))))))
 
+(ert-deftest org-roam-organize-test-registry-inbox-nil-semantics ()
+  (let* ((root (org-roam-organize-test--temporary-root))
+         (org-roam-organize-directory root)
+         (moc
+          '(:name
+            "maps"
+            :tag "map"
+            :moc t
+            :basic t
+            :directory "moc"
+            :template ((keywords . ((filetags . ("map")))))))
+         (make-record
+          (lambda (spec inbox-form)
+            (let ((record (copy-tree spec)))
+              (unless (eq inbox-form 'absent)
+                (setq record (plist-put record :inbox inbox-form)))
+              record))))
+    ;; Absent keys resolve to the default "Inbox" for every record.
+    (let ((org-roam-organize-registry
+           (list
+            (funcall make-record moc 'absent)
+            (funcall
+             make-record
+             '(:name "idea" :tag "idea" :basic t :directory "notes")
+             'absent))))
+      (should (car (org-roam-organize--validate-registry)))
+      (should
+       (equal
+        (org-roam-organize--record-inbox
+         (car org-roam-organize-registry))
+        "Inbox"))
+      (should
+       (equal
+        (org-roam-organize--record-inbox
+         (cadr org-roam-organize-registry))
+        "Inbox")))
+    ;; Explicit strings are valid and resolve verbatim.
+    (dolist (name '("Inbox" "Incoming"))
+      (let ((org-roam-organize-registry
+             (list
+              (funcall make-record moc 'absent)
+              (funcall
+               make-record
+               '(:name "idea" :tag "idea" :basic t :directory "notes")
+               name))))
+        (should (car (org-roam-organize--validate-registry)))
+        (should
+         (equal
+          (org-roam-organize--record-inbox
+           (cadr org-roam-organize-registry))
+          name))))
+    ;; Explicit nil is valid for non-MOC records, including basic,
+    ;; non-basic and citation records.
+    (dolist (spec
+             '((:name "idea" :tag "idea" :basic t :directory "notes")
+               (:name "note" :tag "note" :directory "notes")
+               (:name
+                "literature"
+                :tag "ref"
+                :cite t
+                :directory "notes")))
+      (let ((org-roam-organize-registry
+             (list
+              (funcall make-record moc 'absent)
+              (funcall make-record spec nil))))
+        (should (car (org-roam-organize--validate-registry)))
+        (should-not
+         (org-roam-organize--record-inbox
+          (cadr org-roam-organize-registry)))))
+    ;; Other non-string values are invalid for every record.
+    (dolist (bad '(t 42 incoming (Inbox)))
+      (let ((org-roam-organize-registry
+             (list
+              (funcall make-record moc 'absent)
+              (funcall
+               make-record
+               '(:name "idea" :tag "idea" :basic t :directory "notes")
+               bad))))
+        (let ((result (org-roam-organize--validate-registry)))
+          (should-not (car result))
+          (should (string-match-p ":inbox" (cdr result))))))
+    ;; The MOC record may use strings but rejects explicit nil.
+    (dolist (bad '(nil t 42))
+      (let* ((org-roam-organize-registry
+              (list
+               (funcall make-record moc bad)
+               (funcall make-record
+                        '(:name
+                          "idea"
+                          :tag "idea"
+                          :basic t
+                          :directory "notes")
+                        'absent)))
+             (result (org-roam-organize--validate-registry)))
+        (should-not (car result))
+        (should (string-match-p ":inbox" (cdr result)))))
+    (let ((org-roam-organize-registry
+           (list
+            (funcall make-record moc "Incoming")
+            (funcall
+             make-record
+             '(:name "idea" :tag "idea" :basic t :directory "notes")
+             'absent))))
+      (should (car (org-roam-organize--validate-registry))))))
+
 (ert-deftest
     org-roam-organize-test-moc-title-round-trips-with-org-parser
     ()
@@ -4055,6 +4160,626 @@
         (let ((result (org-roam-organize-moc-sync)))
           (should (eq (plist-get result :status) 'ok))
           (should-not (plist-get result :saved))))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) before))
+        (should-not (buffer-modified-p))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-inserts-before-first-child
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let*
+        ((body
+          (concat
+           "* Idea\nSCHEDULED: <2026-11-05 Thu>\n"
+           ":PROPERTIES:\n:CUSTOM_ID: idea\n:NOTE: Keep property\n:END:\n"
+           "Handwritten introduction.\n"
+           "** Mathematics\n#+ROAM_NODE: [[id:node-a][Node A]]\n"
+           "** Physics\n#+ROAM_NODE: [[id:node-b][Node B]]\n"
+           "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+         (file (org-roam-organize-test--write-moc body))
+         (before
+          (with-temp-buffer
+            (insert-file-contents file)
+            (buffer-string)))
+         (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+         (expected
+          (replace-regexp-in-string (regexp-quote "** Mathematics\n")
+                                    (concat
+                                     line "** Mathematics\n")
+                                    before
+                                    t t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "Node A" '("idea"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "b.org" root) "node-b" "Node B" '("idea"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let*
+            ((tree (org-element-parse-buffer))
+             (region
+              (cdr
+               (assoc
+                "idea"
+                (plist-get
+                 (org-roam-organize--moc-regions tree)
+                 :regions))))
+             (entries
+              (org-roam-organize--parse-id-link-keyword-entries-in-tree
+               region "ROAM_NODE")))
+          (should (org-element-property :scheduled region))
+          (should
+           (equal
+            (org-element-property :NOTE region) "Keep property"))
+          (should
+           (equal
+            (mapcar
+             (lambda (entry)
+               (plist-get entry :id))
+             (plist-get entries :entries))
+            '("node-c" "node-a" "node-b")))))
+      ;; Idempotence: a second sync changes nothing, saves nothing and
+      ;; recognizes the inserted entry without duplication.
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (should-not (buffer-modified-p))
+        (let*
+            ((tree (org-element-parse-buffer))
+             (region
+              (cdr
+               (assoc
+                "idea"
+                (plist-get
+                 (org-roam-organize--moc-regions tree)
+                 :regions))))
+             (entries
+              (org-roam-organize--parse-id-link-keyword-entries-in-tree
+               region "ROAM_NODE")))
+          (should
+           (equal
+            (mapcar
+             (lambda (entry)
+               (plist-get entry :id))
+             (plist-get entries :entries))
+            '("node-c" "node-a" "node-b"))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-childless-before-next-region
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "Handwritten introduction.\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (expected
+            (replace-regexp-in-string (regexp-quote "* Note\n")
+                                      (concat line "* Note\n") before
+                                      t t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let*
+            ((tree (org-element-parse-buffer))
+             (region
+              (cdr
+               (assoc
+                "idea"
+                (plist-get
+                 (org-roam-organize--moc-regions tree)
+                 :regions))))
+             (entries
+              (org-roam-organize--parse-id-link-keyword-entries-in-tree
+               region "ROAM_NODE")))
+          (should
+           (equal
+            (mapcar
+             (lambda (entry)
+               (plist-get entry :id))
+             (plist-get entries :entries))
+            '("node-c"))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-childless-at-eof
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "Tail text without trailing newline"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (expected (concat before "\n" line)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))))))
+
+(ert-deftest org-roam-organize-test-moc-member-nil-inbox-metadata-only
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (expected
+            (replace-regexp-in-string (regexp-quote "* Note\n")
+                                      (concat line "* Note\n") before
+                                      t t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let* ((tree (org-element-parse-buffer))
+               (region
+                (cdr
+                 (assoc
+                  "idea"
+                  (plist-get
+                   (org-roam-organize--moc-regions tree)
+                   :regions)))))
+          (should
+           (equal
+            (org-element-property :CUSTOM_ID region) "idea")))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-comment-first-child
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "** COMMENT Hidden\nIgnored text\n"
+             "** Real\n#+ROAM_NODE: [[id:node-a][Node A]]\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (expected
+            (replace-regexp-in-string (regexp-quote
+                                       "** COMMENT Hidden\n")
+                                      (concat
+                                       line "** COMMENT Hidden\n")
+                                      before
+                                      t t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "Node A" '("idea"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        ;; The inserted entry precedes the COMMENT subtree and is
+        ;; recognized by the next sync without duplication.
+        (should-not (plist-get (org-roam-organize-moc-sync) :saved))
+        (let*
+            ((tree (org-element-parse-buffer))
+             (region
+              (cdr
+               (assoc
+                "idea"
+                (plist-get
+                 (org-roam-organize--moc-regions tree)
+                 :regions))))
+             (entries
+              (org-roam-organize--parse-id-link-keyword-entries-in-tree
+               region "ROAM_NODE")))
+          (should
+           (equal
+            (mapcar
+             (lambda (entry)
+               (plist-get entry :id))
+             (plist-get entries :entries))
+            '("node-c" "node-a"))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-source-block-boundary
+    ()
+  (dolist (child
+           '("** Real\n#+ROAM_NODE: [[id:node-a][Node A]]\n" nil))
+    (org-roam-organize-test--with-moc
+      (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+      (let*
+          ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "#+begin_src org\n,*** Fake Inbox\n,Not a headline\n#+end_src\n"
+             (or child "")
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (anchor
+            (if child
+                "** Real\n"
+              "* Note\n"))
+           (expected
+            (replace-regexp-in-string
+             (regexp-quote anchor) (concat line anchor) before
+             t t)))
+        (org-roam-organize-test--write-node
+         (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+        (when child
+          (org-roam-organize-test--write-node
+           (expand-file-name "a.org" root)
+           "node-a"
+           "Node A"
+           '("idea")))
+        (should
+         (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+        (with-current-buffer (find-file-noselect file)
+          (should (equal (buffer-string) expected)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-level-two-and-skipped-children
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let*
+        ((body
+          (concat
+           "* Parent\n** Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+           "Handwritten introduction.\n"
+           "**** Deep Child\n#+ROAM_NODE: [[id:node-a][Node A]]\n"
+           "** Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+         (file (org-roam-organize-test--write-moc body))
+         (before
+          (with-temp-buffer
+            (insert-file-contents file)
+            (buffer-string)))
+         (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+         (expected
+          (replace-regexp-in-string (regexp-quote "**** Deep Child\n")
+                                    (concat
+                                     line "**** Deep Child\n")
+                                    before
+                                    t t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "Node A" '("idea"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let*
+            ((tree (org-element-parse-buffer))
+             (region
+              (cdr
+               (assoc
+                "idea"
+                (plist-get
+                 (org-roam-organize--moc-regions tree)
+                 :regions))))
+             (entries
+              (org-roam-organize--parse-id-link-keyword-entries-in-tree
+               region "ROAM_NODE")))
+          (should (= (org-element-property :level region) 2))
+          (should
+           (equal
+            (mapcar
+             (lambda (entry)
+               (plist-get entry :id))
+             (plist-get entries :entries))
+            '("node-c" "node-a"))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-preserves-existing-inbox
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "** Inbox\n#+ROAM_NODE: [[id:node-a][Node A]]\n"
+             "** Mathematics\n#+ROAM_NODE: [[id:node-b][Node B]]\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (expected
+            (replace-regexp-in-string (regexp-quote "** Inbox\n")
+                                      (concat
+                                       line "** Inbox\n")
+                                      before
+                                      t t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "Node A" '("idea"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "b.org" root) "node-b" "Node B" '("idea"))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (let*
+            ((tree (org-element-parse-buffer))
+             (region
+              (cdr
+               (assoc
+                "idea"
+                (plist-get
+                 (org-roam-organize--moc-regions tree)
+                 :regions))))
+             (entries
+              (org-roam-organize--parse-id-link-keyword-entries-in-tree
+               region "ROAM_NODE"))
+             (inboxes
+              (org-element-map
+               tree 'headline
+               (lambda (headline)
+                 (when (equal
+                        (org-element-property
+                         :raw-value headline)
+                        "Inbox")
+                   headline)))))
+          ;; Existing Inbox is neither removed nor duplicated, and no
+          ;; existing member was inserted a second time.
+          (should (= (length inboxes) 1))
+          (should
+           (equal
+            (mapcar
+             (lambda (entry)
+               (plist-get entry :id))
+             (plist-get entries :entries))
+            '("node-c" "node-a" "node-b"))))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-inbox-ignores-duplicate-inboxes
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "** Inbox\nFirst manual\n** Inbox\nSecond manual\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (line "#+ROAM_NODE: [[id:node-c][Node C]]\n")
+           (expected
+            (replace-regexp-in-string
+             (regexp-quote "** Inbox\nFirst manual\n")
+             (concat line "** Inbox\nFirst manual\n")
+             before
+             t
+             t)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "c.org" root) "node-c" "Node C" '("idea"))
+      (should
+       (eq (plist-get (org-roam-organize-moc-sync) :status) 'ok))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-inbox-string-to-nil-transition
+    ()
+  (org-roam-organize-test--with-moc
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "** Inbox\n#+ROAM_NODE: [[id:node-a][Node A]]\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string))))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "Node A" '("idea"))
+      (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+      ;; The configuration switch alone modifies nothing.
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) before))
+        (should-not (buffer-modified-p)))
+      ;; A new member now uses the management section; the old Inbox and
+      ;; its entry stay in place.
+      (org-roam-organize-test--write-node
+       (expand-file-name "b.org" root) "node-b" "Node B" '("idea"))
+      (should (plist-get (org-roam-organize-moc-sync) :saved))
+      (with-current-buffer (find-file-noselect file)
+        (should
+         (equal
+          (buffer-string)
+          (replace-regexp-in-string
+           (regexp-quote "** Inbox\n")
+           (concat
+            "#+ROAM_NODE: [[id:node-b][Node B]]\n" "** Inbox\n")
+           before
+           t t)))))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-inbox-nil-to-string-transition
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "Handwritten introduction.\n"))
+           (file (org-roam-organize-test--write-moc body)))
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "Node A" '("idea"))
+      (should (plist-get (org-roam-organize-moc-sync) :saved))
+      ;; Switch to a named Inbox; only new members use it.
+      (setf (plist-get (cadr org-roam-organize-registry) :inbox)
+            "Incoming")
+      (let ((mid
+             (with-current-buffer (find-file-noselect file)
+               (buffer-string))))
+        (org-roam-organize-test--write-node
+         (expand-file-name "b.org" root) "node-b" "Node B" '("idea"))
+        (should (plist-get (org-roam-organize-moc-sync) :saved))
+        (with-current-buffer (find-file-noselect file)
+          (should
+           (equal
+            (buffer-string)
+            (concat
+             mid
+             "** Incoming\n"
+             "#+ROAM_NODE: [[id:node-b][Node B]]\n"))))))))
+
+(ert-deftest org-roam-organize-test-moc-member-mixed-inbox-policies ()
+  (org-roam-organize-test--with-moc
+    (setq org-roam-organize-registry
+          (append
+           org-roam-organize-registry
+           (list
+            '(:name "ref" :tag "ref" :basic t :directory "notes"))))
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (setf (plist-get (cadddr org-roam-organize-registry) :inbox)
+          "Incoming")
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "#+ROAM_NODE: [[id:g][G]]\n"
+             "#+ROAM_NODE: [[id:a][Old A]]\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+             "** Inbox\n"
+             "#+ROAM_NODE: [[id:b][Old B]]\n"
+             "* Ref\n:PROPERTIES:\n:CUSTOM_ID: ref\n:END:\n"
+             "#+ROAM_NODE: [[id:c][Old C]]\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string)))
+           (head
+            (substring before
+                       0
+                       (string-match
+                        (regexp-quote "* Idea\n") before)))
+           (expected
+            (concat
+             head
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "#+ROAM_NODE: [[id:a][A much longer title]]\n"
+             "#+ROAM_NODE: [[id:d][D]]\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+             "** Inbox\n"
+             "#+ROAM_NODE: [[id:b][B]]\n"
+             "#+ROAM_NODE: [[id:e][E]]\n"
+             "* Ref\n:PROPERTIES:\n:CUSTOM_ID: ref\n:END:\n"
+             "#+ROAM_NODE: [[id:c][C with new title]]\n"
+             "** Incoming\n"
+             "#+ROAM_NODE: [[id:f][F]]\n")))
+      (dolist (spec
+               '(("a.org" "a" "A much longer title" "idea")
+                 ("b.org" "b" "B" "note")
+                 ("c.org" "c" "C with new title" "ref")
+                 ("d.org" "d" "D" "idea")
+                 ("e.org" "e" "E" "note")
+                 ("f.org" "f" "F" "ref")
+                 ("g.org" "g" "G" "gone")))
+        (org-roam-organize-test--write-node
+         (expand-file-name (nth 0 spec) root)
+         (nth 1 spec)
+         (nth 2 spec)
+         (list (nth 3 spec))))
+      (let ((result (org-roam-organize-moc-sync)))
+        (should (eq (plist-get result :status) 'ok))
+        (should (plist-get result :saved))
+        (should (= (length (plist-get result :results)) 3))
+        (should
+         (= (cl-reduce
+             #'+
+             (mapcar
+              (lambda (entry)
+                (length (plist-get entry :removed)))
+              (plist-get result :results)))
+            1)))
+      (with-current-buffer (find-file-noselect file)
+        (should (equal (buffer-string) expected))
+        (should-not (buffer-modified-p)))
+      ;; Idempotence across all three policies.
+      (should-not (plist-get (org-roam-organize-moc-sync) :saved)))))
+
+(ert-deftest
+    org-roam-organize-test-moc-member-nil-region-fails-atomically-on-named-duplicate
+    ()
+  (org-roam-organize-test--with-moc
+    (setf (plist-get (cadr org-roam-organize-registry) :inbox) nil)
+    (let* ((body
+            (concat
+             "* Idea\n:PROPERTIES:\n:CUSTOM_ID: idea\n:END:\n"
+             "#+ROAM_NODE: [[id:node-a][Old title]]\n"
+             "* Note\n:PROPERTIES:\n:CUSTOM_ID: note\n:END:\n"
+             "** Inbox\nFirst text\n"
+             "** Inbox\nSecond text\n"))
+           (file (org-roam-organize-test--write-moc body))
+           (before
+            (with-temp-buffer
+              (insert-file-contents file)
+              (buffer-string))))
+      ;; The nil region has a ready update, but the named region is
+      ;; ambiguous: the whole sync must fail before any edit.
+      (org-roam-organize-test--write-node
+       (expand-file-name "a.org" root) "node-a" "New title" '("idea"))
+      (cl-letf (((symbol-function 'save-buffer)
+                 (lambda (&rest _)
+                   (ert-fail "Ambiguous member Inbox must not save")))
+                ((symbol-function 'org-roam-db-update-file)
+                 (lambda (&rest _)
+                   (ert-fail
+                    "Ambiguous member Inbox must not refresh DB"))))
+        (let ((result (org-roam-organize-moc-sync)))
+          (should (eq (plist-get result :status) 'failed))
+          (should
+           (string-match-p
+            "Multiple direct-child Inboxes"
+            (plist-get result :reason)))
+          (should
+           (string-match-p
+            "MOC region note" (plist-get result :reason)))))
       (with-current-buffer (find-file-noselect file)
         (should (equal (buffer-string) before))
         (should-not (buffer-modified-p))))))
