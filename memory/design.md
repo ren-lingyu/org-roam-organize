@@ -69,6 +69,20 @@ When a region is missing, a non-commented same-title headline with an unregister
 
 Every present management region may have at most one active matching direct-child member Inbox at L+1. Sync checks uniqueness even for empty or complete rosters. Any duplicate rejects the whole sync before edits/save/DB refresh; deeper same-title headings, COMMENT/source text and other regions' Inboxes do not count. Zero matches create nothing unless members are missing. A shared AST lookup returns the validated Inbox, and insertion uses its first child or subtree end, never contents-begin. Thus childless Inbox property drawers, planning metadata and handwritten content remain attached, and entries append after them. Cite's global file compatibility path retains its own prior behavior.
 
+Adopted pending extension: a non-MOC record may explicitly declare `:inbox nil`
+to insert missing members into the management headline's own initial section,
+before its first child headline or at its subtree end when childless. No Inbox
+is located, created or removed under the nil policy, and existing same-name
+headlines are ordinary user content; the named-Inbox uniqueness preflight
+applies only when the record actually selects a named Inbox. Omission still
+resolves to the default "Inbox"; a string retains the named direct-child
+policy. The unique MOC record must still resolve to a string, and its
+management-headline creation and level-1 container policy are unchanged.
+Inbox configuration controls missing-entry insertion only; reconciliation
+still spans the whole management subtree and existing entries are never
+migrated on policy changes. Status: adopted, implementation pending; this is
+not yet implemented project behavior.
+
 Initial management text is inserted literally before capture finalization. The MOC file title uses a collision-free marker restored to its exact declared value, and filetag percent signs are temporarily protected/restored, so structural titles and tags are not changed by capture expansion. Other template fields keep native expansion.
 
 Membership remains #+ROAM_NODE: ID-link keywords within each region, including manual subsections. Only tagged level-0 nodes outside the MOC file are members. COMMENT/source text is excluded. Existing entries retain relative order, titles update, stale entries disappear, malformed lines remain and are reported, and duplicate entries plus :delete t semantics are preserved per region. A node can appear in multiple tag regions. Missing members go to a region-local direct child :inbox at L+1, before its children. Missing regions are reported by sync while other valid regions can proceed; sync does not create regions.
@@ -172,7 +186,7 @@ The default literature example adopts a fixed ref.org inside the unique UUID bun
 
 ## Derived citation entries
 
-Citation sync reconciles #+ROAM_CITING_NODE: ID-link keywords in managed literature notes through the shared MOC/ID-link machinery. It visits all managed references to remove stale entries, refreshes titles, preserves/reports duplicates and inserts missing citing nodes under the configured Inbox. Count distinct citing nodes rather than citation occurrences. The earlier ROAM_CITED_BY spelling was a proposal, not the adopted keyword.
+Citation sync reconciles #+ROAM_CITING_NODE: ID-link keywords in managed literature notes through the shared MOC/ID-link machinery. It visits all managed references to remove stale entries, refreshes titles, preserves/reports duplicates and inserts missing citing nodes at the end of the document's initial Org section, independent of the record's MOC Inbox. Count distinct citing nodes rather than citation occurrences. The earlier ROAM_CITED_BY spelling was a proposal, not the adopted keyword.
 
 ## Citar adapter
 
